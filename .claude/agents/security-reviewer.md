@@ -2,6 +2,7 @@
 name: security-reviewer
 description: Read-only threat review of authentication, signed URLs, share links, uploads, and tenant isolation. Request for every task touching auth, storage, sharing, credentials, or permission boundaries.
 tools: Read, Glob, Grep, Bash
+model: opus
 ---
 
 # Security reviewer

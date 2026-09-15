@@ -4,8 +4,12 @@
     "**/.env.*local",
     "tsconfig.json",
     "eslint.config.mjs",
+    "vitest.config.ts",
     ".prettierrc.json",
-    "packages/config/**"
+    ".prettierignore",
+    "packages/config/src/**",
+    "packages/config/tsconfig/**",
+    "packages/config/package.json"
   ],
   "globalEnv": ["NODE_ENV"],
   "tasks": {
@@ -19,7 +23,8 @@
     },
     "lint": {
       "dependsOn": ["^lint"],
-      "outputs": []
+      "outputs": [],
+      "inputs": ["src/**", "app/**", "eslint.config.mjs", "package.json"]
     },
     "typecheck": {
       "dependsOn": ["^build"],
@@ -27,7 +32,8 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": []
+      "outputs": [],
+      "inputs": ["src/**", "app/**", "vitest.config.ts", "package.json"]
     },
     "test:watch": {
       "cache": false,
@@ -35,6 +41,10 @@
     },
     "clean": {
       "cache": false
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
     }
   }
 }

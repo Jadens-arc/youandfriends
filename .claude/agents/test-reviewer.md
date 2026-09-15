@@ -2,6 +2,7 @@
 name: test-reviewer
 description: Read-only review of acceptance criteria coverage and regression risk. Request before marking any task complete.
 tools: Read, Glob, Grep, Bash
+model: opus
 ---
 
 # Test reviewer

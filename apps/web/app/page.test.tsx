@@ -1,18 +1,23 @@
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { PRODUCT_NAME, PRODUCT_TAGLINE } from '@youandfriends/config';
+import Home from './page';
 
-/**
- * Component rendering tests arrive with Testing Library in task `001`.
- * This asserts the brand invariants the landing surface depends on, so a regression in the
- * product name is caught from the first commit.
- */
 describe('landing surface', () => {
   it('renders the product name with the ampersand', () => {
-    expect(PRODUCT_NAME).toBe('You & Friends');
+    render(<Home />);
+    // getByRole reads the accessible name, so this also asserts the heading is reachable.
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('You & Friends');
   });
 
-  it('carries the agreed tagline', () => {
-    expect(PRODUCT_TAGLINE).toBe('Where songs live between sessions.');
+  it('shows the tagline and attribution', () => {
+    render(<Home />);
+    expect(screen.getByText('Where songs live between sessions.')).toBeInTheDocument();
+    expect(screen.getByText(/by Avery and Friends/)).toBeInTheDocument();
+  });
+
+  it('never renders the product name without the ampersand', () => {
+    const { container } = render(<Home />);
+    expect(container.textContent).not.toMatch(/You and Friends/);
   });
 });
