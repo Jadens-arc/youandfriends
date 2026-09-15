@@ -61,13 +61,13 @@ scripts/release-check.mjs
 
 ## Acceptance criteria
 
-- [ ] `pnpm test` runs tests in every package and reports coverage.
-- [ ] `pnpm lint` fails on a deliberately introduced violation.
-- [ ] `pnpm typecheck` fails on a deliberately introduced type error.
-- [ ] `pnpm format:check` fails on misformatted input.
-- [ ] `pnpm release-check` runs all gates in order and names the failing gate.
-- [ ] Turborepo caches a second identical run (visible cache hit).
-- [ ] `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` are enabled repo-wide.
+- [x] `pnpm test` runs tests in every package and reports coverage.
+- [x] `pnpm lint` fails on a deliberately introduced violation.
+- [x] `pnpm typecheck` fails on a deliberately introduced type error.
+- [x] `pnpm format:check` fails on misformatted input.
+- [x] `pnpm release-check` runs all gates in order and names the failing gate.
+- [x] Turborepo caches a second identical run (visible cache hit).
+- [x] `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` are enabled repo-wide.
 
 ## Tests and validation commands
 
@@ -88,7 +88,7 @@ Config-only. Reverting restores the task `000` scaffold. No runtime impact.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

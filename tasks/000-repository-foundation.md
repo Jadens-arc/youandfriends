@@ -112,4 +112,4 @@ no deployed surface. Fully reversible.
 
 ## Commit
 
-_Recorded in task `001`'s commit, per the SHA protocol in `tasks/README.md`._
+`6f071c64a149cb120029cb72ec1ec7a5060aa0e5`

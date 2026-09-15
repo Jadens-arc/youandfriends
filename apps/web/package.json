@@ -7,10 +7,11 @@
     "dev": "next dev",
     "build": "cross-env NODE_ENV=production next build",
     "start": "cross-env NODE_ENV=production next start",
-    "lint": "eslint app",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@youandfriends/config": "workspace:*",
@@ -25,6 +26,7 @@
     "@types/react-dom": "^19.2.0",
     "typescript": "~5.9.3",
     "vitest": "^3.2.7",
-    "cross-env": "^10.1.0"
+    "cross-env": "^10.1.0",
+    "@youandfriends/config": "workspace:*"
   }
 }

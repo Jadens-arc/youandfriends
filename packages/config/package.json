@@ -6,13 +6,17 @@
   "exports": {
     ".": "./src/index.ts",
     "./tsconfig/*": "./tsconfig/*",
-    "./eslint": "./src/eslint/index.mjs"
+    "./eslint": "./src/eslint/index.mjs",
+    "./eslint/react": "./src/eslint/react.mjs",
+    "./vitest/node": "./src/vitest/node.ts",
+    "./vitest/react": "./src/vitest/react.ts"
   },
   "scripts": {
-    "lint": "eslint src",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

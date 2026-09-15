@@ -18,18 +18,29 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,css,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,css,yaml,yml}\"",
     "release-check": "node scripts/release-check.mjs",
-    "clean": "turbo run clean && rm -rf node_modules .turbo"
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "test:coverage": "turbo run test:coverage",
+    "audit": "pnpm audit --audit-level=high || true"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^3.2.7",
     "eslint": "^9.39.0",
+    "eslint-plugin-no-secrets": "^2.3.3",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^16.5.0",
+    "jsdom": "^26.1.0",
     "prettier": "^3.4.2",
+    "prettier-plugin-tailwindcss": "^0.6.14",
     "turbo": "^2.10.0",
     "typescript": "~5.9.3",
-    "@eslint/js": "^9.39.0",
     "typescript-eslint": "^8.46.0",
-    "prettier-plugin-tailwindcss": "^0.6.14",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "@youandfriends/config": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -8,16 +8,18 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "lint": "eslint src",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@youandfriends/config": "workspace:*"
   },
   "devDependencies": {
     "typescript": "~5.9.3",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "@youandfriends/config": "workspace:*"
   }
 }
