@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# Rust / Tauri
+target/
+apps/sync-mac/src-tauri/target/
+
+# Environment — never commit real values
+.env
+.env.*
+!.env.example
+
+# Local databases and data
+*.db
+*.sqlite
+*.sqlite3
+/data/
+/tmp/
+
+# Uploads and media scratch — never commit user music
+/uploads/
+/storage/
+*.wav
+*.aiff
+*.aif
+*.flac
+*.mp3
+*.m4a
+*.ogg
+*.opus
+!packages/media/src/fixtures/**/*.generated.*
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# Editor and OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Claude local overrides
+.claude/settings.local.json

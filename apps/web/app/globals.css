@@ -1,0 +1,85 @@
+/*
+ * Placeholder styling for the scaffold.
+ *
+ * The Studio Notebook token system arrives in task `010` and replaces everything here.
+ * These values are a deliberate, minimal preview of the palette direction in
+ * `docs/DESIGN.md` §11 — not the production token set.
+ */
+
+:root {
+  --scaffold-canvas: #f3eee3;
+  --scaffold-paper: #f8f4ea;
+  --scaffold-espresso: #2a1f18;
+  --scaffold-ink: #241c17;
+  --scaffold-secondary: #746a60;
+  --scaffold-rust: #c98267;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--scaffold-canvas);
+  color: var(--scaffold-ink);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.wordmark {
+  font-family: ui-serif, Georgia, 'Times New Roman', serif;
+  font-size: clamp(2rem, 8vw, 3.25rem);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.tagline {
+  font-family: ui-serif, Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  color: var(--scaffold-secondary);
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.attribution,
+.scaffold-note {
+  color: var(--scaffold-secondary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.scaffold-note {
+  margin-top: 1.5rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--scaffold-paper);
+  border: 1px solid rgb(36 28 23 / 0.12);
+  border-radius: 10px;
+}
+
+.scaffold-note code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: var(--scaffold-ink);
+}

@@ -1,0 +1,205 @@
+# You & Friends — Operations Guide
+
+_A private music workspace by Avery and Friends._
+
+Runbooks for keeping the workspace healthy. Every procedure here is intended to be safe to
+run against production without a maintenance window unless stated otherwise.
+
+## 1. Deployment
+
+### Prerequisites
+
+| Service       | What you create                               | Where the value goes    |
+| ------------- | --------------------------------------------- | ----------------------- |
+| Neon          | Postgres project, `main` + `preview` branches | `DATABASE_URL`          |
+| Clerk         | Application, sign-in configured               | `CLERK_*` keys          |
+| Cloudflare R2 | Two private buckets: originals, derivatives   | `R2_*`                  |
+| Liveblocks    | Project                                       | `LIVEBLOCKS_SECRET_KEY` |
+| Trigger.dev   | Project                                       | `TRIGGER_*`             |
+| Vercel        | Project linked to the repo                    | all of the above        |
+
+### Order of operations
+
+1. `pnpm install`
+2. `pnpm --filter @youandfriends/db migrate` against Neon — **run migrations before deploying
+   code that depends on them.**
+3. `pnpm --filter @youandfriends/jobs deploy` — jobs must exist before the web app enqueues.
+4. Deploy `apps/web` to Vercel.
+5. Verify with the smoke checklist (§7).
+
+Rolling back code is safe. Rolling back a migration is not automatic — see §4.
+
+## 2. Stuck uploads
+
+**Symptom:** an upload shows progress but never finalizes, or `upload_sessions` rows sit in
+`pending` past their expiry.
+
+**Diagnose.**
+
+```sql
+SELECT id, state, created_at, expires_at, expected_bytes, object_key
+FROM upload_sessions
+WHERE state <> 'completed' AND created_at < now() - interval '2 hours'
+ORDER BY created_at;
+```
+
+**Resolve.** A session past expiry with no parts is abandoned — abort the multipart upload in
+R2 and mark the row `expired`. A session with all parts present but no finalize is a client
+that died between the last part and the complete call; the finalize endpoint is idempotent, so
+re-issuing the complete call for that session is safe and is the correct fix.
+
+```bash
+pnpm --filter @youandfriends/db ops:uploads:sweep --dry-run
+pnpm --filter @youandfriends/db ops:uploads:sweep
+```
+
+The sweep aborts expired R2 multipart uploads (reclaiming storage — **incomplete multipart
+parts are billed**), marks sessions expired, and never touches a session younger than its
+expiry.
+
+## 3. Stuck or failed media jobs
+
+**Symptom:** a version shows "processing" indefinitely, or no waveform appears.
+
+**Diagnose.** Check the Trigger.dev run dashboard first, then:
+
+```sql
+SELECT id, asset_version_id, state, attempts, last_error, updated_at
+FROM media_jobs
+WHERE state IN ('queued','running','failed')
+  AND updated_at < now() - interval '30 minutes';
+```
+
+**Resolve.** The pipeline is idempotent and keyed on `asset_version_id`, so re-enqueueing is
+always safe — it will not create duplicate derivatives.
+
+```bash
+pnpm --filter @youandfriends/jobs ops:media:retry --version <assetVersionId>
+pnpm --filter @youandfriends/jobs ops:media:retry --all-failed
+```
+
+If a job fails repeatedly on one file, the original is likely not valid media. Confirm with
+`ffprobe` against a downloaded copy. A non-media file uploaded as audio should be reclassified
+rather than retried — the original is preserved regardless, and reclassification never touches
+stored bytes.
+
+**Derivatives are disposable.** If derivatives are ever corrupt or a recipe changes, deleting
+the `derivatives` rows and re-enqueueing regenerates them from untouched originals.
+
+## 4. Migrations
+
+**Forward.** Drizzle migrations are generated, reviewed by a human, and applied in order.
+
+```bash
+pnpm --filter @youandfriends/db generate     # after a schema edit
+pnpm --filter @youandfriends/db migrate:dry  # against an isolated branch
+pnpm --filter @youandfriends/db migrate
+```
+
+**Always dry-run against a Neon branch first.** Branching is cheap and is the cheapest
+insurance available.
+
+**Backward.** Destructive migrations (dropping a column, narrowing a type) follow expand →
+migrate → contract across three deploys, never one:
+
+1. **Expand** — add the new structure, write to both, read from the old.
+2. **Migrate** — backfill, switch reads to the new.
+3. **Contract** — stop writing the old, then drop it in a later deploy.
+
+A single-deploy destructive migration is a stop condition for `/loop`, not a judgment call
+for an agent to make alone.
+
+## 5. Orphan cleanup and storage reconciliation
+
+Three classes of drift, each with an opposite risk:
+
+| Drift                        | Risk                     | Remedy                              |
+| ---------------------------- | ------------------------ | ----------------------------------- |
+| R2 object with no DB row     | Paying for nothing       | Safe to delete after a grace period |
+| DB row with no R2 object     | Broken playback/download | **Never auto-delete.** Investigate. |
+| Incomplete multipart uploads | Billed storage           | Abort after expiry (§2)             |
+
+```bash
+pnpm --filter @youandfriends/db ops:storage:reconcile --dry-run
+```
+
+The reconcile report is **advisory**. Deleting objects is a separate, explicitly confirmed
+step with a grace period no shorter than 7 days, because an object that appears orphaned may
+belong to an upload session that is mid-flight. Run reconcile monthly.
+
+## 6. Backup and restore
+
+**Database.** Neon's point-in-time restore is the primary mechanism; confirm the retention
+window on the current plan. Take an explicit logical dump before any destructive migration:
+
+```bash
+pg_dump "$DATABASE_URL" -Fc -f "youandfriends-$(date +%Y%m%d).dump"
+```
+
+**Object storage.** R2 holds the only copy of user music. Enable versioning and configure a
+lifecycle rule retaining noncurrent versions for the soft-delete recovery window.
+
+**Restore drill.** Restoring the database without restoring storage produces rows pointing at
+absent objects. Test the restore path against a Neon branch at least once before relying on
+it. An untested backup is a hypothesis.
+
+## 7. Smoke checklist after deploy
+
+1. Sign in with Clerk.
+2. Library loads; folders, projects, and songs render.
+3. Upload a small audio file; progress advances and finalize completes.
+4. Media job completes; waveform renders; playback starts.
+5. Player survives a route change.
+6. Lyrics editor loads, autosaves, and shows presence in a second browser.
+7. Post a timestamped comment.
+8. iPhone viewport renders the same flows.
+
+## 8. Key rotation
+
+Rotate on a schedule and immediately on any suspicion of exposure.
+
+**R2 credentials.** Create a new key pair, deploy it, verify uploads and downloads, then
+revoke the old pair. R2 keys are used only server-side for signing, so rotation does not
+invalidate presigned URLs already issued — those expire on their own short TTL.
+
+**Clerk keys.** Rotate in the Clerk dashboard and redeploy. Active sessions survive; rotating
+the secret key does not sign users out.
+
+**`DATABASE_URL`.** Rotate the Neon role password, update Vercel and Trigger.dev, redeploy
+both. Update both — a stale job deployment fails silently against the old credential.
+
+**Sync tokens.** User-facing. Revoke from settings; the agent shows a disconnected state and
+the user pairs again.
+
+**After any rotation**, confirm `apps/jobs` still authenticates. It is the deployment most
+easily forgotten because nothing user-visible breaks until the next upload.
+
+## 9. Known iOS and PWA limitations
+
+Documented honestly rather than worked around dishonestly:
+
+- **Web Push** requires the PWA to be added to the Home Screen on iOS, and delivery is less
+  dependable than native. In-app notifications are the required path; push is deferred
+  (task `210`).
+- **Background audio** works through native `<audio>` and Media Session, but a fully custom
+  Web Audio graph can be suspended when backgrounded. This is why playback uses native audio
+  elements (ADR 0004).
+- **Storage eviction.** Safari may evict Cache Storage under pressure. Offline downloads must
+  therefore always show real state and re-download gracefully — never assume a cached file is
+  still present.
+- **No true gapless playback** is guaranteed on Safari. We preload the next queue item for
+  best-effort continuity and do not claim gapless where the browser cannot deliver it.
+- **AirPlay** is exposed through native media controls only. We do not present a custom
+  AirPlay picker, because the web platform does not offer reliable control of one.
+
+## 10. Cost monitoring
+
+Review monthly against ADR 0001's assumptions:
+
+- R2 stored bytes and Class A/B operation counts.
+- Neon compute hours and storage.
+- Trigger.dev run count and duration.
+- Liveblocks MAU and connections.
+
+`YOUANDFRIENDS_WORKSPACE_QUOTA_BYTES` caps growth. Storage usage is surfaced in the UI as a
+library module, so the user sees drift before a bill does.

@@ -1,0 +1,41 @@
+{
+  "name": "youandfriends",
+  "version": "0.1.0",
+  "private": true,
+  "description": "You & Friends \u2014 a private music workspace by Avery and Friends. Where songs live between sessions.",
+  "homepage": "https://youandfriends.org",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,css,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,css,yaml,yml}\"",
+    "release-check": "node scripts/release-check.mjs",
+    "clean": "turbo run clean && rm -rf node_modules .turbo"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "eslint": "^9.39.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.10.0",
+    "typescript": "~5.9.3",
+    "@eslint/js": "^9.39.0",
+    "typescript-eslint": "^8.46.0",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "vitest": "^3.2.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "@tailwindcss/oxide"
+    ]
+  }
+}
