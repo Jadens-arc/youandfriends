@@ -1,9 +1,17 @@
+import { fileURLToPath } from 'node:url';
+
 import preset from '@youandfriends/config/vitest/react';
 import { defineConfig, mergeConfig } from 'vitest/config';
 
 export default mergeConfig(
   preset,
   defineConfig({
+    resolve: {
+      // Mirrors the `@/*` path in tsconfig.json. Without it a module under test resolves in
+      // the Next build and fails in Vitest, which is a difference nobody wants to debug
+      // twice.
+      alias: { '@': fileURLToPath(new URL('.', import.meta.url)) },
+    },
     test: {
       coverage: {
         exclude: [
@@ -13,6 +21,13 @@ export default mergeConfig(
           // is asserted from source in `app/fonts.test.ts`, and its runtime behaviour is
           // verified by the build, which emits the woff2 files and fallback metrics.
           'app/fonts.ts',
+          // The component showcase (task `015`). It is a fixture, not product code: its
+          // uncalled surface is demo callbacks such as `onCheckedChange={() => {}}`, and
+          // invoking them from a test would measure the fixture rather than the system.
+          // What matters about it — that it covers every primitive, imports only the real
+          // exports, and carries the anchors task `120` drives in a browser — is asserted
+          // structurally in `app/%5Fshowcase/showcase.test.tsx`.
+          'app/%5Fshowcase/**',
           // Framework entry points with no logic of our own.
           'app/layout.tsx',
           'app/global-error.tsx',

@@ -31,10 +31,21 @@ Indirect: it materially reduces the cost of keeping the visual system coherent a
 ## Files expected to change
 
 ```
-apps/web/app/_showcase/**
-apps/web/app/_showcase/page.tsx
-apps/web/middleware.ts
+apps/web/app/%5Fshowcase/**
+apps/web/app/%5Fshowcase/page.dev.tsx
+apps/web/proxy.ts
+apps/web/next.config.ts
+apps/web/lib/showcase.ts
 ```
+
+Two names differ from the plan, both forced by the framework:
+
+- `app/_showcase/` would not be a route at all. An underscore-prefixed folder is a _private
+  folder_ in the App Router and opts itself and everything under it out of routing. `%5F` is
+  the documented way to get a URL segment that starts with an underscore, so the directory is
+  `app/%5Fshowcase/` and the URL is still `/_showcase`.
+- `middleware.ts` is deprecated in Next 16 and renamed to `proxy.ts`. Same capability, same
+  matcher semantics, different file and export name.
 
 ## Implementation notes
 
@@ -49,11 +60,60 @@ The showcase must not be reachable in production. It renders no user data and mu
 
 ## Acceptance criteria
 
-- [ ] Every primitive appears in all its states.
-- [ ] Token sheets render color, type, radii, elevation, and motion.
-- [ ] The route is unreachable in a production build (verified, not assumed).
-- [ ] Components are imported from `@youandfriends/ui`, not duplicated.
-- [ ] Stable test anchors exist for task `120`.
+- [x] Every primitive appears in all its states — every state that can be _declared_. A test
+      enumerates `packages/ui/src/components/*.tsx` and fails if a primitive is not on the
+      page, so this cannot silently rot. `:hover`, `:focus-visible`, and `:active` are
+      browser states that no static markup produces; reproducing their classes by hand would
+      be the local copy this task forbids, so they are anchored for task `120` instead. Said
+      plainly on the page itself rather than implied.
+- [x] Token sheets render color, type, radii, elevation, and motion.
+- [x] The route is unreachable in a production build — verified, not assumed. See below.
+- [x] Components are imported from `@youandfriends/ui`, not duplicated — asserted by a test
+      that rejects any relative or `packages/ui/src` import in the showcase.
+- [x] Stable test anchors exist for task `120`: 52 `data-testid` anchors, one per section and
+      one per state group.
+
+## Verification of the production gate
+
+Two locks, the first structural:
+
+1. The route files are named `page.dev.tsx`, and `dev.tsx` is a page extension only outside
+   production (`next.config.ts`). In production the route is **absent from the build output**
+   — there is no handler left to decide anything.
+2. `proxy.ts` refuses `/_showcase` and everything under it when the gate is off, which catches
+   the case where someone renames the file back to `page.tsx`.
+
+Run against a real production build (`pnpm build && pnpm start`):
+
+```
+Route (app)          # production build — no /_showcase
+┌ ○ /
+├ ○ /_not-found
+├ ○ /favorites  ├ ○ /library  ├ ○ /recent  ├ ○ /search  ├ ○ /shared  └ ○ /trash
+
+/library        -> 200
+/_showcase      -> 404
+/_showcase/x    -> 404
+```
+
+The same build contains no showcase code at all: `grep -rl 'showcase-section' .next/server
+.next/static` returns nothing. With `VERCEL_ENV=preview` the route appears in the build and
+serves 200, so the gate is a gate and not a permanent off switch.
+
+## Decisions taken
+
+- **A route, not Storybook.** The build prompt leaves this open. A route inside the app shares
+  the real token pipeline, fonts, Tailwind build, and component exports; Storybook is a second
+  build to keep in sync, and the bug it would most likely miss — a token resolving differently
+  in the app than in the story — is the one this page exists to catch.
+- **Responsive framing uses real iframes.** A fixed-width `div` still resolves `md:` against
+  the outer viewport, so it would show the desktop shell at phone width: the wrong answer,
+  confidently. An iframe has its own viewport.
+- **The showcase is excluded from coverage** (`apps/web/vitest.config.ts`). Its uncovered
+  surface is inert demo callbacks; calling them from a test would measure the fixture. What
+  matters about it is asserted structurally, and its rendering is task `120`'s in a browser.
+- **`@/*` is now aliased in `apps/web/vitest.config.ts`**, mirroring `tsconfig.json`. Without
+  it `proxy.ts` resolved under Next and failed under Vitest.
 
 ## Tests and validation commands
 
@@ -75,7 +135,7 @@ Development-only surface. Reverting loses a QA aid; no product impact. Task `120
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
