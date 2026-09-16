@@ -42,6 +42,22 @@ export const contractsBoundary = tseslint.config({
         ],
         patterns: [
           {
+            // `paths` above matches exact specifiers only, so a subpath import such as
+            // `@youandfriends/db/schema` would sail straight through it. Latent while the
+            // infrastructure packages export only ".", and reachable the moment one of them
+            // adds a subpath export — which is exactly the change nobody will connect to
+            // this rule.
+            group: INFRASTRUCTURE.map((name) => `${name}/*`),
+            message:
+              'contracts defines shapes only. It must not depend on infrastructure — see docs/ARCHITECTURE.md §3.',
+          },
+          {
+            // Reaching a driver directly would defeat the rule as surely as importing our
+            // own db package.
+            group: ['pg', 'pg/*', 'drizzle-orm', 'drizzle-orm/*', '@neondatabase/*'],
+            message: 'contracts must not reach a database driver — see docs/ARCHITECTURE.md §3.',
+          },
+          {
             group: ['react/*', 'react-dom/*', 'next/*'],
             message:
               'contracts is shared with server code and must stay framework-free — see docs/ARCHITECTURE.md §3.',

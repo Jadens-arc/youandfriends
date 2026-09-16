@@ -68,11 +68,11 @@ establishes.
 
 ## Acceptance criteria
 
-- [ ] A subpath import such as `@youandfriends/db/schema` from `contracts` fails lint.
-- [ ] A regression guard fails if the boundary rule stops reporting.
-- [ ] A cross-entity ID assignment fails to compile, proven by a type-level test.
+- [x] A subpath import such as `@youandfriends/db/schema` from `contracts` fails lint.
+- [x] A regression guard fails if the boundary rule stops reporting.
+- [x] A cross-entity ID assignment fails to compile, proven by a type-level test.
 - [x] The additional identifier negative cases are covered (landed in task `004`).
-- [ ] `pnpm release-check` passes.
+- [x] `pnpm release-check` passes.
 
 ## Tests and validation commands
 
@@ -94,7 +94,7 @@ Lint configuration and tests only. No runtime impact.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

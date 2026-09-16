@@ -90,4 +90,4 @@ Lint configuration only. Reverting restores the looser exemption and the known h
 
 ## Commit
 
-_(not yet)_
+`340cc69`
