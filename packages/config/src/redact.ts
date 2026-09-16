@@ -44,6 +44,10 @@ const DENIED_VALUE_PATTERNS: readonly RegExp[] = [
   /\bsk_(live|test)_[A-Za-z0-9]{8,}/, // provider secret keys
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
   /\bBearer\s+[A-Za-z0-9._~+/-]{16,}/i,
+  // A connection string carrying credentials, under any scheme. `DATABASE_URL` is already
+  // denied by key, but `pg` puts the whole URL inside connection-error messages, where no
+  // key name protects it — which is how the credential actually escapes (task `020`).
+  /\b[a-z][a-z0-9+.-]*:\/\/[^\s/@:]+:[^\s/@]+@[^\s/]+/i,
 ];
 
 /** True when a key's value must never be logged. */

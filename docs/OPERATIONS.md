@@ -96,8 +96,37 @@ pnpm --filter @youandfriends/db migrate:dry  # against an isolated branch
 pnpm --filter @youandfriends/db migrate
 ```
 
-**Always dry-run against a Neon branch first.** Branching is cheap and is the cheapest
-insurance available.
+**Always dry-run first.** `migrate:dry` creates a throwaway database on the configured
+server, applies every migration to it, and drops it — passing or failing. It runs as a
+`release-check` gate, so a migration Postgres rejects fails the build rather than the deploy.
+Exit codes: `0` passed, `0` skipped (announced in the output), `1` failed.
+
+### Where the commands get their connection string
+
+All three read `DATABASE_URL_UNPOOLED`, never `DATABASE_URL`. Neon's serverless HTTP driver
+cannot hold an interactive transaction, and a migration is a transaction — pointing these at
+the pooled URL produces schema changes that appear to apply and do not.
+
+The value is taken from the ambient environment first (CI sets the real one), then from
+`.env.test.local`, then `.env.local`. Both files are `.gitignore`d and must stay that way: a
+connection string is a credential, and one in the repository is compromised from the moment
+it is committed. The test harness uses the same loader, so the tests and the migrator can
+never disagree about which database they are pointed at.
+
+With nothing configured, `migrate:dry` **skips and says so**. A silent pass would be a lie in
+the build output.
+
+### Verifying against Neon from a restricted network
+
+Some environments — including Claude Code's remote sandbox — allow outbound HTTPS only
+through a proxy allow-list, which blocks both Postgres on 5432 and Neon's HTTPS endpoint. The
+symptom is a command that hangs rather than fails; `CONNECT_TIMEOUT_MS` in
+`packages/db/src/client.ts` bounds it at ten seconds so a release gate cannot hang forever.
+
+From such an environment, run the suite against a local Postgres and verify Neon itself
+through the Neon API or console. That is what happened for task `020`: every test and the
+dry-run gate ran against a real Postgres 16, and the Neon project was confirmed live and
+empty through the API.
 
 **Backward.** Destructive migrations (dropping a column, narrowing a type) follow expand →
 migrate → contract across three deploys, never one:

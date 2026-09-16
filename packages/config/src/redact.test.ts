@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   bearerToken,
+  databaseUrl,
   plainUrl,
   presignedUrl,
   privateKeyPem,
@@ -102,5 +103,33 @@ describe('redaction — structure handling', () => {
   it('redacts a credential inside an Error message', () => {
     const err = new Error(`upload failed for ${providerSecretKey}`);
     expect(redact(err)).toMatchObject({ name: 'Error', message: REDACTED });
+  });
+});
+
+describe('connection strings in message bodies', () => {
+  it('redacts a credentialed connection string wherever it appears', () => {
+    // This is how the credential actually escapes: `pg` puts the connection string inside
+    // the message of a connection error, where no key name protects it (task `020`).
+    const leak = `connect ECONNREFUSED for ${databaseUrl}`;
+    expect(redact({ message: leak })).toEqual({ message: REDACTED });
+  });
+
+  it('redacts it under an innocuous key', () => {
+    expect(redact({ detail: databaseUrl })).toEqual({ detail: REDACTED });
+  });
+
+  it('redacts it inside an Error', () => {
+    const error = redact(new Error(`could not connect to ${databaseUrl}`)) as { message: string };
+    expect(error.message).toBe(REDACTED);
+  });
+
+  it('leaves a connection string with no credentials readable', () => {
+    // Over-redaction costs a debugging round trip; this one carries nothing to leak.
+    const harmless = ['postgresql:', '', 'db.example.com/yaf'].join('/');
+    expect(redact({ detail: harmless })).toEqual({ detail: harmless });
+  });
+
+  it('does not redact an ordinary URL', () => {
+    expect(redact({ href: plainUrl })).toEqual({ href: plainUrl });
   });
 });

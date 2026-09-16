@@ -12,14 +12,24 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx bin/migrate.mjs",
+    "migrate:dry": "tsx bin/migrate-dry.mjs",
+    "studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@youandfriends/config": "workspace:*"
+    "@neondatabase/serverless": "^1.1.0",
+    "@youandfriends/config": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "@youandfriends/config": "workspace:*",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.13",
     "typescript": "~5.9.3",
-    "vitest": "^3.2.7",
-    "@youandfriends/config": "workspace:*"
+    "vitest": "^3.2.7"
   }
 }

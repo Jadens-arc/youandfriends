@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **102** |
 
-Task `020` is next. `016` is passed over until its dependencies are `complete`. 12 of 85 iteration-one tasks are `complete`.
+Task `021` is next. `016` is passed over until its dependencies are `complete`. 13 of 85 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -37,9 +37,9 @@ Task `020` is next. `016` is passed over until its dependencies are `complete`. 
 | `012` | shadcn primitives restyled into Studio Notebook                  | Studio Notebook design system        | `010`, `011`                              | `complete` | `ec3cb5d` | —       |
 | `013` | Desktop application shell                                        | Studio Notebook design system        | `012`                                     | `complete` | `0d8b593` | —       |
 | `014` | Mobile application shell                                         | Studio Notebook design system        | `013`                                     | `complete` | `ea051d3` | —       |
-| `015` | Isolated component showcase                                      | Studio Notebook design system        | `012`, `013`, `014`                       | `complete` | —         | —       |
+| `015` | Isolated component showcase                                      | Studio Notebook design system        | `012`, `013`, `014`                       | `complete` | `6639d6b` | —       |
 | `016` | Menu and focus coverage in a real browser                        | Studio Notebook design system        | `012`, `120`                              | `pending`  | —         | —       |
-| `020` | Database package, Neon connection, migration tooling             | Data, authorization, audit           | `002`, `003`                              | `pending`  | —         | —       |
+| `020` | Database package, Neon connection, migration tooling             | Data, authorization, audit           | `002`, `003`                              | `complete` | —         | —       |
 | `021` | Core schema: identity, tenancy, and content hierarchy            | Data, authorization, audit           | `020`                                     | `pending`  | —         | —       |
 | `022` | Centralized authorization package                                | Data, authorization, audit           | `021`, `003`                              | `pending`  | —         | —       |
 | `023` | Executable permission matrix and IDOR test suite                 | Data, authorization, audit           | `022`                                     | `pending`  | —         | —       |

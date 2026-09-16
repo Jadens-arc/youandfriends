@@ -40,6 +40,15 @@ const GATES = [
   { name: 'unit', command: 'pnpm test' },
   { name: 'build', command: 'pnpm build' },
   {
+    // Registered by task `020`. `docs/OPERATIONS.md` §4 requires a dry run before every
+    // production migration: a migration that fails halfway leaves a state no rollback script
+    // anticipated. The command itself announces a skip when no database is configured, so a
+    // developer without one still sees why the gate did not run.
+    name: 'migration dry run',
+    command: 'pnpm --filter @youandfriends/db migrate:dry',
+    reproduce: 'pnpm --filter @youandfriends/db migrate:dry',
+  },
+  {
     name: 'dependency audit',
     command: 'pnpm audit --audit-level=high',
     // Advisory until task `122` decides the failure threshold, so a transitive advisory
@@ -50,7 +59,6 @@ const GATES = [
 
 /** Gates a later task will register. Listed so their absence is visible, not forgotten. */
 const PENDING_GATES = [
-  ['migration dry run', 'task 020'],
   ['db/authz integration', 'task 023'],
   ['storage contract (MinIO)', 'task 052'],
   ['media fixtures (ffmpeg)', 'task 066'],
