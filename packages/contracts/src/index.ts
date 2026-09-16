@@ -1,12 +1,20 @@
 /**
  * `@youandfriends/contracts`
  *
- * Zod schemas, shared types, role and capability enums, and the error taxonomy. Every shape that crosses a trust boundary is defined here.
+ * Every shape that crosses a trust boundary: Zod schemas, roles and capabilities, the error
+ * taxonomy, and pagination. Imported by `authz`, the API, and the UI so the three cannot
+ * drift from each other.
  *
- * Implementation arrives in task `003`. This package exists from the first commit so the
- * dependency direction described in `docs/ARCHITECTURE.md` §3 is enforced by the
- * workspace graph rather than by convention.
+ * This package deliberately depends on nothing in the repository except `config`. A lint
+ * boundary rule enforces that it never imports `db`, `storage`, or React
+ * (docs/ARCHITECTURE.md §3).
  */
 
-/** Package identifier, used to confirm the workspace graph resolves correctly. */
 export const PACKAGE_NAME = '@youandfriends/contracts' as const;
+
+export * from './assets';
+export * from './errors';
+export * from './ids';
+export * from './pagination';
+export * from './result';
+export * from './roles';

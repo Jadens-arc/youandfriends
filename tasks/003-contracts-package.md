@@ -54,11 +54,11 @@ internal identifiers.
 
 ## Acceptance criteria
 
-- [ ] Role and capability enums are defined once and imported everywhere they are used.
-- [ ] Every error type has a stable code and a safe message.
-- [ ] Forbidden serializes 404-shaped for tenant-scoped resources.
-- [ ] Error serialization never includes stack traces or internal details.
-- [ ] `contracts` imports nothing from `db`, `storage`, or React; enforced by lint.
+- [x] Role and capability enums are defined once and imported everywhere they are used.
+- [x] Every error type has a stable code and a safe message.
+- [x] Forbidden serializes 404-shaped for tenant-scoped resources.
+- [x] Error serialization never includes stack traces or internal details.
+- [x] `contracts` imports nothing from `db`, `storage`, or React; enforced by lint.
 
 ## Tests and validation commands
 
@@ -78,7 +78,7 @@ those first.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
