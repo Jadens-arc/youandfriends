@@ -54,7 +54,13 @@ function tombstone(options: SoftDeleteOptions) {
 }
 
 /**
- * Soft-delete a song. The leaf case: nothing cascades from here.
+ * Soft-delete a song.
+ *
+ * **Does not yet cascade to the song's assets or snapshots**, which task `026` gave
+ * soft-delete columns of their own. Trashing a song therefore leaves its stems live and
+ * visible, and restore is not symmetric for them. Task `028` closes it; this comment is here
+ * rather than absent because the previous one claimed "the leaf case: nothing cascades from
+ * here", which stopped being true the moment assets existed.
  */
 export async function deleteSong(
   tx: Transaction,

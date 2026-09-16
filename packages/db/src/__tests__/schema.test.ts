@@ -209,7 +209,7 @@ describeWithDatabase('schema', () => {
       expect(song.status).toBe('idea');
     });
 
-    it('leaves current_version_id open until task 026 supplies the table', async () => {
+    it('keeps current_version_id empty until a mix version exists', async () => {
       const { workspace } = await makeTenant(database.db);
       const project = await makeProject(database.db, workspace.id, 'Forward');
       const song = await makeSong(database.db, workspace.id, project.id, 'Pointer');
@@ -217,13 +217,16 @@ describeWithDatabase('schema', () => {
       expect(song.currentVersionId).toBeNull();
       expect(song.durationMs).toBeNull();
 
-      // A forward reference with no constraint yet — deliberately, to avoid a circular
-      // migration. Task `026` adds the foreign key.
-      await expect(
+      // Task `021` left this column as a forward reference with no constraint, to avoid a
+      // circular migration. Task `026` added the composite foreign key, so an arbitrary id
+      // is now refused — which is the point of having added it.
+      await expectDatabaseError(
         database.db.execute(
           sql`update songs set current_version_id = ${testId()} where id = ${song.id}`,
         ),
-      ).resolves.toBeDefined();
+        SQLSTATE.foreignKeyViolation,
+        /songs_current_version_belongs_to_song/,
+      );
     });
 
     it('deletes a project’s songs with it', async () => {

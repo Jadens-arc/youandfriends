@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { index, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { index, uniqueIndex, integer, pgTable, text } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, reference, updatedAt, workStatusEnum, workspaceId } from './columns';
 import { projects } from './projects';
@@ -39,6 +39,9 @@ export const songs = pgTable(
     index('songs_workspace_status_idx').on(table.workspaceId, table.status),
     // "Recently changed", which is the library's default ordering (docs/DESIGN.md §10).
     index('songs_workspace_updated_idx').on(table.workspaceId, table.updatedAt),
+    // The target of every composite tenant foreign key that points at a song. `id` is already
+    // unique; this pair is what lets a child row prove its parent is in the same workspace.
+    uniqueIndex('songs_id_workspace_key').on(table.id, table.workspaceId),
     index('songs_workspace_live_idx')
       .on(table.workspaceId, table.projectId)
       .where(sql`deleted_at is null`),

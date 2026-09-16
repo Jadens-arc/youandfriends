@@ -128,6 +128,7 @@ export const SQLSTATE = {
   uniqueViolation: '23505',
   foreignKeyViolation: '23503',
   checkViolation: '23514',
+  insufficientPrivilege: '42501',
   notNullViolation: '23502',
 } as const;
 
@@ -150,4 +151,84 @@ export async function expectDatabaseError(
       `expected SQLSTATE ${code} matching ${String(pattern)}, got ${actual.code}: ${actual.message}`,
     );
   }
+}
+
+/** A storage object record. The bytes are imaginary; the row is what the schema cares about. */
+export async function makeStorageObject(
+  db: DirectDatabase,
+  workspaceId: string,
+  overrides: { key?: string; sizeBytes?: number } = {},
+) {
+  const { storageObjects } = await import('../schema/index');
+  const objectId = testId();
+  const [row] = await db
+    .insert(storageObjects)
+    .values({
+      id: objectId,
+      workspaceId,
+      bucket: 'youandfriends-originals',
+      key: overrides.key ?? `w/${workspaceId}/o/${objectId}`,
+      sizeBytes: overrides.sizeBytes ?? 1024,
+      // A fabricated digest, assembled rather than written as a literal so `no-secrets` does
+      // not read 64 hex characters as a key (CLAUDE.md §8).
+      checksumSha256: Array.from({ length: 8 }, () => 'deadbeef').join(''),
+      contentType: 'audio/wav',
+    })
+    .returning();
+  if (!row) throw new Error('storage object insert returned nothing');
+  return row;
+}
+
+export async function makeAsset(
+  db: DirectDatabase,
+  workspaceId: string,
+  owner: { songId?: string; projectId?: string },
+  overrides: { kind?: 'master' | 'mix' | 'stem' | 'project_file' | 'artwork'; name?: string } = {},
+) {
+  const { assets } = await import('../schema/index');
+  const [row] = await db
+    .insert(assets)
+    .values({
+      id: testId(),
+      workspaceId,
+      songId: owner.songId ?? null,
+      projectId: owner.projectId ?? null,
+      kind: overrides.kind ?? 'mix',
+      name: overrides.name ?? 'Take 1.wav',
+    })
+    .returning();
+  if (!row) throw new Error('asset insert returned nothing');
+  return row;
+}
+
+export async function makeAssetVersion(
+  db: DirectDatabase,
+  workspaceId: string,
+  assetId: string,
+  storageObjectId: string,
+  versionNumber: number,
+) {
+  const { assetVersions } = await import('../schema/index');
+  const [row] = await db
+    .insert(assetVersions)
+    .values({ id: testId(), workspaceId, assetId, storageObjectId, versionNumber })
+    .returning();
+  if (!row) throw new Error('asset version insert returned nothing');
+  return row;
+}
+
+export async function makeMixVersion(
+  db: DirectDatabase,
+  workspaceId: string,
+  songId: string,
+  assetVersionId: string,
+  versionNumber: number,
+) {
+  const { mixVersions } = await import('../schema/index');
+  const [row] = await db
+    .insert(mixVersions)
+    .values({ id: testId(), workspaceId, songId, assetVersionId, versionNumber })
+    .returning();
+  if (!row) throw new Error('mix version insert returned nothing');
+  return row;
 }

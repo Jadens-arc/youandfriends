@@ -173,4 +173,4 @@ Additive columns. Reverting after real deletions would resurrect or strand rows 
 
 ## Commit
 
-_(not yet)_
+`64345dd`

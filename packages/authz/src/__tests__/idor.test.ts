@@ -133,9 +133,15 @@ describeWithDatabase('cross-workspace access', () => {
 
     // Generated per resource class, so a new class inherits the whole set by registering
     // rather than by someone writing these cases again.
+    //
+    // **Each case seeds a real row in the other workspace first.** Without that these were
+    // vacuous: an empty foreign workspace leaks nothing whether or not the tenant filter
+    // works, and deleting the filter from `scopedQuery` would not have failed one of them.
+    // A security review caught it.
     it.each(scopedReadable)('$name', async (resource) => {
       const mine = await makeTenant(db);
       const theirs = await makeTenant(db);
+      await resource.seed(db, theirs.workspace.id);
 
       const scoped = await scopedQuery(
         db,
@@ -151,9 +157,28 @@ describeWithDatabase('cross-workspace access', () => {
       expect(foreign, `${resource.name} leaked rows from another workspace`).toEqual([]);
     });
 
+    it.each(scopedReadable)('$name — the seed really put a row there', async (resource) => {
+      // Guards the guard: a seeder that silently inserted nothing would make the case above
+      // vacuous again, and nothing would say so.
+      const theirs = await makeTenant(db);
+      await resource.seed(db, theirs.workspace.id);
+
+      const scoped = await scopedQuery(
+        db,
+        memberSubject(theirs.user.id as never),
+        theirs.workspace.id as WorkspaceId,
+      );
+
+      expect(
+        (await scoped.many(resource.table, undefined, { lifecycle: 'all' })).length,
+        `${resource.name} seeder created no row`,
+      ).toBeGreaterThan(0);
+    });
+
     it.each(scopedReadable)('$name, asked for by id', async (resource) => {
       const mine = await makeTenant(db);
       const theirs = await makeTenant(db);
+      await resource.seed(db, theirs.workspace.id);
 
       const scoped = await scopedQuery(
         db,

@@ -98,26 +98,29 @@ A class marked **own guarded read path** is deliberately unreachable through `sc
 all. That is stronger, not weaker: `audit_events` is read only through `queryAuditEvents`,
 which requires workspace ownership, so an unguarded read of it is not one call away.
 
-| Resource class          | Status     | Why it is sensitive                                                             |
-| ----------------------- | ---------- | ------------------------------------------------------------------------------- |
-| `folders`               | covered    | The organizational spine. A leaked folder id leaks the shape of someone’s work. |
-| `projects`              | covered    | Unreleased work, by name and artist.                                            |
-| `songs`                 | covered    | The asset the whole product exists to protect.                                  |
-| `favorites`             | covered    | Reveals what someone is working on, and which collaborators they return to.     |
-| `workspace_memberships` | covered    | The membership list is the collaborator list. Enumerating it is reconnaissance. |
-| `permission_grants`     | covered    | Reading the grants tells an attacker exactly where the soft edges are.          |
-| `audit_events`          | covered    | Who did what, and when. Another tenant’s log is a complete activity record.     |
-| `assets`                | task `026` | Files: stems, project files, artwork.                                           |
-| `asset_versions`        | task `026` | Immutable uploaded bytes. Originals are sacred.                                 |
-| `mix_versions`          | task `026` | The version stack behind every song.                                            |
-| `storage_objects`       | task `026` | Bucket keys. A leaked key is a leaked file for the life of a presigned URL.     |
-| `lyrics_documents`      | task `081` | Unpublished words, which are as sensitive as unreleased audio.                  |
-| `lyrics_revisions`      | task `083` | Every earlier draft of the same.                                                |
-| `comment_threads`       | task `090` | Private discussion between collaborators.                                       |
-| `comments`              | task `090` | The same, at message granularity.                                               |
-| `notifications`         | task `095` | Reveals activity, timing, and who is working with whom.                         |
-| `upload_sessions`       | task `053` | An in-flight session is a writable handle to storage.                           |
-| `share_links`           | task `200` | A share link is a bearer credential. Enumerating them is total compromise.      |
-| `sync_tokens`           | task `110` | A sync token authorizes a Mac agent. Same.                                      |
+| Resource class          | Status     | Why it is sensitive                                                                           |
+| ----------------------- | ---------- | --------------------------------------------------------------------------------------------- |
+| `folders`               | covered    | The organizational spine. A leaked folder id leaks the shape of someone’s work.               |
+| `projects`              | covered    | Unreleased work, by name and artist.                                                          |
+| `songs`                 | covered    | The asset the whole product exists to protect.                                                |
+| `favorites`             | covered    | Reveals what someone is working on, and which collaborators they return to.                   |
+| `workspace_memberships` | covered    | The membership list is the collaborator list. Enumerating it is reconnaissance.               |
+| `permission_grants`     | covered    | Reading the grants tells an attacker exactly where the soft edges are.                        |
+| `audit_events`          | covered    | Who did what, and when. Another tenant’s log is a complete activity record.                   |
+| `assets`                | covered    | Files: stems, project files, artwork. Reached through the song or project that owns them.     |
+| `asset_versions`        | covered    | Immutable uploaded bytes. Originals are sacred, and they are what the product exists to hold. |
+| `mix_versions`          | covered    | The version stack behind every song, including unreleased mixes.                              |
+| `storage_objects`       | covered    | Bucket keys. A leaked key is a leaked file for the life of a presigned URL.                   |
+| `derivatives`           | covered    | Streaming audio and waveforms. Regenerable, but a leaked one is still the music.              |
+| `snapshots`             | covered    | A captured project folder: what someone’s working directory looked like.                      |
+| `snapshot_entries`      | covered    | The file listing inside a snapshot. Reveals structure and naming even without bytes.          |
+| `lyrics_documents`      | task `081` | Unpublished words, which are as sensitive as unreleased audio.                                |
+| `lyrics_revisions`      | task `083` | Every earlier draft of the same.                                                              |
+| `comment_threads`       | task `090` | Private discussion between collaborators.                                                     |
+| `comments`              | task `090` | The same, at message granularity.                                                             |
+| `notifications`         | task `095` | Reveals activity, timing, and who is working with whom.                                       |
+| `upload_sessions`       | task `053` | An in-flight session is a writable handle to storage.                                         |
+| `share_links`           | task `200` | A share link is a bearer credential. Enumerating them is total compromise.                    |
+| `sync_tokens`           | task `110` | A sync token authorizes a Mac agent. Same.                                                    |
 
 _Generated from the executable matrix. Last regenerated by `pnpm generate:permission-matrix`._

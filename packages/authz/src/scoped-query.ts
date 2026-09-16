@@ -1,12 +1,19 @@
 import { forbidden, type WorkspaceId } from '@youandfriends/contracts';
 import {
+  assetVersions,
+  assets,
+  derivatives,
   excludeDeleted,
   favorites,
   folders,
   hasSoftDelete,
+  mixVersions,
   permissionGrants,
   projects,
+  snapshotEntries,
+  snapshots,
   songs,
+  storageObjects,
   workspaceMemberships,
   type Database,
 } from '@youandfriends/db';
@@ -41,6 +48,13 @@ export const SCOPED_TABLES = {
   favorites,
   workspaceMemberships,
   permissionGrants,
+  assets,
+  assetVersions,
+  mixVersions,
+  derivatives,
+  storageObjects,
+  snapshots,
+  snapshotEntries,
 } as const;
 
 export type ScopedTable = (typeof SCOPED_TABLES)[keyof typeof SCOPED_TABLES];

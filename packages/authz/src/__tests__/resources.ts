@@ -13,14 +13,58 @@
  */
 
 import {
+  assetVersions,
+  assets,
+  derivatives,
   favorites,
   folders,
+  mixVersions,
   permissionGrants,
   projects,
+  snapshotEntries,
+  snapshots,
   songs,
+  storageObjects,
   workspaceMemberships,
 } from '@youandfriends/db';
+import type { DirectDatabase } from '@youandfriends/db';
+import {
+  makeAsset,
+  makeAssetVersion,
+  makeFolder,
+  makeMixVersion,
+  makeProject,
+  makeSong,
+  makeStorageObject,
+  testId,
+} from '@youandfriends/db/testing';
+
 import type { ScopedTable } from '../scoped-query';
+
+/**
+ * A tenant with a folder, a project, a song, an asset, and a version — everything the seeders
+ * below hang off. Built once per seeding call rather than shared, so one class's rows cannot
+ * make another class's case pass.
+ */
+async function seedTree(db: DirectDatabase, workspaceId: string) {
+  const folder = await makeFolder(db, workspaceId, `Folder ${testId()}`);
+  const project = await makeProject(db, workspaceId, `Project ${testId()}`, folder.id);
+  const song = await makeSong(db, workspaceId, project.id, `Song ${testId()}`);
+  const asset = await makeAsset(db, workspaceId, { songId: song.id });
+  const object = await makeStorageObject(db, workspaceId);
+  const version = await makeAssetVersion(db, workspaceId, asset.id, object.id, 1);
+  return { folder, project, song, asset, object, version };
+}
+
+/**
+ * Puts one row of this class into a workspace, so a negative case has something to fail on.
+ *
+ * Without this the generated cross-workspace cases were **vacuous**: they created an empty
+ * second workspace and then asserted that nothing from it leaked. Deleting the tenant filter
+ * from `scopedQuery` would not have failed one of them. A security review caught it; a seeder
+ * per class is what makes "registered" mean "covered".
+ */
+export type Seeder = (db: DirectDatabase, workspaceId: string) => Promise<void>;
 
 /** A resource class with a table today. */
 export interface LiveResource {
@@ -34,6 +78,8 @@ export interface LiveResource {
   readonly table: ScopedTable | null;
   /** The authz scope this class is reached through, or `null` if it is not directly targetable. */
   readonly scopeType: 'folder' | 'project' | 'song' | null;
+  /** Creates a row of this class. Required whenever `table` is set. */
+  readonly seed: Seeder;
   readonly why: string;
 }
 
@@ -61,6 +107,9 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     name: 'folders',
     table: folders,
     scopeType: 'folder',
+    seed: async (db, workspaceId) => {
+      await makeFolder(db, workspaceId, `Folder ${testId()}`);
+    },
     why: 'The organizational spine. A leaked folder id leaks the shape of someone’s work.',
   },
   {
@@ -68,6 +117,9 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     name: 'projects',
     table: projects,
     scopeType: 'project',
+    seed: async (db, workspaceId) => {
+      await makeProject(db, workspaceId, `Project ${testId()}`);
+    },
     why: 'Unreleased work, by name and artist.',
   },
   {
@@ -75,6 +127,9 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     name: 'songs',
     table: songs,
     scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      await seedTree(db, workspaceId);
+    },
     why: 'The asset the whole product exists to protect.',
   },
   {
@@ -82,6 +137,18 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     name: 'favorites',
     table: favorites,
     scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      const { favorites: table } = await import('@youandfriends/db');
+      const [owner] = await db.select().from(workspaceMemberships).limit(1);
+      await db.insert(table).values({
+        id: testId(),
+        workspaceId,
+        userId: owner?.userId ?? testId(),
+        targetType: 'song',
+        targetId: song.id,
+      });
+    },
     why: 'Reveals what someone is working on, and which collaborators they return to.',
   },
   {
@@ -89,6 +156,9 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     name: 'workspace_memberships',
     table: workspaceMemberships,
     scopeType: null,
+    seed: async () => {
+      // Created with the tenant itself; `makeTenant` inserts the owner's membership.
+    },
     why: 'The membership list is the collaborator list. Enumerating it is reconnaissance.',
   },
   {
@@ -96,6 +166,19 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     name: 'permission_grants',
     table: permissionGrants,
     scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      const [owner] = await db.select().from(workspaceMemberships).limit(1);
+      await db.insert(permissionGrants).values({
+        id: testId(),
+        workspaceId,
+        scopeType: 'song',
+        scopeId: song.id,
+        subjectKind: 'member',
+        subjectId: owner?.userId ?? testId(),
+        role: 'viewer',
+      });
+    },
     why: 'Reading the grants tells an attacker exactly where the soft edges are.',
   },
 
@@ -106,39 +189,116 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     // `queryAuditEvents`, which requires workspace ownership — see `audit-query.ts`.
     table: null,
     scopeType: null,
+    seed: async () => {
+      // Written only through `withAuditedTransaction`; the scoped-read case does not apply,
+      // because `table` is null. `audit.test.ts` covers its own cross-workspace refusal.
+    },
     why: 'Who did what, and when. Another tenant\u2019s log is a complete activity record.',
+  },
+
+  {
+    status: 'live',
+    name: 'assets',
+    table: assets,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      await seedTree(db, workspaceId);
+    },
+    why: 'Files: stems, project files, artwork. Reached through the song or project that owns them.',
+  },
+  {
+    status: 'live',
+    name: 'asset_versions',
+    table: assetVersions,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      await seedTree(db, workspaceId);
+    },
+    why: 'Immutable uploaded bytes. Originals are sacred, and they are what the product exists to hold.',
+  },
+  {
+    status: 'live',
+    name: 'mix_versions',
+    table: mixVersions,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { song, version } = await seedTree(db, workspaceId);
+      await makeMixVersion(db, workspaceId, song.id, version.id, 1);
+    },
+    why: 'The version stack behind every song, including unreleased mixes.',
+  },
+  {
+    status: 'live',
+    name: 'storage_objects',
+    table: storageObjects,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      await makeStorageObject(db, workspaceId);
+    },
+    why: 'Bucket keys. A leaked key is a leaked file for the life of a presigned URL.',
+  },
+  {
+    status: 'live',
+    name: 'derivatives',
+    table: derivatives,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { version } = await seedTree(db, workspaceId);
+      const { derivatives: table } = await import('@youandfriends/db');
+      await db.insert(table).values({
+        id: testId(),
+        workspaceId,
+        assetVersionId: version.id,
+        kind: 'waveform_peaks',
+      });
+    },
+    why: 'Streaming audio and waveforms. Regenerable, but a leaked one is still the music.',
+  },
+  {
+    status: 'live',
+    name: 'snapshots',
+    table: snapshots,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { project } = await seedTree(db, workspaceId);
+      await db.insert(snapshots).values({
+        id: testId(),
+        workspaceId,
+        projectId: project.id,
+        source: 'mac_agent',
+        name: 'Session',
+      });
+    },
+    why: 'A captured project folder: what someone\u2019s working directory looked like.',
+  },
+  {
+    status: 'live',
+    name: 'snapshot_entries',
+    table: snapshotEntries,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { project } = await seedTree(db, workspaceId);
+      const snapshotId = testId();
+      await db.insert(snapshots).values({
+        id: snapshotId,
+        workspaceId,
+        projectId: project.id,
+        source: 'mac_agent',
+        name: 'Session',
+      });
+      await db.insert(snapshotEntries).values({
+        id: testId(),
+        workspaceId,
+        snapshotId,
+        relativePath: 'Audio Files/Take 1.wav',
+        sizeBytes: 10,
+      });
+    },
+    why: 'The file listing inside a snapshot. Reveals structure and naming even without bytes.',
   },
 
   // Not yet created. Each is converted to `live` by the task that builds its table; the
   // completeness check below fails if one of these quietly appears without being converted.
-  {
-    status: 'pending',
-    name: 'assets',
-    tableName: 'assets',
-    task: '026',
-    why: 'Files: stems, project files, artwork.',
-  },
-  {
-    status: 'pending',
-    name: 'asset_versions',
-    tableName: 'asset_versions',
-    task: '026',
-    why: 'Immutable uploaded bytes. Originals are sacred.',
-  },
-  {
-    status: 'pending',
-    name: 'mix_versions',
-    tableName: 'mix_versions',
-    task: '026',
-    why: 'The version stack behind every song.',
-  },
-  {
-    status: 'pending',
-    name: 'storage_objects',
-    tableName: 'storage_objects',
-    task: '026',
-    why: 'Bucket keys. A leaked key is a leaked file for the life of a presigned URL.',
-  },
   {
     status: 'pending',
     name: 'lyrics_documents',

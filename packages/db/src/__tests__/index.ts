@@ -11,6 +11,10 @@
 
 export {
   databaseError,
+  makeAsset,
+  makeAssetVersion,
+  makeMixVersion,
+  makeStorageObject,
   expectDatabaseError,
   makeFolder,
   makeProject,

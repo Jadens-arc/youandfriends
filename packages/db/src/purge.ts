@@ -230,9 +230,15 @@ export async function planPurge(db: DirectDatabase, options: PurgeOptions): Prom
       approved.has(`${candidate.table}:${candidate.id}`),
     ),
     refusals,
-    // Storage objects arrive with `asset_versions` in task `026`. Empty is honest here: there
-    // is nothing to delete yet, and the registry in `packages/authz` fails the build when
-    // that table appears without this being revisited.
+    // **Still empty, and now that is a known gap, not a waiting one.** Task `026` created
+    // `asset_versions` and `storage_objects`; this planner was not extended to reach them, so
+    // hard-deleting a song cascades its versions away and leaves the storage rows behind as
+    // orphans no later run can find. `assets` and `snapshots` also carry soft-delete columns
+    // that nothing here scans or cascades to.
+    //
+    // Task `028` closes both. Registering the tables satisfied the `packages/authz` registry
+    // — which checks that a table has a cross-tenant test, not that the purge knows about it
+    // — so the guard I expected to catch this could not.
     storageKeys: [],
   };
 }

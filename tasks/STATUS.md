@@ -16,11 +16,11 @@ acceptance criterion.
 
 |                     | Count   |
 | ------------------- | ------- |
-| Iteration-one tasks | 85      |
+| Iteration-one tasks | 86      |
 | Deferred tasks      | 17      |
-| **Total**           | **102** |
+| **Total**           | **103** |
 
-Task `026` is next. `016` is passed over until its dependencies are `complete`. 18 of 85 iteration-one tasks are `complete`.
+Task `027` is next. `016` is passed over until its dependencies are `complete`. 19 of 86 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -44,9 +44,10 @@ Task `026` is next. `016` is passed over until its dependencies are `complete`. 
 | `022` | Centralized authorization package                                | Data, authorization, audit           | `021`, `003`                              | `complete` | `50802b5` | —       |
 | `023` | Executable permission matrix and IDOR test suite                 | Data, authorization, audit           | `022`                                     | `complete` | `4d00a65` | —       |
 | `024` | Audit log                                                        | Data, authorization, audit           | `022`                                     | `complete` | `7ac4205` | —       |
-| `025` | Soft deletion and recovery window                                | Data, authorization, audit           | `024`                                     | `complete` | —         | —       |
-| `026` | Assets, immutable versions, and storage objects schema           | Data, authorization, audit           | `021`, `025`                              | `pending`  | —         | —       |
+| `025` | Soft deletion and recovery window                                | Data, authorization, audit           | `024`                                     | `complete` | `64345dd` | —       |
+| `026` | Assets, immutable versions, and storage objects schema           | Data, authorization, audit           | `021`, `025`                              | `complete` | —         | —       |
 | `027` | Seed and demo data                                               | Data, authorization, audit           | `026`, `024`                              | `pending`  | —         | —       |
+| `028` | Purge reaches storage objects, and assets join the lifecycle     | Data, authorization, audit           | `026`                                     | `pending`  | —         | —       |
 | `030` | Clerk authentication and session handling                        | Authentication and workspace         | `022`, `012`                              | `pending`  | —         | —       |
 | `031` | Workspace provisioning and settings                              | Authentication and workspace         | `030`, `021`                              | `pending`  | —         | —       |
 | `032` | Memberships and invitations                                      | Authentication and workspace         | `031`, `023`, `024`                       | `pending`  | —         | —       |

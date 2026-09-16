@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { index, pgTable, text } from 'drizzle-orm/pg-core';
+import { index, uniqueIndex, pgTable, text } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, reference, updatedAt, workStatusEnum, workspaceId } from './columns';
 import { folders } from './folders';
@@ -36,6 +36,7 @@ export const projects = pgTable(
     index('projects_workspace_folder_idx').on(table.workspaceId, table.folderId),
     index('projects_workspace_status_idx').on(table.workspaceId, table.status),
     index('projects_workspace_updated_idx').on(table.workspaceId, table.updatedAt),
+    uniqueIndex('projects_id_workspace_key').on(table.id, table.workspaceId),
     index('projects_workspace_live_idx')
       .on(table.workspaceId, table.folderId)
       .where(sql`deleted_at is null`),
