@@ -1,7 +1,9 @@
+import { sql } from 'drizzle-orm';
 import { index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, reference, updatedAt, workStatusEnum, workspaceId } from './columns';
 import { projects } from './projects';
+import { softDeleteColumns } from './soft-delete';
 import { workspaces } from './workspaces';
 
 /**
@@ -30,11 +32,19 @@ export const songs = pgTable(
     currentVersionId: reference('current_version_id'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+    ...softDeleteColumns(),
   },
   (table) => [
     index('songs_workspace_project_idx').on(table.workspaceId, table.projectId),
     index('songs_workspace_status_idx').on(table.workspaceId, table.status),
     // "Recently changed", which is the library's default ordering (docs/DESIGN.md §10).
     index('songs_workspace_updated_idx').on(table.workspaceId, table.updatedAt),
+    index('songs_workspace_live_idx')
+      .on(table.workspaceId, table.projectId)
+      .where(sql`deleted_at is null`),
+    // The purge job's own query: what is past its window, anywhere.
+    index('songs_purge_after_idx')
+      .on(table.purgeAfter)
+      .where(sql`deleted_at is not null`),
   ],
 );

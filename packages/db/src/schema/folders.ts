@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { type AnyPgColumn, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, reference, updatedAt, workspaceId } from './columns';
+import { softDeleteColumns } from './soft-delete';
 import { workspaces } from './workspaces';
 
 /**
@@ -47,6 +48,7 @@ export const folders = pgTable(
     ),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+    ...softDeleteColumns(),
   },
   (table) => [
     // Two folders with the same name under the same parent are indistinguishable in the UI.
@@ -66,5 +68,10 @@ export const folders = pgTable(
       sql`path text_pattern_ops`,
     ),
     index('folders_workspace_parent_idx').on(table.workspaceId, table.parentId),
+    // The default query is "live rows in this workspace". A partial index keeps it from
+    // scanning tombstones, which accumulate for the whole retention window.
+    index('folders_workspace_live_idx')
+      .on(table.workspaceId, table.parentId)
+      .where(sql`deleted_at is null`),
   ],
 );

@@ -18,7 +18,8 @@
     "generate": "drizzle-kit generate",
     "migrate": "tsx bin/migrate.mjs",
     "migrate:dry": "tsx bin/migrate-dry.mjs",
-    "studio": "drizzle-kit studio"
+    "studio": "drizzle-kit studio",
+    "purge": "tsx bin/purge.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

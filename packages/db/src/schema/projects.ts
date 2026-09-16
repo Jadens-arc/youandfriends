@@ -1,7 +1,9 @@
+import { sql } from 'drizzle-orm';
 import { index, pgTable, text } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, reference, updatedAt, workStatusEnum, workspaceId } from './columns';
 import { folders } from './folders';
+import { softDeleteColumns } from './soft-delete';
 import { workspaces } from './workspaces';
 
 /**
@@ -27,11 +29,15 @@ export const projects = pgTable(
     status: workStatusEnum('status').notNull().default('idea'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+    ...softDeleteColumns(),
   },
   (table) => [
     // Workspace leads every index here: no query reads a project without a tenant in hand.
     index('projects_workspace_folder_idx').on(table.workspaceId, table.folderId),
     index('projects_workspace_status_idx').on(table.workspaceId, table.status),
     index('projects_workspace_updated_idx').on(table.workspaceId, table.updatedAt),
+    index('projects_workspace_live_idx')
+      .on(table.workspaceId, table.folderId)
+      .where(sql`deleted_at is null`),
   ],
 );

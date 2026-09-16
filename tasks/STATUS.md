@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **102** |
 
-Task `025` is next. `016` is passed over until its dependencies are `complete`. 17 of 85 iteration-one tasks are `complete`.
+Task `026` is next. `016` is passed over until its dependencies are `complete`. 18 of 85 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -43,8 +43,8 @@ Task `025` is next. `016` is passed over until its dependencies are `complete`. 
 | `021` | Core schema: identity, tenancy, and content hierarchy            | Data, authorization, audit           | `020`                                     | `complete` | `628f2c5` | —       |
 | `022` | Centralized authorization package                                | Data, authorization, audit           | `021`, `003`                              | `complete` | `50802b5` | —       |
 | `023` | Executable permission matrix and IDOR test suite                 | Data, authorization, audit           | `022`                                     | `complete` | `4d00a65` | —       |
-| `024` | Audit log                                                        | Data, authorization, audit           | `022`                                     | `complete` | —         | —       |
-| `025` | Soft deletion and recovery window                                | Data, authorization, audit           | `024`                                     | `pending`  | —         | —       |
+| `024` | Audit log                                                        | Data, authorization, audit           | `022`                                     | `complete` | `7ac4205` | —       |
+| `025` | Soft deletion and recovery window                                | Data, authorization, audit           | `024`                                     | `complete` | —         | —       |
 | `026` | Assets, immutable versions, and storage objects schema           | Data, authorization, audit           | `021`, `025`                              | `pending`  | —         | —       |
 | `027` | Seed and demo data                                               | Data, authorization, audit           | `026`, `024`                              | `pending`  | —         | —       |
 | `030` | Clerk authentication and session handling                        | Authentication and workspace         | `022`, `012`                              | `pending`  | —         | —       |

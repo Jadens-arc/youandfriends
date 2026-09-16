@@ -1,7 +1,9 @@
 import { forbidden, type WorkspaceId } from '@youandfriends/contracts';
 import {
+  excludeDeleted,
   favorites,
   folders,
+  hasSoftDelete,
   permissionGrants,
   projects,
   songs,
@@ -43,14 +45,36 @@ export const SCOPED_TABLES = {
 
 export type ScopedTable = (typeof SCOPED_TABLES)[keyof typeof SCOPED_TABLES];
 
+/**
+ * Whether a read includes rows in the trash.
+ *
+ * Excluding them is the default, and deliberately not a flag the caller has to remember: a
+ * forgotten filter shows deleted work as though it were live, which is the bug that makes
+ * "deleted" meaningless. Asking for `deleted` or `all` is an explicit, visible decision —
+ * the trash view, the restore flow, and the purge job are the only callers that need it.
+ */
+export type Lifecycle = 'live' | 'deleted' | 'all';
+
+export interface ScopedOptions {
+  readonly lifecycle?: Lifecycle | undefined;
+}
+
 export interface ScopedDb {
   readonly workspaceId: WorkspaceId;
-  /** Rows of `table` in this workspace, optionally narrowed further. */
-  many<T extends ScopedTable>(table: T, where?: SQL): Promise<T['$inferSelect'][]>;
-  /** The first matching row, or `null`. */
-  one<T extends ScopedTable>(table: T, where?: SQL): Promise<T['$inferSelect'] | null>;
-  /** How many rows match, in this workspace. */
-  count(table: ScopedTable, where?: SQL): Promise<number>;
+  /** Live rows of `table` in this workspace, optionally narrowed further. */
+  many<T extends ScopedTable>(
+    table: T,
+    where?: SQL,
+    options?: ScopedOptions,
+  ): Promise<T['$inferSelect'][]>;
+  /** The first matching live row, or `null`. */
+  one<T extends ScopedTable>(
+    table: T,
+    where?: SQL,
+    options?: ScopedOptions,
+  ): Promise<T['$inferSelect'] | null>;
+  /** How many live rows match, in this workspace. */
+  count(table: ScopedTable, where?: SQL, options?: ScopedOptions): Promise<number>;
 }
 
 /**
@@ -94,9 +118,21 @@ export async function scopedQuery(
    * already allows, never widen past it. The cast is the one place a `ScopedTable` union is
    * flattened for Drizzle's builder, which types `.from()` against a single table.
    */
-  const scope = (table: ScopedTable, where?: SQL): SQL => {
-    const tenant = eq(table.workspaceId, workspaceId);
-    return where === undefined ? tenant : (and(tenant, where) as SQL);
+  const scope = (table: ScopedTable, where?: SQL, options?: ScopedOptions): SQL => {
+    const conditions: SQL[] = [eq(table.workspaceId, workspaceId)];
+
+    // Tombstones are excluded unless the caller says otherwise. A table without the columns
+    // has no lifecycle to filter on, so asking for one there is silently satisfied rather
+    // than an error — `permission_grants` is not deleted, it is revoked.
+    const lifecycle = options?.lifecycle ?? 'live';
+    if (lifecycle !== 'all' && hasSoftDelete(table)) {
+      conditions.push(
+        lifecycle === 'live' ? excludeDeleted(table) : (sql`${table.deletedAt} is not null` as SQL),
+      );
+    }
+
+    if (where !== undefined) conditions.push(where);
+    return and(...conditions) as SQL;
   };
 
   const from = (table: ScopedTable) => db.select().from(table as typeof folders);
@@ -104,20 +140,22 @@ export async function scopedQuery(
   return {
     workspaceId,
 
-    async many(table, where) {
-      return (await from(table).where(scope(table, where))) as never;
+    async many(table, where, options) {
+      return (await from(table).where(scope(table, where, options))) as never;
     },
 
-    async one(table, where) {
-      const rows = await from(table).where(scope(table, where)).limit(1);
+    async one(table, where, options) {
+      const rows = await from(table)
+        .where(scope(table, where, options))
+        .limit(1);
       return (rows[0] ?? null) as never;
     },
 
-    async count(table, where) {
+    async count(table, where, options) {
       const rows = await db
         .select({ total: sql<number>`count(*)::int` })
         .from(table as typeof folders)
-        .where(scope(table, where));
+        .where(scope(table, where, options));
       return rows[0]?.total ?? 0;
     },
   };

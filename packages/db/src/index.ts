@@ -35,4 +35,27 @@ export {
  * queries against these directly; everything else reaches them through a scoped handle.
  */
 export * from './schema/index';
+export {
+  describePlan,
+  executePurge,
+  planPurge,
+  type ObjectReaper,
+  type PurgeCandidate,
+  type PurgeOptions,
+  type PurgePlan,
+  type PurgeRefusal,
+  type PurgeResult,
+} from './purge';
+export {
+  deleteFolder,
+  deleteProject,
+  deleteSong,
+  excludeDeleted,
+  hasSoftDelete,
+  purgeAfterFrom,
+  restoreBatch,
+  RestoreBlockedError,
+  type CascadeResult,
+  type SoftDeleteOptions,
+} from './soft-delete';
 export { TransactionError, withTransaction, type Transaction } from './transaction';

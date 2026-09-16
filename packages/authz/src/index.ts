@@ -45,6 +45,14 @@ export {
 } from './audit-query';
 export { buildChain, foldersInPath, type ChainInput } from './chain';
 export {
+  deleteEntity,
+  restoreEntity,
+  runPurge,
+  type LifecycleContext,
+  type PurgeRun,
+  type PurgeRunOptions,
+} from './lifecycle';
+export {
   isActive,
   resolve,
   type ChainLink,
@@ -52,7 +60,14 @@ export {
   type ResolvableGrant,
   type ResolveInput,
 } from './resolve';
-export { scopedQuery, type ScopedDb } from './scoped-query';
+export {
+  scopedQuery,
+  SCOPED_TABLES,
+  type Lifecycle,
+  type ScopedDb,
+  type ScopedOptions,
+  type ScopedTable,
+} from './scoped-query';
 export {
   anonymous,
   inheritsMembership,

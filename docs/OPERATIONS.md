@@ -174,6 +174,74 @@ account-closure behaviour as work to complete before public launch.
 reach the column — redacting on the way out would leave them sitting in the one table designed
 never to be edited.
 
+## 4c. Trash, restore, and purge
+
+Deleting is not destroying. Every user-visible entity carries `deleted_at`, `deleted_by`,
+`purge_after`, and `deleted_batch`; the row stays until a purge run destroys it after the
+recovery window (`YOUANDFRIENDS_RECOVERY_WINDOW_DAYS`, default 30).
+
+**Restore is by batch, not by entity.** Deleting a folder marks its subtree, the projects
+filed in it, and the songs in those — all with one `deleted_batch`. Restoring that batch
+brings back exactly those rows. A song its owner trashed separately, a week earlier, keeps
+its own batch and stays in the trash where they put it. Re-deriving the cascade at restore
+time would resurrect it.
+
+Two repairs happen on the way back:
+
+- A project whose folder is still deleted returns **unfiled**, which is a place the user can
+  find it rather than a pointer at something invisible.
+- A song whose project is still deleted **blocks** the restore with `RestoreBlockedError`.
+  `project_id` is not null and there is nowhere honest to put it; restoring the project
+  silently would be a bigger action than the one asked for.
+
+### The purge job
+
+```bash
+pnpm --filter @youandfriends/db purge -- --dry-run            # plan only, destroys nothing
+pnpm --filter @youandfriends/db purge -- --workspace <ID>     # confine to one tenant
+pnpm --filter @youandfriends/db purge -- --limit 100          # cap the blast radius
+pnpm --filter @youandfriends/db purge                         # execute
+```
+
+**This is the only command in the repository that destroys user work.** Read the plan before
+running it without `--dry-run`. The plan is printed every time, run or not, so the job output
+afterwards shows exactly what was intended.
+
+`--dry-run` is not a flag that skips the deletes. It takes a code path that never opens a
+write transaction, so a mistake in flag handling cannot destroy anything.
+
+**What the job refuses to do.** A parent is destroyed only when every descendant goes with it
+in the same run, and a refusal travels upward: a project held back keeps its folder alive too.
+Two silent-data-loss paths make that necessary, both found by running the job against real
+rows rather than by reading it:
+
+- `songs.project_id` cascades on delete, so purging a project hard-deletes every song still
+  pointing at it — including one trashed yesterday and still recoverable.
+- `projects.folder_id` is `on delete set null`, so purging a folder silently unfiles the
+  project inside it.
+
+Refusals are printed with their reason:
+
+```
+  Held back:
+    KEEP    projects NKNYDM…  — song QPZP49… is in the trash and not yet purgeable
+    KEEP    folders  MJ99Y6…  — project NKNYDM… is in the trash and not yet purgeable
+```
+
+**The plan is a proposal, never a warrant.** Execution re-checks each row, so anything an
+owner restored between planning and running is skipped.
+
+**Storage is not wired yet.** `packages/storage` arrives in task `050`. Until then a plan
+naming storage objects makes the run refuse rather than delete rows and orphan the objects
+they pointed at — an orphan no later run can find, because the pointers are gone. When it is
+wired, objects are deleted **after** the rows within the same transaction: if it rolls back
+afterwards the objects are gone but the rows still say what was lost, which is recoverable;
+the other order destroys the record of what to look for.
+
+**Every delete, restore, and purge is audited** per row, not per operation. Deleting a folder
+can remove forty songs, and "who deleted this song" has to be answerable for each of them.
+For a purged row the audit event is the only remaining record that it ever existed.
+
 ## 5. Orphan cleanup and storage reconciliation
 
 Three classes of drift, each with an opposite risk:
