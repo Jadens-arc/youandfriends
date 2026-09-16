@@ -1,4 +1,4 @@
 {
-  "extends": "@youandfriends/config/tsconfig/library.json",
+  "extends": "@youandfriends/config/tsconfig/react-library.json",
   "include": ["vitest-env.d.ts", "src/**/*.ts", "src/**/*.tsx"]
 }
