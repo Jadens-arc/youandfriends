@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **102** |
 
-Task `014` is next. 10 of 85 iteration-one tasks are `complete`.
+Task `015` is next. 11 of 85 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -35,8 +35,8 @@ Task `014` is next. 10 of 85 iteration-one tasks are `complete`.
 | `010` | Studio Notebook foundation tokens                                | Studio Notebook design system        | `000`, `001`                              | `complete` | `cb23adb` | —       |
 | `011` | Typography system and font loading                               | Studio Notebook design system        | `010`                                     | `complete` | `3b533fe` | —       |
 | `012` | shadcn primitives restyled into Studio Notebook                  | Studio Notebook design system        | `010`, `011`                              | `complete` | `ec3cb5d` | —       |
-| `013` | Desktop application shell                                        | Studio Notebook design system        | `012`                                     | `complete` | —         | —       |
-| `014` | Mobile application shell                                         | Studio Notebook design system        | `013`                                     | `pending`  | —         | —       |
+| `013` | Desktop application shell                                        | Studio Notebook design system        | `012`                                     | `complete` | `0d8b593` | —       |
+| `014` | Mobile application shell                                         | Studio Notebook design system        | `013`                                     | `complete` | —         | —       |
 | `015` | Isolated component showcase                                      | Studio Notebook design system        | `012`, `013`, `014`                       | `pending`  | —         | —       |
 | `016` | Menu and focus coverage in a real browser                        | Studio Notebook design system        | `012`, `120`                              | `pending`  | —         | —       |
 | `020` | Database package, Neon connection, migration tooling             | Data, authorization, audit           | `002`, `003`                              | `pending`  | —         | —       |

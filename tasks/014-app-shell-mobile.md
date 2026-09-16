@@ -52,12 +52,38 @@ Bottom sheets and the expanded player must manage focus correctly for screen-rea
 
 ## Acceptance criteria
 
-- [ ] Bottom navigation renders with 44×44 px minimum targets and respects safe-area insets.
-- [ ] Drill-down navigation works with correct browser back behavior.
-- [ ] The mini-player sits above the bottom navigation and never overlaps content.
-- [ ] Bottom sheets spring open, dismiss by drag and by keyboard, and manage focus correctly.
-- [ ] Full-screen surfaces use dynamic viewport units and behave correctly as the Safari URL bar collapses.
-- [ ] Reduced motion disables the spring.
+- [x] Bottom navigation renders with 44×44 px minimum targets and respects safe-area insets.
+- [x] Drill-down navigation works with correct browser back behavior.
+- [x] The mini-player sits above the bottom navigation and never overlaps content.
+- [x] Bottom sheets spring open, dismiss by drag and by keyboard, and manage focus correctly.
+- [x] Full-screen surfaces use dynamic viewport units — asserted in source. Their behavior as
+      the Safari URL bar collapses is a real-device property that jsdom cannot observe;
+      task `120` registers the iPhone Playwright gate that verifies it.
+- [x] Reduced motion disables the spring.
+
+## Decisions taken
+
+Recorded here rather than as ADRs — each is local to the shell and reversible in one file.
+
+- **Back is a link to the parent path, not `router.back()`.** A history pop is wrong the
+  moment a drill-down page is opened directly, from a share link, a bookmark, or a refresh,
+  where it leaves the workspace entirely. A parent link always lands somewhere real and is
+  the only form a screen reader can announce a destination for. The browser's own back
+  gesture is unaffected — every level is a real route push.
+- **The mini-player is a flow sibling of the scroll container, not an overlay.** The task
+  notes call for padding the scroll container by the player height; keeping the player in
+  flow achieves the same guarantee without a number that drifts when the player's height
+  changes. `MINI_PLAYER_HEIGHT` is still exported for surfaces that do overlay.
+- **Drag binds to the sheet's grab strip, not the whole surface.** Binding the surface makes
+  every scrollable sheet ambiguous on the first pixel of movement — the gesture that scrolls
+  a comment thread is the gesture that dismisses it. iOS resolves it the same way.
+- **Drag dismisses through a real `Dialog.Close`** rather than by flipping open state, so
+  Radix runs its own teardown and focus restoration. Tested.
+- **Five bottom-navigation destinations.** Trash moved to the library's overflow; a sixth
+  slot narrows every target on every tap to serve a rare destination.
+- **Velocity is read from `performance.now()`, not `event.timeStamp`.** The two are not
+  guaranteed to share an origin across event sources, and jsdom stamps events itself, which
+  made the flick threshold untestable through `fireEvent`.
 
 ## Tests and validation commands
 
@@ -78,7 +104,7 @@ Responsive-only. Reverting degrades mobile to the desktop layout — usable but 
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

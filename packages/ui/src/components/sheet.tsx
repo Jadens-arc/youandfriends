@@ -49,12 +49,19 @@ export const SheetClose = DialogPrimitive.Close;
 export interface SheetContentProps
   extends
     React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {}
+    VariantProps<typeof sheetVariants> {
+  /**
+   * Spread onto the bottom variant's grab strip. `BottomSheetContent` uses it to attach its
+   * drag gesture; the strip is the only part of the surface that may claim a vertical
+   * gesture, so the sheet owns it rather than exposing a ref to the whole content.
+   */
+  dragHandleProps?: React.ComponentPropsWithoutRef<'div'> & Record<`data-${string}`, string>;
+}
 
 export const SheetContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   SheetContentProps
->(function SheetContent({ side = 'bottom', className, children, ...props }, ref) {
+>(function SheetContent({ side = 'bottom', className, children, dragHandleProps, ...props }, ref) {
   return (
     <DialogPrimitive.Portal>
       <DialogOverlay />
@@ -67,11 +74,21 @@ export const SheetContent = React.forwardRef<
         {...props}
       >
         {side === 'bottom' ? (
-          // A grab handle signals draggability and gives the eye somewhere to land.
+          // A grab handle signals draggability and gives the eye somewhere to land. The bar
+          // itself is too small to grab reliably, so the strip around it is the target — it
+          // reaches the sheet's padding on every side.
           <div
-            className="bg-border-strong mx-auto -mt-2 h-1 w-10 shrink-0 rounded-full"
-            aria-hidden
-          />
+            {...dragHandleProps}
+            className={cn(
+              '-mx-6 -mt-6 flex shrink-0 justify-center px-6 pt-4 pb-2',
+              // Without this the browser claims a vertical gesture for scrolling and the
+              // drag handler never sees a move event.
+              'touch-none',
+              dragHandleProps?.className,
+            )}
+          >
+            <span className="bg-border-strong h-1 w-10 rounded-full" aria-hidden />
+          </div>
         ) : null}
         {children}
         <DialogPrimitive.Close

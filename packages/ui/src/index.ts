@@ -25,6 +25,7 @@ export {
 } from './tokens';
 
 export { cn } from './lib/cn';
+export { usePrefersReducedMotion } from './lib/use-prefers-reduced-motion';
 export {
   disabledState,
   focusRing,
@@ -34,6 +35,7 @@ export {
 } from './lib/focus';
 
 export * from './components/badge';
+export * from './components/bottom-sheet';
 export * from './components/button';
 export * from './components/checkbox';
 export * from './components/command';
