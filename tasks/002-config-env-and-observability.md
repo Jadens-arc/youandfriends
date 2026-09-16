@@ -61,12 +61,12 @@ control and its tests are security tests. Presigned-URL redaction is explicitly 
 
 ## Acceptance criteria
 
-- [ ] Missing a required variable fails at startup with all problems listed at once.
-- [ ] Server secrets are structurally unavailable to client code.
-- [ ] The logger redacts secrets, tokens, `DATABASE_URL`, authorization headers, and presigned URLs.
-- [ ] With no Sentry DSN, error reporting is a silent no-op and nothing throws.
-- [ ] With a DSN, errors reach the adapter.
-- [ ] `.env.example` documents every variable with description and source; no values.
+- [x] Missing a required variable fails at startup with all problems listed at once.
+- [x] Server secrets are structurally unavailable to client code.
+- [x] The logger redacts secrets, tokens, `DATABASE_URL`, authorization headers, and presigned URLs.
+- [x] With no Sentry DSN, error reporting is a silent no-op and nothing throws.
+- [x] With a DSN, errors reach the adapter.
+- [x] `.env.example` documents every variable with description and source; no values.
 
 ## Tests and validation commands
 
@@ -90,7 +90,7 @@ Additive. Reverting loses validation but breaks no data. Must land before any ta
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

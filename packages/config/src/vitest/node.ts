@@ -26,7 +26,10 @@ export const nodePreset = defineConfig({
         'src/eslint/**',
         'src/vitest/**',
       ],
-      thresholds: { lines: 0, functions: 0, branches: 0, statements: 0 },
+      // Ratchet (task 001 policy). Raised in task `002` once packages/config gained real
+      // runtime code and reached 98% statements / 93% branches. Each task that adds runtime
+      // code raises this to just below what it achieved.
+      thresholds: { lines: 90, functions: 85, branches: 80, statements: 90 },
     },
   },
 });

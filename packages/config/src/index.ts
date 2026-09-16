@@ -1,9 +1,8 @@
 /**
- * Shared configuration for You & Friends.
+ * `@youandfriends/config`
  *
- * Environment parsing, structured logging, and observability hooks land here in task `002`.
- * Today this package exists so the dependency direction in `docs/ARCHITECTURE.md` §3 is real
- * from the first commit rather than retrofitted.
+ * Environment parsing, structured logging, redaction, and observability hooks.
+ * See docs/ARCHITECTURE.md §9.
  */
 
 /** Product identity. The ampersand is part of the name — see `docs/DESIGN.md` §16. */
@@ -17,3 +16,30 @@ export const PRODUCT_DOMAIN = 'youandfriends.org' as const;
  * conventional names (`CLERK_SECRET_KEY`, `DATABASE_URL`, …).
  */
 export const ENV_PREFIX = 'YOUANDFRIENDS_' as const;
+
+export {
+  EnvironmentError,
+  hasSentryDsn,
+  parsePublicEnv,
+  parseServerEnv,
+  requireServerEnv,
+  type PublicEnv,
+  type ServerEnv,
+} from './env';
+export { isDeniedKey, isDeniedValue, redact, REDACTED } from './redact';
+export {
+  createLogger,
+  loggerForEnv,
+  newCorrelationId,
+  type Logger,
+  type LogLevel,
+  type LogRecord,
+} from './logger';
+export {
+  createNoopReporter,
+  createReporter,
+  createSentryReporter,
+  type ErrorContext,
+  type ErrorReporter,
+  type SentryTransport,
+} from './observability';

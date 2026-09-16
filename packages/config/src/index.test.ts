@@ -6,7 +6,7 @@ import {
   PRODUCT_DOMAIN,
   PRODUCT_NAME,
   PRODUCT_TAGLINE,
-} from './index.js';
+} from './index';
 
 describe('product identity', () => {
   it('always renders the name with an ampersand', () => {

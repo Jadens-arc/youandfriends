@@ -92,4 +92,4 @@ Config-only. Reverting restores the task `000` scaffold. No runtime impact.
 
 ## Commit
 
-_(not yet)_
+`76ad7ebdf576130be3d69bf172cdbc531c6b948e`
