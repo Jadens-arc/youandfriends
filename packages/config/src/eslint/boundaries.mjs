@@ -52,4 +52,37 @@ export const contractsBoundary = tseslint.config({
   },
 });
 
+/**
+ * No raw colour literals in components.
+ *
+ * Colours are defined once, in `packages/ui/src/tokens.ts` and mirrored into `tokens.css`.
+ * A hex or rgb() literal in a component is how a design system stops being a system —
+ * CLAUDE.md §13. Token files themselves are exempt, since that is where the values live.
+ */
+export const noRawColors = tseslint.config({
+  files: ['**/*.{ts,tsx}'],
+  ignores: ['**/tokens.ts', '**/tokens.test.ts', '**/contrast.ts', '**/contrast.test.ts'],
+  rules: {
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector:
+          'Literal[value=/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]',
+        message:
+          'Raw colour literal. Use a Studio Notebook token — see packages/ui/src/tokens.ts and docs/DESIGN.md §11.',
+      },
+      {
+        selector: 'Literal[value=/rgba?\\(/]',
+        message:
+          'Raw colour literal. Use a Studio Notebook token — see packages/ui/src/tokens.ts and docs/DESIGN.md §11.',
+      },
+      {
+        selector: 'TemplateElement[value.raw=/#[0-9a-fA-F]{6}\\b/]',
+        message:
+          'Raw colour literal in a template string. Use a Studio Notebook token — see packages/ui/src/tokens.ts.',
+      },
+    ],
+  },
+});
+
 export default contractsBoundary;

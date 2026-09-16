@@ -23,7 +23,11 @@ export const reactPreset = defineConfig({
       provider: 'v8',
       reporter: ['text-summary', 'json-summary'],
       exclude: ['**/*.test.{ts,tsx}', '**/__tests__/**', '**/*.config.*', '**/.next/**'],
-      thresholds: { lines: 0, functions: 0, branches: 0, statements: 0 },
+      // Baseline floor for component workspaces, sized to the weakest of them (apps/web,
+      // which is mostly untested surface until the shell lands in task `013`). A package
+      // that does better overrides this upward — see packages/ui/vitest.config.ts — so a
+      // shared baseline never caps a well-tested package's gate.
+      thresholds: { lines: 25, functions: 25, branches: 25, statements: 25 },
     },
   },
 });

@@ -1,12 +1,23 @@
 /**
  * `@youandfriends/ui`
  *
- * The Studio Notebook design system on shadcn primitives. Tokens, typography, and components.
+ * The Studio Notebook design system. Tokens today; shadcn primitives arrive in task `012`.
  *
- * Implementation arrives in task `010`. This package exists from the first commit so the
- * dependency direction described in `docs/ARCHITECTURE.md` §3 is enforced by the
- * workspace graph rather than by convention.
+ * Stylesheets are consumed directly:
+ *   `@import '@youandfriends/ui/styles/tokens.css';`
  */
 
-/** Package identifier, used to confirm the workspace graph resolves correctly. */
 export const PACKAGE_NAME = '@youandfriends/ui' as const;
+
+export { AA_LARGE, AA_NON_TEXT, AA_NORMAL, contrastRatio, luminance } from './contrast';
+export {
+  accent,
+  border,
+  motion,
+  radius,
+  shadow,
+  surface,
+  text,
+  tokens,
+  TEXT_ON_SURFACE_PAIRS,
+} from './tokens';

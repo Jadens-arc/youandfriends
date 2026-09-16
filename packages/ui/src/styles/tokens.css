@@ -1,0 +1,101 @@
+/*
+ * Studio Notebook foundation tokens.
+ *
+ * Mirrors `src/tokens.ts`, which is the source of truth. A test asserts the two match, so
+ * they cannot drift.
+ *
+ * Light mode is the primary identity. Dark mode is deferred to task `211` and must be a
+ * designed palette, never a mechanical inversion (docs/DESIGN.md §11).
+ */
+
+@theme {
+  /* Surfaces */
+  --color-canvas: #f3eee3;
+  --color-paper: #f8f4ea;
+  --color-espresso: #2a1f18;
+
+  /* Text */
+  --color-ink: #241c17;
+  --color-secondary: #746a60;
+  --color-secondary-on-espresso: #918981;
+  --color-on-espresso: #f3eee3;
+
+  /* Accents — base for fills, `-text` for anything carrying words */
+  --color-olive: #899078;
+  --color-olive-text: #696f5c;
+  --color-rust: #c98267;
+  --color-rust-text: #935f4b;
+  --color-ochre: #b6a268;
+  --color-ochre-text: #786b45;
+
+  /* Borders: ink at low opacity, so they tint with the surface beneath */
+  --color-border-subtle: rgb(36 28 23 / 0.1);
+  --color-border: rgb(36 28 23 / 0.14);
+  --color-border-strong: rgb(36 28 23 / 0.28);
+  --color-border-on-espresso: rgb(243 238 227 / 0.14);
+
+  /* Radii — mostly 8–14px; `full` is for genuinely circular elements only */
+  --radius-sm: 8px;
+  --radius: 10px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  /* Elevation — ink-tinted, never neutral black */
+  --shadow-paper: 0 1px 2px rgb(36 28 23 / 0.06);
+  --shadow-raised: 0 2px 8px rgb(36 28 23 / 0.08);
+  --shadow-overlay: 0 8px 24px rgb(36 28 23 / 0.12);
+  --shadow-inset: inset 0 1px 0 rgb(243 238 227 / 0.08);
+
+  /* Motion */
+  --duration-fast: 150ms;
+  --duration: 180ms;
+  --duration-slow: 220ms;
+  --ease-notebook: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.26, 0.64, 1);
+}
+
+/*
+ * shadcn semantic aliases. Components address these names, never the raw palette, so a
+ * palette change never requires touching a component.
+ */
+@theme {
+  --color-background: var(--color-canvas);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-paper);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-paper);
+  --color-popover-foreground: var(--color-ink);
+  --color-primary: var(--color-espresso);
+  --color-primary-foreground: var(--color-on-espresso);
+  --color-muted: var(--color-paper);
+  --color-muted-foreground: var(--color-secondary);
+  --color-accent: var(--color-olive);
+  --color-accent-foreground: var(--color-ink);
+  --color-destructive: var(--color-rust-text);
+  --color-destructive-foreground: var(--color-on-espresso);
+  --color-input: var(--color-border);
+  --color-ring: var(--color-ink);
+  --color-ring-on-espresso: var(--color-on-espresso);
+}
+
+/*
+ * Reduced motion collapses every duration to zero at the token layer, so components inherit
+ * the behaviour without opting in (docs/DESIGN.md §11).
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration: 0ms;
+    --duration-slow: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

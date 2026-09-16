@@ -53,12 +53,12 @@ Low direct risk. The contrast checks here are an accessibility control, and the 
 
 ## Acceptance criteria
 
-- [ ] Every token from `docs/DESIGN.md` §11 exists as a CSS custom property.
-- [ ] The Tailwind preset maps tokens to shadcn semantic names.
-- [ ] An automated test asserts WCAG 2.2 AA contrast for every text-on-surface token pair.
-- [ ] `prefers-reduced-motion` reduces motion tokens to zero at the token layer.
-- [ ] A lint rule rejects raw hex/rgb color literals in `packages/ui` and `apps/web` components.
-- [ ] The grain overlay renders without measurable scroll jank at desktop and mobile viewports.
+- [x] Every token from `docs/DESIGN.md` §11 exists as a CSS custom property.
+- [x] The Tailwind preset maps tokens to shadcn semantic names.
+- [x] An automated test asserts WCAG 2.2 AA contrast for every text-on-surface token pair.
+- [x] `prefers-reduced-motion` reduces motion tokens to zero at the token layer.
+- [x] A lint rule rejects raw hex/rgb color literals in `packages/ui` and `apps/web` components.
+- [x] The grain overlay renders without measurable scroll jank at desktop and mobile viewports.
 
 ## Tests and validation commands
 
@@ -80,7 +80,7 @@ Token-only; reverting restores unstyled defaults and breaks visual consistency b
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

@@ -16,7 +16,7 @@ acceptance criterion.
 | Deferred tasks      | 17     |
 | **Total**           | **99** |
 
-Current position: task `010` is next. Tasks `000`–`003` are `complete`.
+Current position: task `011` is next. Tasks `000`–`003` and `010` are `complete`.
 
 ## Iteration one
 

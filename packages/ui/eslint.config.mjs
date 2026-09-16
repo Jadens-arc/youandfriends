@@ -1,3 +1,5 @@
 import config from '@youandfriends/config/eslint/react';
+import { noRawColors } from '@youandfriends/config/eslint/boundaries';
 
-export default config;
+// Colours come from tokens — see docs/DESIGN.md §11.
+export default [...config, ...noRawColors];

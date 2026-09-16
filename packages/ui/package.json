@@ -5,7 +5,10 @@
   "type": "module",
   "description": "The Studio Notebook design system on shadcn primitives. Tokens, typography, and components.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tokens": "./src/tokens.ts",
+    "./styles/tokens.css": "./src/styles/tokens.css",
+    "./styles/grain.css": "./src/styles/grain.css"
   },
   "scripts": {
     "lint": "eslint .",
@@ -18,8 +21,9 @@
     "@youandfriends/config": "workspace:*"
   },
   "devDependencies": {
+    "@youandfriends/config": "workspace:*",
+    "tailwindcss": "^4.3.3",
     "typescript": "~5.9.3",
-    "vitest": "^3.2.7",
-    "@youandfriends/config": "workspace:*"
+    "vitest": "^3.2.7"
   }
 }
