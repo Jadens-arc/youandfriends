@@ -30,7 +30,13 @@ export interface Authorizer {
   can(subject: Subject, action: Action, target: Target): Promise<boolean>;
 }
 
-/** Called when a decision is made. Task `024` writes audit events through this. */
+/**
+ * Called when a decision is made. Task `024` writes audit events through this.
+ *
+ * May return a promise, and `can` awaits it. An audit write is the intended use, and a
+ * fire-and-forget audit write is exactly the silently-incomplete log ADR 0006 rules out — the
+ * failure would be invisible and the record would be trusted anyway.
+ */
 export interface DecisionSink {
   (decision: {
     readonly subject: Subject;
@@ -38,7 +44,7 @@ export interface DecisionSink {
     readonly action: Action | null;
     readonly access: EffectiveAccess;
     readonly allowed: boolean;
-  }): void;
+  }): void | Promise<void>;
 }
 
 export interface AuthorizerOptions {
@@ -84,7 +90,7 @@ export function createAuthorizer(db: Database, options: AuthorizerOptions = {}):
   async function can(subject: Subject, action: Action, target: Target): Promise<boolean> {
     const access = await resolveAccess(subject, target);
     const allowed = permits(access, action);
-    options.onDecision?.({ subject, target, action, access, allowed });
+    await options.onDecision?.({ subject, target, action, access, allowed });
     return allowed;
   }
 

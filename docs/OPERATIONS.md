@@ -138,6 +138,42 @@ migrate → contract across three deploys, never one:
 A single-deploy destructive migration is a stop condition for `/loop`, not a judgment call
 for an agent to make alone.
 
+## 4b. Reading the audit log
+
+Every authentication, access, sharing, permission change, upload, edit, download, deletion,
+restoration, and administrative action is recorded in `audit_events`, in the same transaction
+as the change it records. A rolled-back action leaves no event.
+
+**Reading it.** `queryAuditEvents` in `@youandfriends/authz` — workspace owners only. The
+administration UI is deferred to task `207`; until then an investigation runs it directly.
+
+```ts
+await queryAuditEvents(db, ownerSubject, workspaceId, {
+  targetId: songId, // or actorId, action, targetType
+  limit: 100, // capped at MAX_AUDIT_PAGE
+});
+```
+
+Rows are returned newest first **by id, not timestamp**: several events written in one
+transaction share a timestamp to the millisecond, and ids are monotonic within one, so the
+order they are read is the order they happened.
+
+**Joining to the logs.** Each row carries `correlation_id`. Search the structured logs for the
+same value to get the request that produced it.
+
+**The log cannot be edited.** `UPDATE`, `DELETE`, and `TRUNCATE` are refused by a database
+trigger, for every caller including the role the application connects as. If history looks
+wrong, the remedy is a corrective event, never a correction.
+
+**Deleting a workspace is refused while its events exist.** That is deliberate: a cascade
+would destroy the record as a side effect of another action. Purging a tenant's history is a
+separate, deliberate retention procedure, and `docs/DESIGN.md` §13 lists retention and
+account-closure behaviour as work to complete before public launch.
+
+**Metadata is redacted on the way in.** Secrets, presigned URLs, and password verifiers never
+reach the column — redacting on the way out would leave them sitting in the one table designed
+never to be edited.
+
 ## 5. Orphan cleanup and storage reconciliation
 
 Three classes of drift, each with an opposite risk:

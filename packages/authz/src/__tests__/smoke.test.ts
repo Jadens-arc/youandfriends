@@ -370,7 +370,7 @@ describeWithDatabase('authorizer', () => {
     it('reports every decision, for task 024 to audit', async () => {
       const { owner, workspace, song } = await makeTree();
       const decisions: { allowed: boolean }[] = [];
-      const authorizer = createAuthorizer(db, { onDecision: (d) => decisions.push(d) });
+      const authorizer = createAuthorizer(db, { onDecision: (d) => void decisions.push(d) });
 
       await authorizer.can(
         memberSubject(owner.id as never),

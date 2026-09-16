@@ -26,7 +26,12 @@ import type { ScopedTable } from '../scoped-query';
 export interface LiveResource {
   readonly status: 'live';
   readonly name: string;
-  readonly table: ScopedTable;
+  /**
+   * The table, when a scoped handle may read it at all. `null` means the class is deliberately
+   * unreachable through `scopedQuery` and has its own guarded read path — which is stronger,
+   * not weaker: an unguarded read is not one call away.
+   */
+  readonly table: ScopedTable | null;
   /** The authz scope this class is reached through, or `null` if it is not directly targetable. */
   readonly scopeType: 'folder' | 'project' | 'song' | null;
   readonly why: string;
@@ -94,6 +99,16 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     why: 'Reading the grants tells an attacker exactly where the soft edges are.',
   },
 
+  {
+    status: 'live',
+    name: 'audit_events',
+    // Deliberately not readable through a scoped handle. The only path is
+    // `queryAuditEvents`, which requires workspace ownership — see `audit-query.ts`.
+    table: null,
+    scopeType: null,
+    why: 'Who did what, and when. Another tenant\u2019s log is a complete activity record.',
+  },
+
   // Not yet created. Each is converted to `live` by the task that builds its table; the
   // completeness check below fails if one of these quietly appears without being converted.
   {
@@ -158,13 +173,6 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     tableName: 'notifications',
     task: '095',
     why: 'Reveals activity, timing, and who is working with whom.',
-  },
-  {
-    status: 'pending',
-    name: 'audit_events',
-    tableName: 'audit_events',
-    task: '024',
-    why: 'The record of who did what. Reading another tenant’s is a complete activity log.',
   },
   {
     status: 'pending',

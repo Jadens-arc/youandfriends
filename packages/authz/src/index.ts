@@ -27,6 +27,22 @@ export {
   type AuthorizerOptions,
   type DecisionSink,
 } from './authorizer';
+export {
+  auditClassOf,
+  auditDecisions,
+  safeMetadata,
+  withAuditedTransaction,
+  type AuditContext,
+  type AuditedTransaction,
+  type AuditEmitter,
+  type AuditEntry,
+} from './audit';
+export {
+  assertWorkspaceOwner,
+  queryAuditEvents,
+  MAX_AUDIT_PAGE,
+  type AuditQuery,
+} from './audit-query';
 export { buildChain, foldersInPath, type ChainInput } from './chain';
 export {
   isActive,

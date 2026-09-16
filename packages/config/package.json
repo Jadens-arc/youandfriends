@@ -11,7 +11,8 @@
     "./vitest/node": "./src/vitest/node.ts",
     "./vitest/react": "./src/vitest/react.ts",
     "./eslint/boundaries": "./src/eslint/boundaries.mjs",
-    "./eslint/rules": "./src/eslint/rules/index.mjs"
+    "./eslint/rules": "./src/eslint/rules/index.mjs",
+    "./fixtures": "./src/fixtures/credentials.ts"
   },
   "scripts": {
     "lint": "eslint .",

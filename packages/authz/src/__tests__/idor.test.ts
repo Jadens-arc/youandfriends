@@ -126,9 +126,14 @@ describeWithDatabase('cross-workspace access', () => {
   });
 
   describe('a scoped handle cannot read another tenant', () => {
+    const scopedReadable = liveResources.filter(
+      (resource): resource is typeof resource & { table: NonNullable<typeof resource.table> } =>
+        resource.table !== null,
+    );
+
     // Generated per resource class, so a new class inherits the whole set by registering
-    // rather than by someone writing these five cases again.
-    it.each(liveResources)('$name', async (resource) => {
+    // rather than by someone writing these cases again.
+    it.each(scopedReadable)('$name', async (resource) => {
       const mine = await makeTenant(db);
       const theirs = await makeTenant(db);
 
@@ -146,7 +151,7 @@ describeWithDatabase('cross-workspace access', () => {
       expect(foreign, `${resource.name} leaked rows from another workspace`).toEqual([]);
     });
 
-    it.each(liveResources)('$name, asked for by id', async (resource) => {
+    it.each(scopedReadable)('$name, asked for by id', async (resource) => {
       const mine = await makeTenant(db);
       const theirs = await makeTenant(db);
 

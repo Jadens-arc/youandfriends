@@ -12,6 +12,7 @@
  * across a tenant boundary the first time someone writes a query (`docs/THREAT_MODEL.md` T1).
  */
 
+import { auditEvents } from './audit';
 import { favorites } from './favorites';
 import { folders } from './folders';
 import { permissionGrants } from './permissions';
@@ -20,6 +21,7 @@ import { songs } from './songs';
 import { users } from './users';
 import { workspaceMemberships, workspaces } from './workspaces';
 
+export * from './audit';
 export * from './columns';
 export * from './favorites';
 export * from './folders';
@@ -45,6 +47,7 @@ export const NON_TENANT_TABLES: Readonly<Record<string, string>> = {
 };
 
 export const schema = {
+  auditEvents,
   users,
   workspaces,
   workspaceMemberships,

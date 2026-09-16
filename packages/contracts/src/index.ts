@@ -14,6 +14,7 @@ export const PACKAGE_NAME = '@youandfriends/contracts' as const;
 
 export * from './actions';
 export * from './assets';
+export * from './audit';
 export * from './errors';
 export * from './ids';
 export * from './pagination';
