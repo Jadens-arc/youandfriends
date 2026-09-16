@@ -10,7 +10,8 @@
     "./eslint/react": "./src/eslint/react.mjs",
     "./vitest/node": "./src/vitest/node.ts",
     "./vitest/react": "./src/vitest/react.ts",
-    "./eslint/boundaries": "./src/eslint/boundaries.mjs"
+    "./eslint/boundaries": "./src/eslint/boundaries.mjs",
+    "./eslint/rules": "./src/eslint/rules/index.mjs"
   },
   "scripts": {
     "lint": "eslint .",

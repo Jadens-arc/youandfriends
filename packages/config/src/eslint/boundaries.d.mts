@@ -14,5 +14,8 @@ export declare const contractsBoundary: Linter.Config[];
 /** Forbids raw colour literals in component workspaces. */
 export declare const noRawColors: Linter.Config[];
 
+/** Requires `@youandfriends/authz` alongside `@youandfriends/db` in request-handling code. */
+export declare const authzBoundary: Linter.Config[];
+
 declare const _default: Linter.Config[];
 export default _default;

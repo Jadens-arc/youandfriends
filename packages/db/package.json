@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Drizzle schema, migrations, and the typed Neon client. The durable record.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/__tests__/index.ts",
+    "./env-file": "./src/env-file.ts"
   },
   "scripts": {
     "lint": "eslint .",

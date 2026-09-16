@@ -14,6 +14,7 @@
 
 import { favorites } from './favorites';
 import { folders } from './folders';
+import { permissionGrants } from './permissions';
 import { projects } from './projects';
 import { songs } from './songs';
 import { users } from './users';
@@ -22,6 +23,7 @@ import { workspaceMemberships, workspaces } from './workspaces';
 export * from './columns';
 export * from './favorites';
 export * from './folders';
+export * from './permissions';
 export * from './projects';
 export * from './songs';
 export * from './users';
@@ -48,6 +50,7 @@ export const schema = {
   workspaceMemberships,
   folders,
   projects,
+  permissionGrants,
   songs,
   favorites,
 };

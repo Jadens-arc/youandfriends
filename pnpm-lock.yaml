@@ -111,6 +111,15 @@ importers:
       '@youandfriends/config':
         specifier: workspace:*
         version: link:../config
+      '@youandfriends/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@youandfriends/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@neondatabase/serverless@1.1.0)(@types/pg@8.23.1)(pg@8.23.0)
     devDependencies:
       typescript:
         specifier: ~5.9.3

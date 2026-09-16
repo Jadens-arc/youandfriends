@@ -30,5 +30,9 @@ export {
   withDatabase,
   type ScratchDatabase,
 } from './scratch';
-export { schema, type Schema } from './schema/index';
+/**
+ * The tables themselves, so callers name `songs` rather than `schema.songs`. `authz` builds
+ * queries against these directly; everything else reaches them through a scoped handle.
+ */
+export * from './schema/index';
 export { TransactionError, withTransaction, type Transaction } from './transaction';

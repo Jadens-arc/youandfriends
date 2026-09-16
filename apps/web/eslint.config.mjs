@@ -1,5 +1,10 @@
 import config from '@youandfriends/config/eslint/react';
-import { noRawColors } from '@youandfriends/config/eslint/boundaries';
+import { authzBoundary, noRawColors } from '@youandfriends/config/eslint/boundaries';
 
-// Colours come from tokens — see docs/DESIGN.md §11.
-export default [...config, ...noRawColors];
+export default [
+  ...config,
+  // Colours come from tokens — see docs/DESIGN.md §11.
+  ...noRawColors,
+  // Tenant-scoped reads go through the authorizer — ADR 0006.
+  ...authzBoundary,
+];

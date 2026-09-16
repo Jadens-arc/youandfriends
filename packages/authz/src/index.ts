@@ -1,12 +1,54 @@
 /**
  * `@youandfriends/authz`
  *
- * The single source of permission truth. Scope-chain resolution, capability checks, and audit emission.
+ * The single source of permission truth (ADR 0006). No route handler, server action, or
+ * component performs a role comparison; a lint rule enforces that mechanically, because a
+ * rule maintained by discipline is a rule that survives until the first hurried afternoon.
  *
- * Implementation arrives in task `022`. This package exists from the first commit so the
- * dependency direction described in `docs/ARCHITECTURE.md` §3 is enforced by the
- * workspace graph rather than by convention.
+ * The surface is deliberately small:
+ *
+ *   createAuthorizer(db)                          one per request, never shared
+ *     .resolveAccess(subject, target)             effective role and capabilities
+ *     .assertCan(subject, action, target)         throws 404-shaped on refusal
+ *     .can(subject, action, target)               the same decision as a boolean
+ *   scopedQuery(db, subject, workspaceId)         a handle that cannot read another tenant
+ *
+ * `resolve` is exported separately as a pure function so the rules can be tested exhaustively
+ * without a database — task `023` enumerates the matrix over it.
  */
 
 /** Package identifier, used to confirm the workspace graph resolves correctly. */
 export const PACKAGE_NAME = '@youandfriends/authz' as const;
+
+export {
+  createAuthorizer,
+  permits,
+  type Authorizer,
+  type AuthorizerOptions,
+  type DecisionSink,
+} from './authorizer';
+export { buildChain, foldersInPath, type ChainInput } from './chain';
+export {
+  isActive,
+  resolve,
+  type ChainLink,
+  type MembershipBaseline,
+  type ResolvableGrant,
+  type ResolveInput,
+} from './resolve';
+export { scopedQuery, type ScopedDb } from './scoped-query';
+export {
+  anonymous,
+  inheritsMembership,
+  memberSubject,
+  shareLinkSubject,
+  subjectId,
+  syncTokenSubject,
+  type AnonymousSubject,
+  type MemberSubject,
+  type ShareLinkSubject,
+  type Subject,
+  type SyncTokenSubject,
+  type Target,
+} from './subjects';
+export { loadChain } from './target';

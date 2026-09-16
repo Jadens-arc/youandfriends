@@ -15,11 +15,14 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@youandfriends/config": "workspace:*"
+    "@youandfriends/config": "workspace:*",
+    "@youandfriends/contracts": "workspace:*",
+    "@youandfriends/db": "workspace:*",
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
+    "@youandfriends/config": "workspace:*",
     "typescript": "~5.9.3",
-    "vitest": "^3.2.7",
-    "@youandfriends/config": "workspace:*"
+    "vitest": "^3.2.7"
   }
 }

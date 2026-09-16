@@ -8,6 +8,8 @@
 
 import tseslint from 'typescript-eslint';
 
+import { youandfriendsPlugin } from './rules/index.mjs';
+
 const INFRASTRUCTURE = [
   '@youandfriends/db',
   '@youandfriends/storage',
@@ -102,3 +104,22 @@ export const noRawColors = tseslint.config({
 });
 
 export default contractsBoundary;
+
+/**
+ * Request-handling code reaches the database only through the authorizer.
+ *
+ * Scoped to the directories that serve requests. A script, a migration, or a job legitimately
+ * talks to the database directly — applying this everywhere would train people to disable it,
+ * which is worse than not having it.
+ */
+export const authzBoundary = tseslint.config({
+  files: [
+    'app/**/*.{ts,tsx}',
+    'src/app/**/*.{ts,tsx}',
+    'pages/api/**/*.{ts,tsx}',
+    'server/**/*.{ts,tsx}',
+    'actions/**/*.{ts,tsx}',
+  ],
+  plugins: { youandfriends: youandfriendsPlugin },
+  rules: { 'youandfriends/no-unscoped-db': 'error' },
+});
