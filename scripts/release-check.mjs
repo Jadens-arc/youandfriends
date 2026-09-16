@@ -30,6 +30,11 @@ import process from 'node:process';
 /** @type {Gate[]} */
 const GATES = [
   { name: 'format', command: 'pnpm format:check', reproduce: 'pnpm format' },
+  {
+    name: 'task index',
+    command: 'node scripts/generate-status.mjs --check',
+    reproduce: 'node scripts/generate-status.mjs',
+  },
   { name: 'lint', command: 'pnpm lint' },
   { name: 'typecheck', command: 'pnpm typecheck' },
   { name: 'unit', command: 'pnpm test' },

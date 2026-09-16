@@ -20,7 +20,8 @@
     "release-check": "node scripts/release-check.mjs",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "test:coverage": "turbo run test:coverage",
-    "audit": "pnpm audit --audit-level=high || true"
+    "audit": "pnpm audit --audit-level=high || true",
+    "status": "node scripts/generate-status.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
