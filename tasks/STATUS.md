@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **102** |
 
-Task `016` is next. 12 of 85 iteration-one tasks are `complete`.
+Task `020` is next. `016` is passed over until its dependencies are `complete`. 12 of 85 iteration-one tasks are `complete`.
 
 ## Iteration one
 

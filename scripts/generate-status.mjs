@@ -70,11 +70,31 @@ function render(tasks) {
   const complete = iterationOne.filter((t) => t.status === 'complete');
   const inProgress = iterationOne.find((t) => t.status === 'in-progress');
   const blocked = iterationOne.filter((t) => t.status === 'blocked');
-  const nextUp = iterationOne.find((t) => t.status === 'pending');
+
+  // "Next" means the earliest *unblocked* pending task, per CLAUDE.md §2. Reading it off
+  // task order alone named tasks whose dependencies had not shipped — a plausible-looking
+  // answer that sends the next agent at work it cannot finish.
+  const completeNumbers = new Set(complete.map((t) => t.number));
+  const dependenciesMet = (task) =>
+    [...task.deps.matchAll(/`(\d{3})`/g)].every(([, number]) => completeNumbers.has(number));
+
+  const pending = iterationOne.filter((t) => t.status === 'pending');
+  const nextUp = pending.find(dependenciesMet);
+  // Pending tasks ahead of the next one, passed over because a dependency has not shipped.
+  // Naming them is the point: silently skipping a task is how a plan loses work.
+  const skipped = pending
+    .slice(0, nextUp ? pending.indexOf(nextUp) : pending.length)
+    .map((t) => `\`${t.number}\``);
 
   const position = inProgress
     ? `Task \`${inProgress.number}\` is \`in-progress\`.`
-    : `Task \`${nextUp?.number ?? '—'}\` is next.`;
+    : `Task \`${nextUp?.number ?? '—'}\` is next.${
+        skipped.length > 0
+          ? ` ${skipped.join(', ')} ${skipped.length === 1 ? 'is' : 'are'} passed over until ${
+              skipped.length === 1 ? 'its' : 'their'
+            } dependencies are \`complete\`.`
+          : ''
+      }`;
 
   return `# You & Friends — Task Status
 
