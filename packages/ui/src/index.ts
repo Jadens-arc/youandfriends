@@ -45,6 +45,7 @@ export * from './components/input';
 export * from './components/select';
 export * from './components/sheet';
 export * from './components/slider';
+export * from './components/split-pane';
 export * from './components/tabs';
 export * from './components/toast';
 export * from './components/tooltip';

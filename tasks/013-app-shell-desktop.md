@@ -52,12 +52,12 @@ No data access in this task. Navigation must not reveal the existence of destina
 
 ## Acceptance criteria
 
-- [ ] The navigation rail renders with correct tokens and accessible names.
-- [ ] Current destination is indicated by more than color.
-- [ ] The player region is reserved in layout and survives a route change without unmounting.
-- [ ] The split pane resizes, respects sensible minimums, and persists its position.
-- [ ] Command entry opens by keyboard shortcut and by click.
-- [ ] The shell is fully keyboard navigable in a logical order.
+- [x] The navigation rail renders with correct tokens and accessible names.
+- [x] Current destination is indicated by more than color.
+- [x] The player region is reserved in layout and survives a route change without unmounting.
+- [x] The split pane resizes, respects sensible minimums, and persists its position.
+- [x] Command entry opens by keyboard shortcut and by click.
+- [x] The shell is fully keyboard navigable in a logical order.
 
 ## Tests and validation commands
 
@@ -78,7 +78,7 @@ Structural. Reverting breaks every workspace route. Must land before tasks `040`
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

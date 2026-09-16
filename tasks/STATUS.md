@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **102** |
 
-Task `013` is next. 9 of 85 iteration-one tasks are `complete`.
+Task `014` is next. 10 of 85 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -34,8 +34,8 @@ Task `013` is next. 9 of 85 iteration-one tasks are `complete`.
 | `005` | Close the dependency-boundary subpath hole and test the ID brand | Foundation                           | `003`                                     | `complete` | `af96cf4` | —       |
 | `010` | Studio Notebook foundation tokens                                | Studio Notebook design system        | `000`, `001`                              | `complete` | `cb23adb` | —       |
 | `011` | Typography system and font loading                               | Studio Notebook design system        | `010`                                     | `complete` | `3b533fe` | —       |
-| `012` | shadcn primitives restyled into Studio Notebook                  | Studio Notebook design system        | `010`, `011`                              | `complete` | —         | —       |
-| `013` | Desktop application shell                                        | Studio Notebook design system        | `012`                                     | `pending`  | —         | —       |
+| `012` | shadcn primitives restyled into Studio Notebook                  | Studio Notebook design system        | `010`, `011`                              | `complete` | `ec3cb5d` | —       |
+| `013` | Desktop application shell                                        | Studio Notebook design system        | `012`                                     | `complete` | —         | —       |
 | `014` | Mobile application shell                                         | Studio Notebook design system        | `013`                                     | `pending`  | —         | —       |
 | `015` | Isolated component showcase                                      | Studio Notebook design system        | `012`, `013`, `014`                       | `pending`  | —         | —       |
 | `016` | Menu and focus coverage in a real browser                        | Studio Notebook design system        | `012`, `120`                              | `pending`  | —         | —       |
