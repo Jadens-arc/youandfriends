@@ -33,10 +33,16 @@ Collaborators get exactly the access they were given — provably, not hopefully
 
 ```
 packages/authz/src/__tests__/{matrix,idor}.test.ts
-packages/authz/src/__tests__/helpers.ts
+packages/authz/src/__tests__/{matrix,resources,helpers}.ts
+packages/authz/src/resolve.ts
 docs/PERMISSION_MATRIX.md
 scripts/generate-permission-matrix.mjs
+scripts/release-check.mjs
 ```
+
+`matrix.ts` and `resources.ts` are data, separate from the tests that execute them, because
+the document generator reads the same files. A generator with its own copy of the table would
+drift from the suite, which is the failure this task exists to prevent.
 
 ## Implementation notes
 
@@ -51,12 +57,80 @@ This task is the primary verification of THREAT_MODEL T1 and T2. It is a gate: *
 
 ## Acceptance criteria
 
-- [ ] The matrix covers every combination of role, capability, scope depth, deny override, and subject type.
-- [ ] Every sensitive resource class has a cross-workspace IDOR test.
-- [ ] Unauthorized access is asserted to be 404-shaped for every class.
-- [ ] Sync-token negative cases pass.
-- [ ] `docs/PERMISSION_MATRIX.md` is generated and `release-check` fails if it is stale.
-- [ ] Adding a resource class without its IDOR test fails the suite.
+- [x] The matrix covers every combination of role × scope depth × deny override × subject kind
+      (320 cases), all 16 capability pairs against every role, and the membership baseline
+      against every subject kind. The _completeness_ of the sweep is itself asserted — a sweep
+      that silently stopped covering `owner` or `share_link` would otherwise still pass every
+      case it ran.
+- [x] Every sensitive resource class has a cross-workspace test. Six exist today and are
+      covered; twelve more are registered as `pending` with the task that creates them, and
+      the suite fails if one of those tables appears without its entry being converted.
+- [x] Unauthorized access is asserted 404-shaped for every class — public code, HTTP status,
+      **and message**, compared against a genuine not-found rather than checked in isolation.
+- [x] Sync-token negative cases pass: no workspace-scoped handle, no membership baseline from
+      the person who issued it, no access beyond its explicit grants, nothing in another
+      workspace. One case is deferred and said so below.
+- [x] `docs/PERMISSION_MATRIX.md` is generated, and `release-check` fails if it is stale —
+      verified by editing the file and watching the gate reject it.
+- [x] Adding a resource class without its test fails the suite — verified by removing
+      `favorites` from the registry and watching the check name it.
+
+## Verification
+
+```
+@youandfriends/authz  450 tests   99.66% statements   100% functions
+release-check: 10 gates, all pass
+```
+
+Three things were checked by breaking them, because a guard that has never failed is a guard
+nobody has tested:
+
+- **Weakening the deny rule** (making a deny stop overriding anything) failed **126 of 450**
+  cases. This is the task's own manual-QA step, run.
+- **Hand-editing `docs/PERMISSION_MATRIX.md`** failed the new `permission matrix` gate with
+  the regeneration command in the message.
+- **Removing `favorites` from the resource registry** failed the completeness check, which
+  named the unregistered table.
+
+## A rule hardened by the sweep
+
+The sweep enumerates grant level against deny level including the case where both sit at the
+_same_ scope. A unique index makes that unreachable through the database — one grant per
+subject per scope — but the resolver read whichever candidate it saw first, so the answer
+depended on row order. It now prefers the deny on a tie. The state should be impossible; if
+that index were ever dropped, the safer answer is the one that falls out rather than the one
+that happens to be read second.
+
+## Decisions taken
+
+- **Expectations are stated, never computed.** The sweep's expected answers come from one
+  independent line — _a deny wins if and only if it sits at or above the winning grant's
+  level_ — which is a different formulation from the resolver's facet walk. A test that
+  derives its expectation from the algorithm under test proves only that the algorithm is
+  deterministic.
+- **Fifteen named cases alongside the sweep.** A table of 320 generated rows documents
+  nothing; each named case is a sentence an owner might say, and each carries the reason it
+  exists. Those are what `docs/PERMISSION_MATRIX.md` renders.
+- **The registry is checked against the live database, not against the schema module.** A
+  table created by hand-written SQL in a migration would be invisible to a check that read
+  TypeScript, and invisible is exactly how a tenant-owned table skips its test.
+- **Pending classes are entries, not omissions.** The check asserts a pending class really has
+  no table yet, so when task `026` adds `assets` the suite fails until the entry is converted.
+  Deleting the entry is not a way out — the completeness check catches the new table
+  immediately.
+- **Refusals are compared, not just asserted.** `expectIndistinguishable` checks that "exists
+  but is not yours" and "does not exist" serialize identically, which catches a difference
+  nobody thought to assert on.
+- **`db/authz integration` is its own gate.** It runs inside `unit` too, but this is the suite
+  that gates every collaboration route and it belongs in the gate list rather than buried in a
+  workspace-wide run.
+
+## Deferred, and why
+
+One scope item cannot be tested yet: **"a sync token cannot write outside Project Files."**
+That rule is about asset _kinds_, and `assets` arrives in task `026`. Writing the test now
+would mean asserting against a table that does not exist. It is registered as a pending
+resource class, so task `026` cannot land without the suite demanding it.
 
 ## Tests and validation commands
 
@@ -77,7 +151,7 @@ Test-only; no runtime change. Reverting removes the guard that makes every later
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

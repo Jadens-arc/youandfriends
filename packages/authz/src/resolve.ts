@@ -90,13 +90,25 @@ function resolveFacet<T>(
   read: (grant: ResolvableGrant) => T | undefined,
   denied: T,
 ): { value: T | undefined } {
-  let best: { specificity: number; value: T } | undefined;
+  let best: { specificity: number; value: T; isDeny: boolean } | undefined;
 
   for (const { specificity, grant } of candidates) {
     // A deny speaks about every facet at once: it says "nothing, here".
     const value = grant.isDeny ? denied : read(grant);
     if (value === undefined) continue;
-    if (best === undefined || specificity > best.specificity) best = { specificity, value };
+
+    if (best === undefined || specificity > best.specificity) {
+      best = { specificity, value, isDeny: grant.isDeny };
+      continue;
+    }
+
+    // A tie should be impossible: a unique index allows one grant per subject per scope. If
+    // that index were ever dropped, the outcome would otherwise depend on row order, so the
+    // deny is taken — the safer answer is the one that falls out of the tie, not the one
+    // that happens to be read second.
+    if (specificity === best.specificity && grant.isDeny && !best.isDeny) {
+      best = { specificity, value, isDeny: true };
+    }
   }
 
   // Wrapped, not unwrapped. A deny resolves role to `null` deliberately, and returning that

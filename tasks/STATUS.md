@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **102** |
 
-Task `023` is next. `016` is passed over until its dependencies are `complete`. 15 of 85 iteration-one tasks are `complete`.
+Task `024` is next. `016` is passed over until its dependencies are `complete`. 16 of 85 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -41,8 +41,8 @@ Task `023` is next. `016` is passed over until its dependencies are `complete`. 
 | `016` | Menu and focus coverage in a real browser                        | Studio Notebook design system        | `012`, `120`                              | `pending`  | —         | —       |
 | `020` | Database package, Neon connection, migration tooling             | Data, authorization, audit           | `002`, `003`                              | `complete` | `4020c36` | —       |
 | `021` | Core schema: identity, tenancy, and content hierarchy            | Data, authorization, audit           | `020`                                     | `complete` | `628f2c5` | —       |
-| `022` | Centralized authorization package                                | Data, authorization, audit           | `021`, `003`                              | `complete` | —         | —       |
-| `023` | Executable permission matrix and IDOR test suite                 | Data, authorization, audit           | `022`                                     | `pending`  | —         | —       |
+| `022` | Centralized authorization package                                | Data, authorization, audit           | `021`, `003`                              | `complete` | `50802b5` | —       |
+| `023` | Executable permission matrix and IDOR test suite                 | Data, authorization, audit           | `022`                                     | `complete` | —         | —       |
 | `024` | Audit log                                                        | Data, authorization, audit           | `022`                                     | `pending`  | —         | —       |
 | `025` | Soft deletion and recovery window                                | Data, authorization, audit           | `024`                                     | `pending`  | —         | —       |
 | `026` | Assets, immutable versions, and storage objects schema           | Data, authorization, audit           | `021`, `025`                              | `pending`  | —         | —       |

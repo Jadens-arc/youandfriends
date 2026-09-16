@@ -35,9 +35,26 @@ const GATES = [
     command: 'node scripts/generate-status.mjs --check',
     reproduce: 'node scripts/generate-status.mjs',
   },
+  {
+    // Registered by task `023`. Prose about permissions drifts from behaviour invisibly: the
+    // document still reads correctly, it is just no longer true. It is generated from the
+    // table the tests execute, so staleness is the only failure mode left, and this catches it.
+    name: 'permission matrix',
+    // `tsx`, not `node`: the generator imports the same TypeScript table the tests execute,
+    // which is the point — a generator with its own copy of the data would drift too.
+    command: 'pnpm generate:permission-matrix -- --check',
+    reproduce: 'pnpm generate:permission-matrix',
+  },
   { name: 'lint', command: 'pnpm lint' },
   { name: 'typecheck', command: 'pnpm typecheck' },
   { name: 'unit', command: 'pnpm test' },
+  {
+    // Registered by task `023`. Runs inside `unit` too; listed separately because this is the
+    // suite that gates every collaboration route, and it should be visible in the gate list
+    // rather than buried in a workspace-wide run. Skips loudly without a database.
+    name: 'db/authz integration',
+    command: 'pnpm --filter @youandfriends/authz test',
+  },
   { name: 'build', command: 'pnpm build' },
   {
     // Registered by task `020`. `docs/OPERATIONS.md` §4 requires a dry run before every
@@ -59,7 +76,6 @@ const GATES = [
 
 /** Gates a later task will register. Listed so their absence is visible, not forgotten. */
 const PENDING_GATES = [
-  ['db/authz integration', 'task 023'],
   ['storage contract (MinIO)', 'task 052'],
   ['media fixtures (ffmpeg)', 'task 066'],
   ['rust clippy + tests', 'task 118'],

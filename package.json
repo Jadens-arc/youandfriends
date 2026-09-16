@@ -21,7 +21,8 @@
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "test:coverage": "turbo run test:coverage",
     "audit": "pnpm audit --audit-level=high || true",
-    "status": "node scripts/generate-status.mjs"
+    "status": "node scripts/generate-status.mjs",
+    "generate:permission-matrix": "tsx scripts/generate-permission-matrix.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
