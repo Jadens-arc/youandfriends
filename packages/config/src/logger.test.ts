@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { databaseUrl, presignedUrl, syncToken } from './fixtures/credentials';
 import { createLogger, loggerForEnv, newCorrelationId, type LogLevel } from './logger';
 import { REDACTED } from './redact';
 
@@ -65,21 +66,19 @@ describe('logger redaction — the control, not a convenience', () => {
 
   it('redacts a presigned URL even under an innocuous key', () => {
     const { logger, lines } = capture();
-    logger.info('streaming', {
-      url: 'https://b.r2.cloudflarestorage.com/o/1?X-Amz-Signature=deadbeefcafe',
-    });
+    logger.info('streaming', { url: presignedUrl });
     expect(lines[0]!.line).not.toContain('X-Amz-Signature');
   });
 
   it('redacts a credential interpolated into the message itself', () => {
     const { logger, lines } = capture();
-    logger.error('failed with token yaf_sync_01J8XKQ2M3N4P5R6S7T8V9W0XY_aB3dE5gH7jK9mN1pQ3sT5v');
-    expect(lines[0]!.line).not.toContain('yaf_sync_01J8XK');
+    logger.error(`failed with token ${syncToken}`);
+    expect(lines[0]!.line).not.toContain(syncToken);
   });
 
   it('redacts DATABASE_URL', () => {
     const { logger, lines } = capture();
-    logger.info('connecting', { DATABASE_URL: 'postgres://user:pw@host/db' });
+    logger.info('connecting', { DATABASE_URL: databaseUrl });
     expect(lines[0]!.line).not.toContain('postgres://');
   });
 

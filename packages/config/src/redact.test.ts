@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import {
+  bearerToken,
+  plainUrl,
+  presignedUrl,
+  privateKeyPem,
+  providerSecretKey,
+  syncToken,
+} from './fixtures/credentials';
 import { isDeniedKey, isDeniedValue, redact, REDACTED } from './redact';
 
 describe('redaction — denied keys', () => {
@@ -40,16 +48,9 @@ describe('redaction — denied keys', () => {
 });
 
 describe('redaction — credential-shaped values', () => {
-  // Credential-shaped fixtures are assembled at runtime rather than written as literals.
-  // A realistic literal trips GitHub push protection and provider secret scanners, and a
-  // scanner cannot tell a fabricated key from a live one — nor should it have to.
-  const fakeProviderKey = ['sk', 'live', `EXAMPLE${'0'.repeat(8)}NOTAREALKEY`].join('_');
-
   // A presigned URL is a bearer credential for its TTL (THREAT_MODEL T3). It must be
   // redacted wherever it appears, whatever the key is called.
-  const presigned =
-    'https://bucket.r2.cloudflarestorage.com/w/ws_1/o/01J?X-Amz-Algorithm=AWS4-HMAC-SHA256' +
-    '&X-Amz-Credential=abc%2F20260915&X-Amz-Signature=deadbeefcafe';
+  const presigned = presignedUrl;
 
   it('redacts a presigned URL under an innocuous key', () => {
     expect(redact({ url: presigned })).toEqual({ url: REDACTED });
@@ -57,10 +58,10 @@ describe('redaction — credential-shaped values', () => {
   });
 
   it.each([
-    ['sync token', 'yaf_sync_01J8XKQ2M3N4P5R6S7T8V9W0XY_aB3dE5gH7jK9mN1pQ3sT5vX7z'],
-    ['provider secret key', fakeProviderKey],
-    ['bearer header', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9abcdef'],
-    ['private key', '-----BEGIN RSA PRIVATE KEY-----\nMIIE...'],
+    ['sync token', syncToken],
+    ['provider secret key', providerSecretKey],
+    ['bearer header', bearerToken],
+    ['private key', privateKeyPem],
   ])('redacts a %s under an innocuous key', (_label, value) => {
     expect(redact({ note: value })).toEqual({ note: REDACTED });
   });
@@ -70,8 +71,7 @@ describe('redaction — credential-shaped values', () => {
   });
 
   it('leaves an ordinary URL readable', () => {
-    const plain = 'https://youandfriends.org/songs/01J8XK';
-    expect(redact({ url: plain })).toEqual({ url: plain });
+    expect(redact({ url: plainUrl })).toEqual({ url: plainUrl });
   });
 });
 
@@ -100,7 +100,7 @@ describe('redaction — structure handling', () => {
   });
 
   it('redacts a credential inside an Error message', () => {
-    const err = new Error(`upload failed for ${['sk', 'live', 'EXAMPLENOTAREAL'].join('_')}`);
+    const err = new Error(`upload failed for ${providerSecretKey}`);
     expect(redact(err)).toMatchObject({ name: 'Error', message: REDACTED });
   });
 });

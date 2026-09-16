@@ -57,9 +57,16 @@ describe('identifiers', () => {
 
   it.each([
     ['too short', '01J8XK'],
-    ['ambiguous letter I', '01J8XKQ2M3N4P5R6S7T8V9W0XI'],
-    ['ambiguous letter L', '01J8XKQ2M3N4P5R6S7T8V9W0XL'],
-    ['lowercase', '01j8xkq2m3n4p5r6s7t8v9w0xy'],
+    // Derived from the valid ULID so the difference is the point, rather than buried in a
+    // second opaque literal. Crockford base32 excludes I, L, O and U to avoid misreading.
+    ['ambiguous letter I', `${valid.slice(0, -1)}I`],
+    ['ambiguous letter L', `${valid.slice(0, -1)}L`],
+    ['ambiguous letter O', `${valid.slice(0, -1)}O`],
+    ['ambiguous letter U', `${valid.slice(0, -1)}U`],
+    ['too long', `${valid}Z`],
+    ['leading whitespace', ` ${valid}`],
+    ['trailing whitespace', `${valid} `],
+    ['lowercase', valid.toLowerCase()],
     ['sql injection attempt', "01J8XK'; DROP TABLE songs;--"],
     ['path traversal attempt', '../../etc/passwd'],
     ['empty', ''],

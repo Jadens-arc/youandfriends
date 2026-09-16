@@ -61,11 +61,11 @@ instance, which is the strongest possible argument for closing it.
 
 ## Acceptance criteria
 
-- [ ] `no-secrets` is enabled for test files and `__tests__` directories.
-- [ ] The exemption covers only `**/fixtures/**`.
-- [ ] A credential-shaped literal in a test file fails lint, proven with a deliberate probe.
-- [ ] Existing tests pass under the tightened rule.
-- [ ] The runtime-assembly convention is documented where a test author will encounter it.
+- [x] `no-secrets` is enabled for test files and `__tests__` directories.
+- [x] The exemption covers only `**/fixtures/**`.
+- [x] A credential-shaped literal in a test file fails lint, proven with a deliberate probe.
+- [x] Existing tests pass under the tightened rule.
+- [x] The runtime-assembly convention is documented where a test author will encounter it.
 
 ## Tests and validation commands
 
@@ -86,7 +86,7 @@ Lint configuration only. Reverting restores the looser exemption and the known h
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

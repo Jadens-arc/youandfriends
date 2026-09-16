@@ -22,8 +22,11 @@ Indirect. Both items protect invariants that later tasks are entitled to rely on
 - Add a regression guard so the boundary rule failing to fire is itself a test failure.
 - Add a type-level test (`@ts-expect-error` or `expectTypeOf`) proving a cross-entity ID
   assignment does not compile.
-- Add the identifier negative cases the review found missing: 27 characters, ambiguous `U`
-  and `O`, out-of-range leading character, and leading/trailing whitespace.
+- ~~Add the identifier negative cases the review found missing.~~ **Landed early in task
+  `004`**: deriving the invalid ULIDs from the valid one was the fix for a lint failure
+  there, and the extra cases came with it. Reverting them only to re-add them here would be
+  churn. `contracts` now covers too-long, ambiguous `I`/`L`/`O`/`U`, lowercase, and
+  leading/trailing whitespace.
 
 ## Non-scope
 
@@ -68,7 +71,7 @@ establishes.
 - [ ] A subpath import such as `@youandfriends/db/schema` from `contracts` fails lint.
 - [ ] A regression guard fails if the boundary rule stops reporting.
 - [ ] A cross-entity ID assignment fails to compile, proven by a type-level test.
-- [ ] The additional identifier negative cases are covered.
+- [x] The additional identifier negative cases are covered (landed in task `004`).
 - [ ] `pnpm release-check` passes.
 
 ## Tests and validation commands

@@ -97,6 +97,24 @@ This is the rule that matters most.
 If a secret is ever committed, it is compromised. Rotate it — removing the commit is not
 sufficient, because it remains in history.
 
+### Credential-shaped values in tests
+
+`no-secrets` runs on test files, not just source. When a test needs a credential-shaped
+value, **assemble it at runtime from parts** rather than writing a literal:
+
+```ts
+const fakeKey = ['sk', 'live', 'EXAMPLENOTAREAL'].join('_');
+```
+
+Shared examples live in `packages/config/src/fixtures/credentials.ts`. This is not lint
+appeasement: a realistic literal trips provider secret scanners and GitHub push protection,
+a scanner cannot tell a fabricated key from a live one, and the value is in local git history
+from the moment it is committed — even if the push is later rejected. That happened during
+task `002`.
+
+Public high-entropy values such as ULIDs are exempted by **shape**, not by file, so the rule
+stays active everywhere.
+
 ## 9. Security is not a later task
 
 - All authorization goes through **`packages/authz`**. Never compare roles inline in a route

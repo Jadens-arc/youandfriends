@@ -45,15 +45,23 @@ export const base = tseslint.config(
       ],
       // A high-entropy literal in source is usually a leaked credential.
       // CLAUDE.md §8: a committed secret is a compromised secret.
-      'no-secrets/no-secrets': ['error', { tolerance: 4.2 }],
+      'no-secrets/no-secrets': [
+        'error',
+        {
+          tolerance: 4.2,
+          // ULIDs are high-entropy by construction and entirely public — they appear in
+          // URLs and API responses. Exempting the shape is precise; raising the tolerance
+          // to accommodate them would blind the rule to real keys of similar length.
+          ignoreContent: ['^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$'],
+        },
+      ],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       'no-param-reassign': 'error',
     },
   },
   {
-    // Tests and scripts may log freely, and fixtures legitimately contain
-    // high-entropy strings that are not credentials.
+    // Tests, scripts, and config may log freely.
     files: [
       '**/*.test.{ts,tsx}',
       '**/__tests__/**/*.{ts,tsx}',
@@ -64,6 +72,23 @@ export const base = tseslint.config(
     languageOptions: { globals: { ...globals.node } },
     rules: {
       'no-console': 'off',
+    },
+  },
+  {
+    // Secret detection stays ON for tests.
+    //
+    // It was previously disabled here, and that hole was not theoretical: during task `002`
+    // a realistic provider key in a test fixture passed lint and was caught only by GitHub
+    // push protection rejecting the push. By then the value was already in local history.
+    //
+    // Tests that need a credential-shaped value assemble it at runtime from parts, which
+    // keeps both this rule and provider secret scanners quiet without weakening either:
+    //
+    //   const fakeKey = ['sk', 'live', 'EXAMPLENOTAREAL'].join('_');
+    //
+    // Only `fixtures/` is exempt, where generated high-entropy data legitimately lives.
+    files: ['**/fixtures/**'],
+    rules: {
       'no-secrets/no-secrets': 'off',
     },
   },
