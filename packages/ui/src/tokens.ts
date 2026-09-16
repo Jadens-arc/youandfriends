@@ -114,4 +114,40 @@ export const TEXT_ON_SURFACE_PAIRS: ReadonlyArray<{
   { name: 'ochre text on paper', foreground: accent.ochreText, background: surface.paper },
 ];
 
-export const tokens = { surface, text, accent, border, radius, shadow, motion } as const;
+/**
+ * Type scale. `lyric` is deliberately separate from `body`: lyrics carry the longest reading
+ * sessions in the product and need more line height and a narrower measure than dense UI
+ * text (docs/DESIGN.md §6).
+ */
+export const type = {
+  display: '3.25rem',
+  title: '1.75rem',
+  heading: '1.125rem',
+  body: '0.9375rem',
+  caption: '0.8125rem',
+  lyric: '1rem',
+  /** Comfortable measure for long-form reading. Full-width lyrics are unpleasant to read. */
+  lyricMeasure: '34rem',
+} as const;
+
+/** The three voices (docs/DESIGN.md §11). Families are loaded and self-hosted by the app. */
+export const fontRole = {
+  /** Editorial serif: project and song titles, major headings, the wordmark. */
+  serif: 'serif',
+  /** Neutral sans: controls, navigation, metadata, dense lists. */
+  sans: 'sans',
+  /** Restrained monospace: lyrics and timestamps. */
+  mono: 'mono',
+} as const;
+
+export const tokens = {
+  surface,
+  text,
+  accent,
+  border,
+  radius,
+  shadow,
+  motion,
+  type,
+  fontRole,
+} as const;

@@ -99,3 +99,60 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Typography (task `011`).
+ *
+ * Three voices: editorial serif for titles, neutral sans for interface, restrained mono for
+ * lyrics and timestamps. The families are bound to CSS variables by `apps/web/app/fonts.ts`,
+ * which self-hosts them at build time.
+ */
+@theme {
+  /*
+   * The loaded families come from `apps/web/app/fonts.ts` under their own variable names;
+   * these compose them with a system fallback chain. Keeping the names distinct avoids two
+   * root-scope definitions of the same property.
+   */
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, 'Times New Roman', serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Type scale. `lyric` is separate: it carries the longest reading sessions in the product. */
+  --text-display: 3.25rem;
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.02em;
+  --text-title: 1.75rem;
+  --text-title--line-height: 1.2;
+  --text-title--letter-spacing: -0.015em;
+  --text-heading: 1.125rem;
+  --text-heading--line-height: 1.35;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.55;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.45;
+  --text-lyric: 1rem;
+  --text-lyric--line-height: 1.85;
+
+  /* Comfortable measure for long-form reading — lyrics are unpleasant at full width. */
+  --container-lyric: 34rem;
+}
+
+@layer base {
+  /*
+   * Timestamps and durations use tabular figures. Proportional digits change width as a
+   * playhead advances, which reads as a rendering bug (docs/DESIGN.md §11).
+   */
+  .tabular,
+  time,
+  [data-duration],
+  [data-timestamp] {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .font-lyric {
+    font-family: var(--font-mono);
+    font-size: var(--text-lyric);
+    line-height: var(--text-lyric--line-height);
+    max-inline-size: var(--container-lyric);
+  }
+}

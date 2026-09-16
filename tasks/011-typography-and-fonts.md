@@ -52,11 +52,11 @@ Self-hosting fonts removes a third-party request that would otherwise leak user 
 
 ## Acceptance criteria
 
-- [ ] Three families load from local assets with no third-party font requests.
-- [ ] Cumulative Layout Shift from font swap measures below 0.01 on the library and song views.
-- [ ] Timestamps and durations render with tabular figures.
-- [ ] The type scale is available as tokens and used by components rather than ad hoc sizes.
-- [ ] Font licenses permit self-hosted web use and are recorded in `docs/adr/` or a `LICENSES` note.
+- [x] Three families load from local assets with no third-party font requests.
+- [x] Cumulative Layout Shift from font swap measures below 0.01 on the library and song views.
+- [x] Timestamps and durations render with tabular figures.
+- [x] The type scale is available as tokens and used by components rather than ad hoc sizes.
+- [x] Font licenses permit self-hosted web use and are recorded in `docs/adr/` or a `LICENSES` note.
 
 ## Tests and validation commands
 
@@ -78,7 +78,7 @@ Additive. Reverting falls back to system fonts — legible but off-brand. No dat
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

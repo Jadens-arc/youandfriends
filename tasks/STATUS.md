@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **101** |
 
-Task `011` is next. 7 of 84 iteration-one tasks are `complete`.
+Task `012` is next. 8 of 84 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -31,9 +31,9 @@ Task `011` is next. 7 of 84 iteration-one tasks are `complete`.
 | `002` | Environment configuration and observability hooks                | Foundation                           | `000`, `001`                              | `complete` | `4446123` | —       |
 | `003` | Shared contracts and validation boundary                         | Foundation                           | `000`, `001`                              | `complete` | `35dcb65` | —       |
 | `004` | Tighten the secret-detection lint exemption                      | Foundation                           | `001`, `003`                              | `complete` | `340cc69` | —       |
-| `005` | Close the dependency-boundary subpath hole and test the ID brand | Foundation                           | `003`                                     | `complete` | —         | —       |
+| `005` | Close the dependency-boundary subpath hole and test the ID brand | Foundation                           | `003`                                     | `complete` | `af96cf4` | —       |
 | `010` | Studio Notebook foundation tokens                                | Studio Notebook design system        | `000`, `001`                              | `complete` | `cb23adb` | —       |
-| `011` | Typography system and font loading                               | Studio Notebook design system        | `010`                                     | `pending`  | —         | —       |
+| `011` | Typography system and font loading                               | Studio Notebook design system        | `010`                                     | `complete` | —         | —       |
 | `012` | shadcn primitives restyled into Studio Notebook                  | Studio Notebook design system        | `010`, `011`                              | `pending`  | —         | —       |
 | `013` | Desktop application shell                                        | Studio Notebook design system        | `012`                                     | `pending`  | —         | —       |
 | `014` | Mobile application shell                                         | Studio Notebook design system        | `013`                                     | `pending`  | —         | —       |

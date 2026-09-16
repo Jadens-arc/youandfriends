@@ -4,7 +4,16 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { AA_NORMAL, contrastRatio, luminance } from './contrast';
-import { accent, border, motion, radius, surface, text, TEXT_ON_SURFACE_PAIRS } from './tokens';
+import {
+  accent,
+  border,
+  motion,
+  radius,
+  surface,
+  text,
+  type,
+  TEXT_ON_SURFACE_PAIRS,
+} from './tokens';
 
 // Resolved from the package root: under jsdom, `import.meta.url` is not a file:// URL.
 const tokensCss = readFileSync(resolve(process.cwd(), 'src/styles/tokens.css'), 'utf8');
@@ -67,6 +76,13 @@ describe('tokens.css mirrors tokens.ts', () => {
     ['--radius-lg', radius.lg],
     ['--duration-fast', motion.fast],
     ['--duration-slow', motion.slow],
+    ['--text-display', type.display],
+    ['--text-title', type.title],
+    ['--text-heading', type.heading],
+    ['--text-body', type.body],
+    ['--text-caption', type.caption],
+    ['--text-lyric', type.lyric],
+    ['--container-lyric', type.lyricMeasure],
   ];
 
   it.each(expectations)('%s matches', (name, value) => {
@@ -125,5 +141,57 @@ describe('design invariants from docs/DESIGN.md §11', () => {
 
   it('maps destructive to the AA-safe rust variant, not the decorative one', () => {
     expect(tokensCss).toMatch(/--color-destructive:\s*var\(--color-rust-text\)/);
+  });
+});
+
+describe('typography (task `011`)', () => {
+  it('defines the three voices from docs/DESIGN.md §11', () => {
+    for (const role of ['--font-serif', '--font-sans', '--font-mono']) {
+      expect(tokensCss).toContain(role);
+    }
+  });
+
+  it('composes each family with a system fallback chain', () => {
+    // If the webfont fails, text must still render in something sane rather than in the
+    // browser's last-resort face.
+    expect(tokensCss).toMatch(/--font-serif:\s*var\(--font-newsreader\),[^;]*serif/);
+    expect(tokensCss).toMatch(/--font-sans:\s*var\(--font-inter\),[^;]*sans-serif/);
+    expect(tokensCss).toMatch(/--font-mono:\s*var\(--font-plex-mono\),[^;]*monospace/);
+  });
+
+  it("never redefines the loaded families' own variables", () => {
+    // `next/font` owns --font-newsreader / --font-inter / --font-plex-mono. Defining them
+    // here too would be a root-scope specificity coin-flip.
+    for (const owned of ['--font-newsreader:', '--font-inter:', '--font-plex-mono:']) {
+      expect(tokensCss).not.toContain(owned);
+    }
+  });
+
+  it('gives lyrics more line height than body text', () => {
+    const lyric = Number.parseFloat(tokensCss.match(/--text-lyric--line-height:\s*([\d.]+)/)![1]!);
+    const body = Number.parseFloat(tokensCss.match(/--text-body--line-height:\s*([\d.]+)/)![1]!);
+    expect(lyric).toBeGreaterThan(body);
+  });
+
+  it('constrains the lyric measure for comfortable reading', () => {
+    const measure = Number.parseFloat(type.lyricMeasure);
+    expect(measure).toBeGreaterThan(20);
+    expect(measure).toBeLessThan(45);
+  });
+
+  it('applies tabular figures to timestamps and durations', () => {
+    // Proportional digits change width as a playhead advances, which reads as a bug.
+    expect(tokensCss).toMatch(/font-variant-numeric:\s*tabular-nums/);
+    for (const selector of ['time', '[data-duration]', '[data-timestamp]', '.tabular']) {
+      expect(tokensCss).toContain(selector);
+    }
+  });
+
+  it('orders the type scale from display down to caption', () => {
+    const rem = (v: string) => Number.parseFloat(v);
+    expect(rem(type.display)).toBeGreaterThan(rem(type.title));
+    expect(rem(type.title)).toBeGreaterThan(rem(type.heading));
+    expect(rem(type.heading)).toBeGreaterThan(rem(type.body));
+    expect(rem(type.body)).toBeGreaterThan(rem(type.caption));
   });
 });
