@@ -1,13 +1,55 @@
 /**
  * The database schema.
  *
- * Empty by design at task `020`: this task stands up the client and the migration toolchain,
- * and task `021` defines the first tables. The module exists now so `client.ts` can be
- * generic over the schema from the start — adding it later would change every call site's
- * inferred types at once.
+ * Tenancy is structural here, not a convention. Every tenant-owned table carries
+ * `workspace_id` as a not-null column and leads its composite indexes with it, because every
+ * query in the product is scoped to a workspace and a tenant column that is not first in the
+ * index is a tenant column the planner ignores.
+ *
+ * {@link NON_TENANT_TABLES} is the allow-list, and the schema test inverts it: any table in
+ * the database that is not named there must have `workspace_id` and an index leading with it.
+ * Adding a tenant-owned table and forgetting the column fails the build rather than leaking
+ * across a tenant boundary the first time someone writes a query (`docs/THREAT_MODEL.md` T1).
  */
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- tables arrive in `021`.
-export type Schema = {};
+import { favorites } from './favorites';
+import { folders } from './folders';
+import { projects } from './projects';
+import { songs } from './songs';
+import { users } from './users';
+import { workspaceMemberships, workspaces } from './workspaces';
 
-export const schema = {} satisfies Schema;
+export * from './columns';
+export * from './favorites';
+export * from './folders';
+export * from './projects';
+export * from './songs';
+export * from './users';
+export * from './workspaces';
+
+/**
+ * Tables that legitimately have no `workspace_id`, and why.
+ *
+ * Each entry is a claim that has to be argued, not a place to silence the schema test. A
+ * table belongs here only if it cannot belong to one tenant.
+ */
+export const NON_TENANT_TABLES: Readonly<Record<string, string>> = {
+  // A person exists across workspaces; `workspace_memberships` is what ties them to one.
+  users: 'a user spans workspaces',
+  // The workspace is the tenant. It cannot contain itself.
+  workspaces: 'the workspace is the tenancy',
+  // Drizzle's own bookkeeping, in its own schema.
+  __drizzle_migrations: "the migrator's ledger",
+};
+
+export const schema = {
+  users,
+  workspaces,
+  workspaceMemberships,
+  folders,
+  projects,
+  songs,
+  favorites,
+};
+
+export type Schema = typeof schema;

@@ -34,10 +34,18 @@ Nested folders containing projects containing songs, exactly as the library is m
 ## Files expected to change
 
 ```
-packages/db/src/schema/{users,workspaces,folders,projects,songs,favorites}.ts
-packages/db/migrations/**
-packages/db/src/__tests__/schema.test.ts
+packages/db/src/schema/{columns,users,workspaces,folders,projects,songs,favorites,index}.ts
+packages/db/src/schema/tables.test.ts
+packages/db/migrations/0000_core_schema.sql
+packages/db/src/__tests__/{schema,folders}.test.ts
+packages/db/src/__tests__/factories.ts
+packages/contracts/src/work-status.ts
 ```
+
+`columns.ts` holds the shapes every table shares, so tenancy and identity cannot be spelled
+two ways. `work-status.ts` is in `contracts` because the database, the API, and the UI must
+read one vocabulary; a hand-copied list in the schema would drift and surface as a constraint
+violation in production.
 
 ## Implementation notes
 
@@ -53,12 +61,76 @@ This is where tenant isolation is structurally established. A tenant-owned table
 
 ## Acceptance criteria
 
-- [ ] Every listed table exists with `workspace_id` where tenant-owned.
-- [ ] Folder nesting supports arbitrary depth with a maintained materialized path.
-- [ ] Moving a folder updates the entire subtree's paths transactionally.
-- [ ] Folder cycles are impossible, enforced at the database level.
-- [ ] A schema test asserts every tenant-owned table has `workspace_id` with a leading index.
-- [ ] Migrations apply cleanly forward from empty and pass `migrate:dry`.
+- [x] Every listed table exists with `workspace_id` where tenant-owned.
+- [x] Folder nesting supports arbitrary depth with a maintained materialized path, computed by
+      the database rather than supplied by the caller — a test inserts a deliberate lie into
+      `path` and asserts it is overwritten.
+- [x] Moving a folder updates the entire subtree's paths transactionally. Proven at five
+      levels deep, including that a failure mid-transaction leaves the whole subtree in place.
+- [x] Folder cycles are impossible, enforced at the database level: self-parent, parent under
+      its own child, and parent under a distant descendant all raise `check_violation`.
+- [x] A schema test asserts every tenant-owned table has `workspace_id` with a leading index —
+      twice, from both directions. See below.
+- [x] Migrations apply cleanly forward from empty and pass `migrate:dry`.
+
+## Verification
+
+```
+Test Files  10 passed (10)
+     Tests  103 passed (103)
+Statements : 100% · Lines : 100% · Functions : 96.87%
+
+release-check: 8 gates, all pass (migration dry run included)
+```
+
+**The tenancy check runs from both ends.** `schema.test.ts` reads the _live migrated
+database_ — `information_schema` for the column, `pg_index` for the leading index — so it sees
+what Postgres actually did, including anything a hand-written migration created that the
+TypeScript schema does not know about. `tables.test.ts` checks the same invariants against the
+declarations via `getTableConfig`, which fails earlier and in a more useful place: a bad index
+definition is caught before a migration is generated from it. A third test keeps the
+exemption list honest by asserting no exempt table has quietly gained a `workspace_id`.
+
+**Verified on Neon's Postgres 17, not only locally.** The triggers, the generated `depth`
+column, `text_pattern_ops`, and `hashtextextended` were exercised on a throwaway Neon branch:
+a three-level subtree moved and followed its parent correctly, and a cycle was rejected with
+the expected message. The branch was deleted afterwards. `main` still has zero tables — the
+schema lands there on first deploy, through `migrate`, so drizzle's ledger stays honest.
+
+## Decisions taken
+
+- **Triggers, not application code, own the folder invariants.** `path` is _computed_ from the
+  parent rather than accepted from the caller, so it cannot be set wrong; a path disagreeing
+  with `parent_id` would make every subtree query — and therefore permission resolution in
+  task `022` — return the wrong rows, silently. The cascade runs inside the caller's
+  transaction, so a subtree is never half-moved.
+- **A workspace-scoped advisory lock during a move.** The cycle check alone loses a race: two
+  transactions moving A under B and B under A each see a pre-move tree, each pass, and commit
+  a cycle neither could have created alone. `pg_advisory_xact_lock` on the workspace
+  serialises moves, which are rare.
+- **`depth` is a stored generated column.** One fewer column that can disagree with another.
+- **A shared `WORK_STATUS` vocabulary for projects and songs.** `docs/DESIGN.md` §2 says each
+  carries a status but does not fix the values. Two overlapping vocabularies would be a
+  product decision made by inference; one shared list is the smaller, reversible default, and
+  adding a project-only value later is additive.
+- **Favourites are polymorphic, and that costs a foreign key.** Three nullable columns with
+  three real foreign keys would enforce referential integrity, at the price of a CHECK
+  asserting exactly one is set and every read branching on which. A dangling favourite is a
+  row the UI skips; task `025`'s soft deletion sweeps them.
+- **Deleting a folder does not delete the work in it** (`on delete set null` on
+  `projects.folder_id`). Originals are sacred, and so is anything pointing at them.
+- **Root-level folder names need their own partial index.** Postgres treats NULLs as distinct
+  in a unique index, so `(workspace_id, parent_id, name)` permits unlimited identical root
+  folders. Both partial indexes are tested.
+
+## A test that was asserting nothing
+
+`migrate.test.ts`, written in task `020`, ran its fixture migrations against the shared test
+harness — which now applies the real migration first. Drizzle's ledger then held entry `0000`,
+so each fixture's own `0000` was skipped as already applied and the assertions passed against
+an empty result. It only surfaced because this task added the first real migration. Those
+tests now run against unmigrated scratch databases, and the reason is recorded where the
+helper is defined.
 
 ## Tests and validation commands
 
@@ -78,7 +150,7 @@ Additive migration from empty. Later changes to these tables follow the expand/m
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

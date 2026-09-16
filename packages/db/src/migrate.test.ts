@@ -6,9 +6,10 @@ import { parseServerEnv } from '@youandfriends/config';
 import { sql } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { createTestDatabase, unavailableReason, type TestDatabase } from './__tests__/harness';
+import { unavailableReason } from './__tests__/harness';
 import { createDirectClient } from './client';
 import { pendingFiles, runMigrations } from './migrate';
+import { createScratchDatabase, type ScratchDatabase } from './scratch';
 
 const reason = unavailableReason();
 const describeWithDatabase = reason === null ? describe : describe.skip;
@@ -53,14 +54,23 @@ describe('pendingFiles', () => {
 });
 
 describeWithDatabase('runMigrations', () => {
-  const databases: TestDatabase[] = [];
+  const databases: ScratchDatabase[] = [];
 
   afterAll(async () => {
-    await Promise.all(databases.map((database) => database.teardown()));
+    await Promise.all(databases.map((database) => database.drop()));
   });
 
-  async function freshDatabase(label: string): Promise<TestDatabase> {
-    const database = await createTestDatabase(label);
+  /**
+   * An *unmigrated* database. Not the shared test harness, which applies the real migrations
+   * first — drizzle's ledger would then already hold entry `0000`, and these fixtures' own
+   * `0000` would be skipped as already applied. The bug that hid was a migration test that
+   * asserted nothing.
+   */
+  async function freshDatabase(label: string): Promise<ScratchDatabase> {
+    const database = await createScratchDatabase(
+      parseServerEnv().DATABASE_URL_UNPOOLED ?? '',
+      label,
+    );
     databases.push(database);
     return database;
   }
@@ -80,10 +90,15 @@ describeWithDatabase('runMigrations', () => {
     expect(result.applied).toBe(2);
     expect(result.files).toEqual(['0000_test.sql', '0001_test.sql']);
 
-    const { rows } = await database.db.execute(
-      sql`select column_name from information_schema.columns where table_name = 'song' order by 1`,
-    );
-    expect(rows).toEqual([{ column_name: 'id' }, { column_name: 'title' }]);
+    const probe = createDirectClient(env);
+    try {
+      const { rows } = await probe.db.execute(
+        sql`select column_name from information_schema.columns where table_name = 'song' order by 1`,
+      );
+      expect(rows).toEqual([{ column_name: 'id' }, { column_name: 'title' }]);
+    } finally {
+      await probe.close();
+    }
   });
 
   it('is idempotent — a second run applies nothing new', async () => {
@@ -117,8 +132,8 @@ describeWithDatabase('runMigrations', () => {
       const { rows } = await probe.db.execute(
         sql`select count(*)::int as open from pg_stat_activity where datname = ${database.name}`,
       );
-      // The harness holds its own pool open; the migrator's must not still be there.
-      expect((rows[0] as { open: number }).open).toBeLessThanOrEqual(1);
+      // Nothing else holds this database open, so the migrator's pool must be gone.
+      expect((rows[0] as { open: number }).open).toBe(0);
     } finally {
       await probe.close();
     }
