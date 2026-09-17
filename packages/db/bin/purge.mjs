@@ -28,6 +28,7 @@ import { parseServerEnv } from '@youandfriends/config';
 import { createDirectClient } from '../src/client.ts';
 import { loadDatabaseEnv, REPO_ROOT } from '../src/env-file.ts';
 import { describePlan, executePurge, planPurge } from '../src/purge.ts';
+import { describeTarget } from '../src/target-host.ts';
 import { withTransaction } from '../src/transaction.ts';
 
 loadDatabaseEnv(REPO_ROOT);
@@ -54,6 +55,13 @@ if (env.DATABASE_URL_UNPOOLED === undefined || env.DATABASE_URL_UNPOOLED === '')
   console.error('SKIPPED: purge — DATABASE_URL_UNPOOLED is not set, so there is nothing to purge');
   process.exit(0);
 }
+
+// Before anything, including the read that builds the plan (`docs/THREAT_MODEL.md` T10). Purge
+// is *meant* to run against production, so this is announcement rather than refusal — but it
+// destroys user music, and "which database was that" is not a question to answer afterwards.
+// It goes above the `try` deliberately: a failure inside it must not be able to preempt the one
+// line that says which database the failure was about.
+console.log(`Target: ${describeTarget(process.env.DATABASE_URL_UNPOOLED)}`);
 
 const { db, close } = createDirectClient(env);
 

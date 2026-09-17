@@ -26,6 +26,10 @@ export const SEED_ALLOWED_ENVIRONMENTS = ['development', 'test'] as const;
  *
  * Loopback only. A Neon branch, a staging box, a colleague's machine — all of them have to be
  * spelled out, because none of them can be recognised as safe from the string alone.
+ *
+ * The empty string is in the list on purpose: it is what a unix-socket URL
+ * (`postgresql:///db?host=/var/run/postgresql`) parses to, and a unix socket is necessarily the
+ * same machine. A malformed `postgres://` lands there too and connects to nothing.
  */
 export const SEED_LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1', '[::1]', ''] as const;
 
@@ -66,15 +70,9 @@ export interface SeedPermit {
   readonly host: string;
 }
 
-/** The host a Postgres URL points at, lowercased, or `null` when it cannot be parsed. */
-export function seedTargetHost(url: string): string | null {
-  try {
-    // `postgresql://` is not a special scheme to WHATWG URL, but hostname still parses.
-    return new URL(url).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
-}
+/** Re-exported for the tests and callers that already name it. See `../target-host.ts`. */
+export { targetHost } from '../target-host';
+import { targetHost } from '../target-host';
 
 /**
  * Throws unless this is unambiguously a development or test environment **and** the database it
@@ -104,7 +102,7 @@ export function assertSeedAllowed(env: SeedEnvironment): SeedPermit {
     throw new SeedRefusedError('DATABASE_URL_UNPOOLED is not set, so there is nothing to seed');
   }
 
-  const host = seedTargetHost(url);
+  const host = targetHost(url);
   if (host === null) {
     // A URL we cannot parse is a URL we cannot vouch for.
     throw new SeedRefusedError('DATABASE_URL_UNPOOLED is not a URL whose host can be read');

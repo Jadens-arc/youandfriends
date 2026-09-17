@@ -14,7 +14,7 @@
 export { seed, reset, type SeedResult } from './index';
 export {
   assertSeedAllowed,
-  seedTargetHost,
+  targetHost,
   SeedRefusedError,
   SEED_ALLOW_HOST_VAR,
   SEED_ALLOWED_ENVIRONMENTS,

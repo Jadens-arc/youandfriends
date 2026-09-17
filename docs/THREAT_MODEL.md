@@ -120,6 +120,67 @@ are audited.
 the quality gates. `CLAUDE.md` forbids committing credentials, generated uploads, local
 databases, and user music. Fixtures are tiny generated tones — never real music.
 
+### T10 — Operator tooling and environment targeting
+
+Every threat above assumes a request: a subject, a workspace, an authorizer between them. The
+command-line tools in `packages/db/bin/` have none of those. They are run by a person at a
+shell, they hold unrestricted credentials, and they are the only code that can empty a
+workspace in one command. Nothing in T1–T9 covers them, and the gap is not theoretical: the
+first version of the seed would have written fabricated users, workspaces and permission grants
+into production, from an ordinary development shell, and passed every check it had.
+
+**The environment label is not the target.** `NODE_ENV=development` says where a process thinks
+it is running, not what it is about to write to. A developer debugging an incident puts a
+production connection string in `.env.local` — that is what the file is for — and the label
+stays `development` all the while.
+
+**Controls.** A CLI that writes to, or deletes from, a database must:
+
+1. **Validate its target, not just its environment.** Read the host out of the connection string
+   and decide about _that_. Where a tool must never touch production, local is the default and
+   anything else is named explicitly by the operator in an environment variable. Where a tool is
+   _meant_ to run against production — a migration is — the control is announcement and
+   confirmation rather than refusal.
+2. **Say what it is about to write to, before it writes.** One line naming the host. An operator
+   who has two shells open has no other way to tell them apart, and this is the cheapest control
+   in this document.
+3. **Delete by identifier, not by predicate.** A `WHERE workspace_id = …` sweep takes rows the
+   tool did not create — a developer's own work, sitting in the same workspace. Compute the ids
+   and delete those.
+4. **Run in one transaction.** A delete that a trigger refuses partway through leaves a state
+   that cannot be cleared by running the tool again, because it fails at the same row every
+   time.
+5. **Fail closed on every dimension it checks.** An unset variable is a refusal, not an
+   assumption. The obvious shape — "refuse if `NODE_ENV` is production" — permits an unset one,
+   which is exactly what a hastily-opened shell has.
+6. **Make the guard unskippable by construction where it can.** `packages/db/src/seed/guard.ts`
+   is the worked example: `assertSeedAllowed` returns a branded permit, and `seed` and `reset`
+   require one, so no code path reaches them having skipped the check. Containment by type
+   beats containment by which symbols happen to be exported today.
+
+**Compliance, audited (task `006`).**
+
+| Tool          | Validates target | Announces target | Scoped deletes | Transactional |
+| ------------- | ---------------- | ---------------- | -------------- | ------------- |
+| `seed.mjs`    | yes              | yes              | by id          | yes           |
+| `purge.mjs`   | n/a — see below  | yes              | by id          | yes           |
+| `migrate.mjs` | n/a — see below  | yes              | n/a            | per migration |
+
+**Why `migrate` and `purge` do not refuse a remote host.** Both are _supposed_ to run against
+production — that is what they are for, and a migration that refuses production is a migration
+that never ships. Refusal is the wrong control there; announcement is the right one, and both
+now print the host before acting. `purge` additionally prints its whole plan first, dry run or
+not, and `--dry-run` takes a code path that cannot delete rather than a flag that skips the
+deletes.
+
+`seed` is the one that refuses, because it is the one that must never run against production
+under any circumstances: it writes fabricated people.
+
+**Residual.** These controls protect against a mistake, not against an operator who means harm.
+Anyone holding the connection string can open `psql` and do worse than any of these tools
+allows. That is accepted: the credential is the boundary, and the tools are hardened so that
+the ordinary route to disaster — the wrong shell, the wrong afternoon — is closed.
+
 ## Explicit non-goals for iteration one
 
 Stated plainly so they are not mistaken for oversights:

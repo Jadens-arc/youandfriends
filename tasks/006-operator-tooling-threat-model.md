@@ -45,8 +45,17 @@ command. Nothing currently states what they are required to do before they write
 
 ```
 docs/THREAT_MODEL.md
+packages/db/bin/{migrate,purge}.mjs      (announce the target)
+packages/db/src/target-host.ts           (extracted; see below)
+packages/db/src/target-host.test.ts
+packages/db/src/seed/{guard,public}.ts   (re-export, and the empty-host note)
 tasks/STATUS.md
 ```
+
+`seedTargetHost` lived inside the seed guard, which was the wrong name the moment `migrate` and
+`purge` needed it. It is `targetHost` in `src/target-host.ts` now, with `describeTarget` beside
+it so all three tools print the same words — including when there is no readable host, where
+`Target: ` followed by nothing would teach an operator nothing.
 
 ## Implementation notes
 
@@ -71,12 +80,18 @@ and permission grants into production. The environment label was never the targe
 
 ## Acceptance criteria
 
-- [ ] `docs/THREAT_MODEL.md` has a `T10` section covering operator tooling.
-- [ ] It states the target-validation, announce-before-write, scoped-delete, transactional, and
-      fail-closed requirements.
-- [ ] Each existing CLI is assessed against it in writing, and non-compliance is a recorded task
-      rather than a note.
-- [ ] The `migrate.mjs` question is answered either way, with the reasoning.
+- [x] `docs/THREAT_MODEL.md` has a `T10` section covering operator tooling.
+- [x] It states the target-validation, announce-before-write, scoped-delete, transactional, and
+      fail-closed requirements — plus a sixth the seed guard already demonstrates: make the check
+      unskippable by construction where the shape allows it.
+- [x] Each existing CLI is assessed against it in writing, in a table in `T10` itself.
+      Two did not comply and now do: `migrate.mjs` and `purge.mjs` announced nothing about the
+      database they were about to write to. Both were one line, so they were fixed rather than
+      deferred into a task file describing a one-line fix.
+- [x] The `migrate.mjs` question is answered either way, with the reasoning.
+      Announcement, not refusal — a migration is _meant_ to run against production, and one that
+      refuses it never ships. The same answer applies to `purge`. `seed` is the only one that
+      refuses, because it is the only one that must never run there: it writes fabricated people.
 
 ## Tests and validation commands
 
@@ -88,13 +103,25 @@ pnpm release-check
 
 1. Read `T10` against `packages/db/bin/seed.mjs` and confirm the rule describes what it does.
 
+**Run against a local Postgres:**
+
+```
+=== migrate ===        Target: localhost   / Applied 6 migrations.
+=== purge --dry-run === Target: localhost   / Purge plan as of … / Dry run: nothing was destroyed.
+=== unreadable URL ===  Target: unknown — the database URL has no readable host
+```
+
+The third case found a flaw in the first attempt: `purge` printed its target _after_ planning,
+so a query failure preempted the one line saying which database the failure was about. The
+announcement is now above the `try`, before the client is even built.
+
 ## Rollback/compatibility
 
 Documentation and task records. Nothing to roll back.
 
 ## Status
 
-`pending`
+`in-progress`
 
 ## Commit
 
