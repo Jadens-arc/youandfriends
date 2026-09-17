@@ -86,10 +86,28 @@ Read the actual output. A summary line is not evidence.
 ### 8. Request review
 
 - `security-reviewer` — for anything touching auth, uploads, signed URLs, sharing,
-  credentials, or tenant boundaries. Read-only.
-- `test-reviewer` — before completing, always. Read-only.
+  credentials, tenant boundaries, or the delete/purge path. Read-only, and **on the session's
+  strongest model**: the two most dangerous bugs this build has shipped were both found here,
+  and both would otherwise have gone out silently.
+- `test-reviewer` — for changes to `packages/db`, `packages/authz`, `packages/storage`, or
+  `packages/media`, and for any task whose acceptance criteria are about data surviving.
+  Read-only, and `model: sonnet` unless the change destroys user data. Elsewhere the
+  mutation pass in step 7 is the coverage check, and a second opinion is not worth its cost.
 
 Both may run in parallel.
+
+**Brief a reviewer with evidence, not with a repository.** A reviewer that starts cold re-reads
+`CLAUDE.md`, the threat model, the task file and the schema, re-runs both suites, and rebuilds
+a mutation harness for mutations already reported to it — which costs more than the review and
+finds nothing new. So:
+
+- Paste the **diff** (`git diff` plus new files) into the prompt. Do not make them find it.
+- Ask **specific questions**, listing the cases already checked and the answers found.
+- State plainly: _do not re-run the full test suites or re-derive mutations listed below; assume
+  them and look for what they missed._ List every mutation already verified, by name.
+- Name the few files worth opening beyond the diff, and say why.
+
+The cheapest review is the one that spends its budget on the part nobody has looked at yet.
 
 ### 9. Fix findings within scope
 

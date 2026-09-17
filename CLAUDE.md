@@ -175,6 +175,33 @@ These come from `docs/DESIGN.md` and are not open to reinterpretation:
 - Match the surrounding code's idiom, naming, and comment density.
 - Prefer the smallest change that satisfies the task. Do not widen scope opportunistically.
 
+### A fixture must contain the rows that make the rule bite
+
+Before writing a test, **name the rows that make the thing under test do anything at all**, and
+put them in the fixture. Then break the code and watch the test fail by name. A test that passes
+against a fixture too thin to exercise the rule is not coverage; it is a green light with nothing
+behind it, and it is worse than no test, because it stops anyone looking.
+
+This has cost three review cycles and two force-pushes so far, each time in code that guards
+something irreplaceable:
+
+- Task `026` — the cross-workspace IDOR cases created an **empty** foreign workspace. Deleting
+  the tenant filter altogether kept them green. There was nothing on the other side to leak.
+- Task `027` — three of four seeded permission grants restated their grantee's workspace
+  membership, so they resolved identically to no grant at all. The seed demonstrated nothing
+  about inheritance while appearing to demonstrate all of it.
+- Task `028` — the purge fixture had no `mix_versions` row, so an `ON DELETE RESTRICT` that makes
+  **every song the product produces** unpurgeable never fired in a single test.
+
+Concretely, before you write the test:
+
+1. List the constraints, triggers, and policies the code under test is supposed to satisfy.
+2. For each, ask what row has to exist for it to fire. `RESTRICT` needs a referencing row.
+   A tenant filter needs a populated foreign tenant. A grant needs to differ from the baseline.
+   A cascade needs something on the far end of it.
+3. Put those rows in the **shared** fixture, not in one test. The next person inherits them.
+4. Break the code. If the test still passes, the fixture is the thing that is wrong.
+
 ## 14. Available agents and skills
 
 Agents are defined in `.claude/agents/` and skills in `.claude/skills/`. Use them:

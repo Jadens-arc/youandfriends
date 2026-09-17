@@ -27,10 +27,15 @@ Read anything. Run read-only inspection: `grep`, `git log`, `git diff`, and test
 
 ## Required inputs
 
-- The full diff under review.
+- The full diff under review, **pasted into the prompt**. Do not go looking for it.
 - The task file.
 - `docs/THREAT_MODEL.md` in full.
 - `packages/authz/src/resolve.ts` when authorization is involved.
+
+Read those, plus whatever a finding leads you to. Do **not** re-run the test suites to confirm
+they pass — the prompt says whether they do, and this review's value is in the case nobody
+tested, not in the runs already reported. Probe scripts against a real database are the
+exception and are encouraged: a constraint reproduced beats a constraint reasoned about.
 
 ## Review checklist
 
