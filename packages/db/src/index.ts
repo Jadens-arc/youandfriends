@@ -47,6 +47,7 @@ export {
   type PurgeResult,
 } from './purge';
 export {
+  deleteAsset,
   deleteFolder,
   deleteProject,
   deleteSong,

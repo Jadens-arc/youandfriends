@@ -1,6 +1,16 @@
-import { and, eq, inArray, isNotNull, lte } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, lte, or, sql, type SQL } from 'drizzle-orm';
 
-import { folders, projects, songs } from './schema/index';
+import {
+  assetVersions,
+  assets,
+  derivatives,
+  mixVersions,
+  folders,
+  projects,
+  snapshots,
+  songs,
+  storageObjects,
+} from './schema/index';
 import type { DirectDatabase } from './client';
 import type { Transaction } from './transaction';
 
@@ -25,7 +35,7 @@ import type { Transaction } from './transaction';
 
 /** One row the purge intends to destroy. */
 export interface PurgeCandidate {
-  readonly table: 'folders' | 'projects' | 'songs';
+  readonly table: 'folders' | 'projects' | 'songs' | 'assets' | 'snapshots';
   readonly id: string;
   readonly workspaceId: string;
   readonly deletedAt: Date;
@@ -43,7 +53,16 @@ export interface PurgePlan {
   readonly asOf: Date;
   readonly candidates: readonly PurgeCandidate[];
   readonly refusals: readonly PurgeRefusal[];
-  /** Storage objects the candidates own, for the reaper. Empty until task `026`. */
+  /**
+   * The objects no surviving row will reference once this plan runs — ids for the row delete,
+   * keys for the reaper.
+   *
+   * Computed by reachability rather than read from a column: `storage_objects` has no
+   * `deleted_at` and no recovery window of its own, because an object is not a thing a person
+   * sees or restores. It exists exactly as long as something points at it.
+   */
+  readonly storageObjects: readonly { readonly id: string; readonly key: string }[];
+  /** The keys in {@link storageObjects}, for the reaper and the rendered plan. */
   readonly storageKeys: readonly string[];
 }
 
@@ -80,6 +99,9 @@ export async function planPurge(db: DirectDatabase, options: PurgeOptions): Prom
   const refusals: PurgeRefusal[] = [];
 
   const tables = [
+    // Deepest first, which is also the order `executePurge` destroys them in.
+    { name: 'assets' as const, table: assets },
+    { name: 'snapshots' as const, table: snapshots },
     { name: 'songs' as const, table: songs },
     { name: 'projects' as const, table: projects },
     { name: 'folders' as const, table: folders },
@@ -159,6 +181,92 @@ export async function planPurge(db: DirectDatabase, options: PurgeOptions): Prom
     }
   }
 
+  // Files under a song or project. This is failure mode #1 above, recurring one level down:
+  // `assets.song_id` and `assets.project_id` both cascade, so purging a song would hard-delete
+  // an asset trashed yesterday and still inside its own recovery window — one the plan never
+  // named and its owner could still restore.
+  const songIds = candidates.filter((c) => c.table === 'songs').map((c) => c.id);
+  if (songIds.length > 0) {
+    const songAssets = await db
+      .select({ songId: assets.songId, id: assets.id, deletedAt: assets.deletedAt })
+      .from(assets)
+      .where(inArray(assets.songId, songIds));
+
+    for (const asset of songAssets) {
+      if (asset.songId === null) continue;
+      relationships.push({
+        parent: `songs:${asset.songId}`,
+        child: `assets:${asset.id}`,
+        childDeleted: asset.deletedAt !== null,
+        relation: 'is a file of it',
+      });
+    }
+  }
+
+  if (projectIds.length > 0) {
+    const projectAssets = await db
+      .select({ projectId: assets.projectId, id: assets.id, deletedAt: assets.deletedAt })
+      .from(assets)
+      .where(inArray(assets.projectId, projectIds));
+
+    for (const asset of projectAssets) {
+      if (asset.projectId === null) continue;
+      relationships.push({
+        parent: `projects:${asset.projectId}`,
+        child: `assets:${asset.id}`,
+        childDeleted: asset.deletedAt !== null,
+        relation: 'is a file of it',
+      });
+    }
+
+    const projectSnapshots = await db
+      .select({ projectId: snapshots.projectId, id: snapshots.id, deletedAt: snapshots.deletedAt })
+      .from(snapshots)
+      .where(inArray(snapshots.projectId, projectIds));
+
+    for (const snapshot of projectSnapshots) {
+      relationships.push({
+        parent: `projects:${snapshot.projectId}`,
+        child: `snapshots:${snapshot.id}`,
+        childDeleted: snapshot.deletedAt !== null,
+        relation: 'is a snapshot of it',
+      });
+    }
+  }
+
+  // A mix is a song's view of an asset version, and `mix_versions.asset_version_id` is
+  // `ON DELETE RESTRICT` — so destroying an asset whose version a mix still plays is refused by
+  // Postgres, not cascaded. The right answer is to hold the asset back and say why: removing
+  // that mix row would delete a user-visible row that was never in the trash.
+  //
+  // Missing this made every song with a mix unpurgeable — which is every song the product
+  // produces — and the failure was a rolled-back transaction rather than a refusal, so a
+  // single such row aborted the run for every tenant in it.
+  const assetIds = candidates.filter((c) => c.table === 'assets').map((c) => c.id);
+  if (assetIds.length > 0) {
+    const mixes = await db
+      .select({
+        assetId: assetVersions.assetId,
+        songId: mixVersions.songId,
+        songDeletedAt: songs.deletedAt,
+      })
+      .from(mixVersions)
+      .innerJoin(assetVersions, eq(assetVersions.id, mixVersions.assetVersionId))
+      .innerJoin(songs, eq(songs.id, mixVersions.songId))
+      .where(inArray(assetVersions.assetId, assetIds));
+
+    for (const mix of mixes) {
+      // The parent is the asset; the child is the song whose mix plays it. When that song is
+      // going in the same run its mixes go with it, so the asset is free.
+      relationships.push({
+        parent: `assets:${mix.assetId}`,
+        child: `songs:${mix.songId}`,
+        childDeleted: mix.songDeletedAt !== null,
+        relation: 'still plays it as a mix',
+      });
+    }
+  }
+
   const folderIds = candidates.filter((c) => c.table === 'folders').map((c) => c.id);
   if (folderIds.length > 0) {
     // `projects.folder_id` is `on delete set null` rather than cascade, so a folder purge
@@ -224,30 +332,207 @@ export async function planPurge(db: DirectDatabase, options: PurgeOptions): Prom
     refusals.push({ table: table as PurgeCandidate['table'], id: id ?? '', reason });
   }
 
+  const approvedCandidates = candidates.filter((candidate) =>
+    approved.has(`${candidate.table}:${candidate.id}`),
+  );
+
   return {
     asOf: options.now,
-    candidates: candidates.filter((candidate) =>
-      approved.has(`${candidate.table}:${candidate.id}`),
-    ),
+    candidates: approvedCandidates,
     refusals,
-    // **Still empty, and now that is a known gap, not a waiting one.** Task `026` created
-    // `asset_versions` and `storage_objects`; this planner was not extended to reach them, so
-    // hard-deleting a song cascades its versions away and leaves the storage rows behind as
-    // orphans no later run can find. `assets` and `snapshots` also carry soft-delete columns
-    // that nothing here scans or cascades to.
-    //
-    // Task `028` closes both. Registering the tables satisfied the `packages/authz` registry
-    // — which checks that a table has a cross-tenant test, not that the purge knows about it
-    // — so the guard I expected to catch this could not.
-    storageKeys: [],
+    ...(await reachableStorage(db, approvedCandidates)),
   };
+}
+
+/**
+ * The storage objects that will have nothing pointing at them once the plan runs.
+ *
+ * Reachability, not a column scan. A `storage_objects` row has no `deleted_at` and no recovery
+ * window: an object is not something a person sees or restores, so it lives exactly as long as
+ * something references it and no longer. The previous planner returned `[]` here, which meant
+ * hard-deleting a song cascaded its versions away and left the bytes in the bucket with nothing
+ * left to find them by — the guard in `executePurge` could not fire, because the list it checks
+ * was always empty.
+ *
+ * Three kinds of row reference an object, and they are not alike:
+ *
+ *   - `asset_versions.storage_object_id` and `snapshots.storage_object_id` are `ON DELETE
+ *     RESTRICT`. Postgres refuses the object delete if this function got it wrong, so a
+ *     mistake there fails loudly instead of destroying bytes something still names.
+ *   - `derivatives.storage_object_id` is `ON DELETE SET NULL`, so there is **no such net**. A
+ *     derivative has its own object — a whole streaming rendition, paid for by the byte — and
+ *     when its version is destroyed the row cascades away and those bytes were left in the
+ *     bucket with nothing to find them by. Verified by running it, not by reading the code.
+ *
+ * A derivative never keeps an *original* alive: it is regenerable, and holding an original for
+ * one would invert `docs/THREAT_MODEL.md` T8. It does keep **its own** object alive while the
+ * derivative row survives, which is a different claim and the one applied below.
+ */
+async function reachableStorage(
+  db: DirectDatabase,
+  candidates: readonly PurgeCandidate[],
+): Promise<Pick<PurgePlan, 'storageObjects' | 'storageKeys'>> {
+  const idsFor = (table: PurgeCandidate['table']) =>
+    candidates.filter((candidate) => candidate.table === table).map((candidate) => candidate.id);
+
+  // Every asset that goes: named directly, or cascaded from a song or project that goes.
+  const owners: SQL[] = [];
+  const doomedSongs = idsFor('songs');
+  const doomedProjects = idsFor('projects');
+  const namedAssets = idsFor('assets');
+
+  if (namedAssets.length > 0) owners.push(inArray(assets.id, namedAssets) as SQL);
+  if (doomedSongs.length > 0) owners.push(inArray(assets.songId, doomedSongs) as SQL);
+  if (doomedProjects.length > 0) owners.push(inArray(assets.projectId, doomedProjects) as SQL);
+
+  const doomedAssets =
+    owners.length === 0
+      ? []
+      : (
+          await db
+            .select({ id: assets.id })
+            .from(assets)
+            .where(or(...owners))
+        ).map((row) => row.id);
+
+  // Every snapshot that goes: named directly, or cascaded from a project that goes.
+  const snapshotOwners: SQL[] = [];
+  const namedSnapshots = idsFor('snapshots');
+  if (namedSnapshots.length > 0) snapshotOwners.push(inArray(snapshots.id, namedSnapshots) as SQL);
+  if (doomedProjects.length > 0) {
+    snapshotOwners.push(inArray(snapshots.projectId, doomedProjects) as SQL);
+  }
+
+  const doomedSnapshots =
+    snapshotOwners.length === 0
+      ? []
+      : (
+          await db
+            .select({ id: snapshots.id })
+            .from(snapshots)
+            .where(or(...snapshotOwners))
+        ).map((row) => row.id);
+
+  // Every version that goes with those assets. Versions carry no tombstone of their own — they
+  // are immutable and belong to the asset (`docs/DESIGN.md`: originals are sacred).
+  const doomedVersions =
+    doomedAssets.length === 0
+      ? []
+      : await db
+          .select({ id: assetVersions.id, objectId: assetVersions.storageObjectId })
+          .from(assetVersions)
+          .where(inArray(assetVersions.assetId, doomedAssets));
+
+  const snapshotObjects =
+    doomedSnapshots.length === 0
+      ? []
+      : await db
+          .select({ id: snapshots.id, objectId: snapshots.storageObjectId })
+          .from(snapshots)
+          .where(inArray(snapshots.id, doomedSnapshots));
+
+  // Derivatives of the doomed versions. They cascade away with the version, so their objects
+  // become unreachable at the same moment the originals do.
+  const doomedDerivatives =
+    doomedVersions.length === 0
+      ? []
+      : await db
+          .select({ id: derivatives.id, objectId: derivatives.storageObjectId })
+          .from(derivatives)
+          .where(
+            inArray(
+              derivatives.assetVersionId,
+              doomedVersions.map((version) => version.id),
+            ),
+          );
+
+  const objectIds = new Set<string>();
+  for (const version of doomedVersions) objectIds.add(version.objectId);
+  for (const derivative of doomedDerivatives) {
+    // Null while the derivative is still queued or its job failed.
+    if (derivative.objectId !== null) objectIds.add(derivative.objectId);
+  }
+  for (const snapshot of snapshotObjects) {
+    // Null while a snapshot upload is still in flight.
+    if (snapshot.objectId !== null) objectIds.add(snapshot.objectId);
+  }
+
+  if (objectIds.size === 0) return { storageObjects: [], storageKeys: [] };
+
+  // The survivor check. An object stays if **anything** outside the doomed set still points at
+  // it — the same bytes can back two versions once a copy exists, and reaping it would destroy
+  // a file a live row still names.
+  const doomedVersionIds = new Set(doomedVersions.map((version) => version.id));
+  const doomedSnapshotIds = new Set(doomedSnapshots);
+  const doomedDerivativeIds = new Set(doomedDerivatives.map((derivative) => derivative.id));
+  const candidateIds = [...objectIds];
+
+  const referencingVersions = await db
+    .select({ objectId: assetVersions.storageObjectId, id: assetVersions.id })
+    .from(assetVersions)
+    .where(inArray(assetVersions.storageObjectId, candidateIds));
+
+  const referencingSnapshots = await db
+    .select({ objectId: snapshots.storageObjectId, id: snapshots.id })
+    .from(snapshots)
+    .where(inArray(snapshots.storageObjectId, candidateIds));
+
+  const referencingDerivatives = await db
+    .select({ objectId: derivatives.storageObjectId, id: derivatives.id })
+    .from(derivatives)
+    .where(inArray(derivatives.storageObjectId, candidateIds));
+
+  const kept = new Set<string>();
+  for (const derivative of referencingDerivatives) {
+    // A surviving derivative keeps its own object, and `SET NULL` would not stop us reaping it
+    // — it would just quietly blank the pointer and leave a derivative that plays silence.
+    if (derivative.objectId !== null && !doomedDerivativeIds.has(derivative.id)) {
+      kept.add(derivative.objectId);
+    }
+  }
+  for (const version of referencingVersions) {
+    if (!doomedVersionIds.has(version.id)) kept.add(version.objectId);
+  }
+  for (const snapshot of referencingSnapshots) {
+    if (snapshot.objectId !== null && !doomedSnapshotIds.has(snapshot.id)) {
+      kept.add(snapshot.objectId);
+    }
+  }
+
+  const reapable = candidateIds.filter((id) => !kept.has(id));
+  if (reapable.length === 0) return { storageObjects: [], storageKeys: [] };
+
+  const rows = await db
+    .select({ id: storageObjects.id, key: storageObjects.key })
+    .from(storageObjects)
+    .where(inArray(storageObjects.id, reapable));
+
+  return { storageObjects: rows, storageKeys: rows.map((row) => row.key) };
 }
 
 /** What a run actually did. */
 export interface PurgeResult {
   readonly plan: PurgePlan;
-  readonly purged: { readonly folders: number; readonly projects: number; readonly songs: number };
+  readonly purged: {
+    readonly folders: number;
+    readonly projects: number;
+    readonly songs: number;
+    readonly assets: number;
+    readonly snapshots: number;
+  };
   readonly storageObjectsDeleted: number;
+  /** Mix rows removed on the way, all of them belonging to songs in this run. */
+  readonly mixVersionsDeleted: number;
+  /**
+   * The ids actually destroyed, per table.
+   *
+   * Not the same as `plan.candidates`: a row its owner restored between planning and running is
+   * re-validated away and is **not** in here. The audit log is written from this, because an
+   * event saying a row was purged when it still exists is worse than no event at all.
+   */
+  readonly destroyed: Readonly<Record<PurgeCandidate['table'], readonly string[]>>;
+  /** The keys handed to the reaper — the objects whose rows really went. */
+  readonly storageKeysDeleted: readonly string[];
 }
 
 /**
@@ -275,8 +560,43 @@ export async function executePurge(
 
   // Deepest first, so a foreign key never blocks a delete that the plan already approved.
   const songIds = idsFor('songs');
+  const assetIds = idsFor('assets');
+  const snapshotIds = idsFor('snapshots');
   const projectIds = idsFor('projects');
   const folderIds = idsFor('folders');
+
+  // Mixes first. `mix_versions.asset_version_id` is `ON DELETE RESTRICT`, so deleting an asset
+  // whose version a mix still plays is refused rather than cascaded — and the whole transaction
+  // rolls back with it. The planner guarantees that every remaining mix belongs to a song in
+  // this same run (see the mix relationship in `planPurge`), so clearing them here is removing
+  // rows that were already going, in the order Postgres accepts.
+  //
+  // `songs.current_version_id` is `ON DELETE SET NULL ("current_version_id")`, so this blanks a
+  // pointer on a song that is about to be destroyed anyway. Naming the column matters: a bare
+  // `SET NULL` on that composite key would null `songs.id` too.
+  const purgedMixes =
+    songIds.length === 0
+      ? []
+      : await tx
+          .delete(mixVersions)
+          .where(inArray(mixVersions.songId, songIds))
+          .returning({ id: mixVersions.id });
+
+  const purgedAssets =
+    assetIds.length === 0
+      ? []
+      : await tx
+          .delete(assets)
+          .where(and(inArray(assets.id, assetIds), isNotNull(assets.deletedAt)))
+          .returning({ id: assets.id });
+
+  const purgedSnapshots =
+    snapshotIds.length === 0
+      ? []
+      : await tx
+          .delete(snapshots)
+          .where(and(inArray(snapshots.id, snapshotIds), isNotNull(snapshots.deletedAt)))
+          .returning({ id: snapshots.id });
 
   const purgedSongs =
     songIds.length === 0
@@ -302,11 +622,43 @@ export async function executePurge(
           .where(and(inArray(folders.id, folderIds), isNotNull(folders.deletedAt)))
           .returning({ id: folders.id });
 
-  // Storage last. If the transaction rolls back after this, the objects are gone and the rows
-  // remain — recoverable, because the rows still say what was lost. The other order loses the
-  // record of what to look for.
-  if (reaper !== null && plan.storageKeys.length > 0) {
-    await reaper.delete(plan.storageKeys);
+  // The `storage_objects` rows, now that the cascade has taken every `asset_versions` and
+  // `snapshots` row that referenced them.
+  //
+  // Re-validated, exactly like the row deletes above. The plan's reachability was computed when
+  // the plan was made, and a row its owner restored since then is still live — so each object is
+  // deleted only if nothing references it *now*. For `asset_versions` and `snapshots` that is
+  // belt and braces, because `RESTRICT` would refuse anyway. For `derivatives` it is the only
+  // check there is: `SET NULL` would have blanked a surviving rendition's pointer and left it
+  // claiming `complete` with nothing to re-queue it.
+  const objectIds = plan.storageObjects.map((object) => object.id);
+  const purgedObjects =
+    objectIds.length === 0
+      ? []
+      : await tx
+          .delete(storageObjects)
+          .where(
+            and(
+              inArray(storageObjects.id, objectIds),
+              sql`not exists (select 1 from ${assetVersions}
+                    where ${assetVersions.storageObjectId} = ${storageObjects.id})`,
+              sql`not exists (select 1 from ${snapshots}
+                    where ${snapshots.storageObjectId} = ${storageObjects.id})`,
+              sql`not exists (select 1 from ${derivatives}
+                    where ${derivatives.storageObjectId} = ${storageObjects.id})`,
+            ),
+          )
+          .returning({ id: storageObjects.id, key: storageObjects.key });
+
+  // Storage last, and only the keys whose rows really went. Handing the reaper the *planned*
+  // keys would delete bytes for a row that survived re-validation — silently, for a derivative.
+  //
+  // If the transaction rolls back after this, the objects are gone and the rows remain —
+  // recoverable, because the rows still say what was lost. The other order loses the record of
+  // what to look for.
+  const storageKeysDeleted = purgedObjects.map((object) => object.key);
+  if (reaper !== null && storageKeysDeleted.length > 0) {
+    await reaper.delete(storageKeysDeleted);
   }
 
   return {
@@ -315,8 +667,19 @@ export async function executePurge(
       folders: purgedFolders.length,
       projects: purgedProjects.length,
       songs: purgedSongs.length,
+      assets: purgedAssets.length,
+      snapshots: purgedSnapshots.length,
     },
-    storageObjectsDeleted: reaper === null ? 0 : plan.storageKeys.length,
+    mixVersionsDeleted: purgedMixes.length,
+    storageObjectsDeleted: purgedObjects.length,
+    storageKeysDeleted,
+    destroyed: {
+      folders: purgedFolders.map((row) => row.id),
+      projects: purgedProjects.map((row) => row.id),
+      songs: purgedSongs.map((row) => row.id),
+      assets: purgedAssets.map((row) => row.id),
+      snapshots: purgedSnapshots.map((row) => row.id),
+    },
   };
 }
 
@@ -329,7 +692,7 @@ export function describePlan(plan: PurgePlan): string {
   } else {
     for (const candidate of plan.candidates) {
       lines.push(
-        `  DESTROY ${candidate.table.padEnd(8)} ${candidate.id}  ` +
+        `  DESTROY ${candidate.table.padEnd(9)} ${candidate.id}  ` +
           `workspace=${candidate.workspaceId}  deleted=${candidate.deletedAt.toISOString()}`,
       );
     }
@@ -338,7 +701,7 @@ export function describePlan(plan: PurgePlan): string {
   if (plan.refusals.length > 0) {
     lines.push('', '  Held back:');
     for (const refusal of plan.refusals) {
-      lines.push(`    KEEP    ${refusal.table.padEnd(8)} ${refusal.id}  — ${refusal.reason}`);
+      lines.push(`    KEEP    ${refusal.table.padEnd(9)} ${refusal.id}  — ${refusal.reason}`);
     }
   }
 

@@ -1,8 +1,9 @@
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { folders, projects, songs } from '../schema/index';
+import { assets, folders, projects, songs } from '../schema/index';
 import {
+  deleteAsset,
   deleteFolder,
   deleteProject,
   deleteSong,
@@ -12,7 +13,7 @@ import {
   type SoftDeleteOptions,
 } from '../soft-delete';
 import { withTransaction } from '../transaction';
-import { makeFolder, makeProject, makeSong, makeTenant, testId } from './factories';
+import { makeAsset, makeFolder, makeProject, makeSong, makeTenant, testId } from './factories';
 import { createTestDatabase, unavailableReason, type TestDatabase } from './harness';
 
 const reason = unavailableReason();
@@ -117,6 +118,23 @@ describeWithDatabase('soft deletion', () => {
       // Re-deleting must not overwrite the batch, or the original restore loses its member.
       expect(second.songs).toEqual([]);
       expect((await readSong(first.id))?.deletedBatch).toBe(firstDelete.batch);
+    });
+
+    it('ignores an asset in another workspace', async () => {
+      // The tenant boundary on the newest entry point. Songs and batches have had this since
+      // task `025`; `deleteAsset` arrived with `028` and needs its own, because a workspace
+      // filter is the kind of thing that is present until someone refactors the query.
+      const { first } = await makeTree();
+      const asset = await makeAsset(database.db, first.workspaceId, { songId: first.id });
+      const other = await makeTenant(database.db);
+
+      const result = await withTransaction(database.db, (tx) =>
+        deleteAsset(tx, asset.id, options({ workspaceId: other.workspace.id })),
+      );
+
+      expect(result.assets).toEqual([]);
+      const [row] = await database.db.select().from(assets).where(eq(assets.id, asset.id));
+      expect(row?.deletedAt).toBeNull();
     });
 
     it('ignores a song in another workspace', async () => {

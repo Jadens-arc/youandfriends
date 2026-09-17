@@ -63,8 +63,9 @@ export const assetVersions = pgTable(
     storageObjectId: reference('storage_object_id')
       .notNull()
       // `restrict`: the object record must not vanish out from under a version that still
-      // claims it. Purge is *meant* to remove both in order — task `028`, because task `025`'s
-      // planner does not reach storage objects yet and today they are left orphaned.
+      // claims it. `planPurge` computes which objects nothing will reference and `executePurge`
+      // removes the versions first, so this constraint is the check on that reasoning rather
+      // than an obstacle to it — a plan that got reachability wrong raises here.
       .references(() => storageObjects.id, { onDelete: 'restrict' }),
     uploadedBy: reference('uploaded_by'),
     note: text('note'),

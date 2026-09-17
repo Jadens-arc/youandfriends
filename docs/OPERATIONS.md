@@ -231,12 +231,23 @@ Refusals are printed with their reason:
 **The plan is a proposal, never a warrant.** Execution re-checks each row, so anything an
 owner restored between planning and running is skipped.
 
-**Storage is not wired yet.** `packages/storage` arrives in task `050`. Until then a plan
-naming storage objects makes the run refuse rather than delete rows and orphan the objects
-they pointed at — an orphan no later run can find, because the pointers are gone. When it is
-wired, objects are deleted **after** the rows within the same transaction: if it rolls back
-afterwards the objects are gone but the rows still say what was lost, which is recoverable;
-the other order destroys the record of what to look for.
+**The plan reaches storage.** It names every object that nothing will reference once the run
+completes — the originals behind a purged asset's versions, a project snapshot's ZIP, and each
+streaming derivative's own rendition. This is computed by reachability, not read from a column:
+`storage_objects` has no recovery window of its own, because an object is not something a person
+sees or restores. It lives exactly as long as something points at it.
+
+An object shared by anything that survives the run is **kept**, and the plan says so by omitting
+it. Two of the three reference kinds are `ON DELETE RESTRICT`, so a plan that got this wrong
+fails loudly instead of destroying bytes a live row still names; `derivatives` is `SET NULL` and
+has no such net, which is why its objects are computed in both directions.
+
+**The reaper is not wired yet.** `packages/storage` arrives in task `050`. Until then a plan
+naming storage objects makes the run **refuse**, rather than deleting the rows and orphaning the
+objects they pointed at — an orphan no later run can find, because the pointers are gone. Pass a
+reaper to proceed. Rows are destroyed first and objects after, within the same transaction: if
+it rolls back afterwards the objects are gone but the rows still say what was lost, which is
+recoverable; the other order destroys the record of what to look for.
 
 **Every delete, restore, and purge is audited** per row, not per operation. Deleting a folder
 can remove forty songs, and "who deleted this song" has to be answerable for each of them.

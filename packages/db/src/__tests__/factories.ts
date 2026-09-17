@@ -232,3 +232,26 @@ export async function makeMixVersion(
   if (!row) throw new Error('mix version insert returned nothing');
   return row;
 }
+
+export async function makeSnapshot(
+  db: DirectDatabase,
+  workspaceId: string,
+  projectId: string,
+  overrides: { storageObjectId?: string | null; finalized?: boolean } = {},
+) {
+  const { snapshots } = await import('../schema/index');
+  const [row] = await db
+    .insert(snapshots)
+    .values({
+      id: testId(),
+      workspaceId,
+      projectId,
+      source: 'browser_folder',
+      name: `Snapshot ${testId()}`,
+      storageObjectId: overrides.storageObjectId ?? null,
+      finalizedAt: overrides.finalized === true ? new Date() : null,
+    })
+    .returning();
+  if (!row) throw new Error('snapshot insert returned nothing');
+  return row;
+}

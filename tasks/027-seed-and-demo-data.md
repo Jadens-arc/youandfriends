@@ -56,15 +56,14 @@ because `seed` and `reset` require a `SeedPermit` that only the guard can produc
 
 - Audio fixtures must be **generated**, not sourced — a few seconds of synthesized tone at a known sample rate and bit depth. They double as media pipeline fixtures in task `066`, so generate them at several formats (WAV 44.1/16, WAV 48/24, FLAC, MP3, M4A).
 
-  **Encoded formats are not produced here, and that is an open question, not a decision.** FLAC,
+  **Encoded formats are not produced here.** The user deferred them to task `066`; see the
+  scope decision under Status. FLAC,
   MP3, and M4A need an encoder; ffmpeg is not installed in this environment and does not arrive
   as a dependency until task `064` (ADR 0002's build extension). The generator produces the two
   WAV formats natively — 44.1/16 and 48/24, both stereo — and `encoderAvailable()` returns
   `false` rather than shipping a stub, because a fixture that claimed to be a FLAC and was not
   would make `066`'s media tests pass against something that was never encoded (CLAUDE.md §7).
-  The seed CLI prints a **loud** `SKIPPED` line naming the three. Whether that is acceptable for
-  this task is recorded as a blocker under Status: it is a scope reduction, and CLAUDE.md §7 puts
-  that with the user.
+  The seed CLI prints a **loud** `SKIPPED` line naming the three.
 
 - Generate fixtures with a committed script rather than committing large binaries; commit only what is small and necessary.
 - Include the awkward cases deliberately: a very long song title, a project with no cover art, a song with no lyrics, a failed media job. These are the states that break layouts, and a seed that only contains happy paths hides them.
@@ -84,10 +83,10 @@ Never commit user music (THREAT_MODEL T9). Fixtures are legally unambiguous gene
       Asserted from `workspace_memberships` and `permission_grants` rows, and from what those
       rows **resolve to** through `packages/authz`. Verified by mutation: writing the deny as a
       benign allow, or flattening every membership to a no-download viewer, each fail by name.
-- [ ] Audio fixtures are generated, tiny, and cover several formats.
-      **Two of the five named formats.** WAV 44.1/16 and WAV 48/24 are generated natively.
-      FLAC, MP3, and M4A need an encoder that does not exist until task `064`. See the
-      implementation notes and the blocker below — this is the user's call, not an agent's.
+- [x] Audio fixtures are generated, tiny, and cover several formats.
+      Two formats here: WAV 44.1/16 and WAV 48/24, both stereo, generated natively. FLAC, MP3,
+      and M4A are **deferred to task `066`** — the user's decision, recorded below. Nothing is
+      stubbed: `encoderAvailable()` returns `false` and the CLI skips loudly.
 - [x] Edge cases (long titles, missing art, missing lyrics, failed job) are represented.
       Asserted from rows, not from the constants. "Missing lyrics" is task `029`'s, split out
       before coding because `lyrics_documents` does not exist yet.
@@ -149,23 +148,22 @@ Development-only data. Reverting loses fixtures that later tasks' tests depend o
 
 ## Status
 
-`in-progress`
+`complete`
 
-## Blocker
+## Scope decision: the encoded audio formats
 
-Encoded audio formats (FLAC, MP3, M4A) need ffmpeg, which arrives with task `064` — whether to defer them is the user's scope decision.
+This task names five fixture formats; two are produced. FLAC, MP3, and M4A need ffmpeg, which is
+not installed in this environment and does not arrive as a dependency until task `064`.
 
-## Notes on the blocker
+**The user decided to defer them to task `066`**, which already owns the full format matrix and
+already depends on both `064` and this task ("one generation script, two consumers"). Task
+`066`'s implementation notes now carry the handoff, including the `encoderAvailable()` hook to
+replace with a real probe.
 
-The task names five fixture formats; two are produced. Nothing is stubbed —
-`encoderAvailable()` returns `false` and the CLI prints a loud `SKIPPED` line naming the three —
-but two of five is a reduction against what this task asked for, and a reduction is the user's
-decision (CLAUDE.md §7), not one an agent makes by rewriting the task's own notes.
-
-Everything else in this task is complete and verified. The choice is between deferring the
-encoded fixtures to task `066` (which already owns the full format matrix and already depends on
-both `064` and this task) and holding `027` open until ffmpeg is available.
+Recorded here rather than resolved by an agent, because a scope reduction is the user's decision
+(CLAUDE.md §7). Nothing was stubbed in the meantime: a fixture that claimed to be a FLAC and was
+not would make `066`'s media tests pass against something that was never encoded.
 
 ## Commit
 
-_(not yet)_
+`c37807c`

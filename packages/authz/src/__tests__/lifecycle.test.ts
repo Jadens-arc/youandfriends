@@ -1,10 +1,14 @@
 import { type WorkspaceId } from '@youandfriends/contracts';
-import { auditEvents, songs, type DirectDatabase } from '@youandfriends/db';
+import { assets, auditEvents, songs, storageObjects, type DirectDatabase } from '@youandfriends/db';
 import {
   createTestDatabase,
+  makeAsset,
+  makeAssetVersion,
   makeFolder,
   makeProject,
+  makeSnapshot,
   makeSong,
+  makeStorageObject,
   makeTenant,
   testId,
   unavailableReason,
@@ -118,6 +122,52 @@ describeWithDatabase('audited lifecycle', () => {
     expect(events.every((event) => event.actorKind === 'member')).toBe(true);
   });
 
+  it('audits an asset the cascade reached, as an asset', async () => {
+    const { workspace, first, context } = await makeTree();
+    const asset = await makeAsset(db, workspace.id, { songId: first.id });
+
+    await deleteEntity(db, context, 'song', first.id);
+
+    const events = await eventsFor(workspace.id);
+    const assetEvent = events.find((event) => event.targetId === asset.id);
+
+    // One event per row touched — a stem that disappears inside somebody else's event is a
+    // row whose disappearance nobody can explain.
+    expect(assetEvent?.action).toBe('asset.deleted');
+    expect(assetEvent?.targetType).toBe('asset');
+  }, 60_000);
+
+  it('audits a snapshot the cascade reached', async () => {
+    const { workspace, project, context } = await makeTree();
+    const snapshot = await makeSnapshot(db, workspace.id, project.id);
+
+    await deleteEntity(db, context, 'project', project.id);
+
+    const events = await eventsFor(workspace.id);
+    const event = events.find((row) => row.targetId === snapshot.id);
+    expect(event?.action).toBe('snapshot.deleted');
+    expect(event?.targetType).toBe('snapshot');
+  }, 60_000);
+
+  it('deletes and restores an asset on its own', async () => {
+    const { workspace, first, context } = await makeTree();
+    const asset = await makeAsset(db, workspace.id, { songId: first.id });
+
+    const deleted = await deleteEntity(db, context, 'asset', asset.id);
+    expect(deleted.assets).toEqual([asset.id]);
+    expect(deleted.songs).toEqual([]);
+
+    const restored = await restoreEntity(db, context, deleted.batch);
+    expect(restored.assets).toEqual([asset.id]);
+
+    const [row] = await db.select().from(assets).where(eq(assets.id, asset.id));
+    expect(row?.deletedAt).toBeNull();
+
+    const actions = (await eventsFor(workspace.id)).map((event) => event.action);
+    expect(actions).toContain('asset.deleted');
+    expect(actions).toContain('asset.restored');
+  }, 60_000);
+
   describe('purge', () => {
     it('destroys nothing on a dry run, and returns a readable plan', async () => {
       const { workspace, folder, first, context } = await makeTree();
@@ -157,6 +207,63 @@ describeWithDatabase('audited lifecycle', () => {
       expect(purgeEvents.map((event) => event.targetId)).toContain(first.id);
       expect(await db.select().from(songs).where(eq(songs.id, first.id))).toEqual([]);
     });
+
+    it('names each purged row as what it is, not as a song', async () => {
+      // The mapping used to be a chain of ternaries ending in `: 'song.deleted'`, so widening
+      // the planner to assets and snapshots would have filed every purged asset under
+      // `song.deleted`. An audit log that is wrong is worse than one that is missing, because
+      // it gets believed.
+      const { workspace, project, first, context } = await makeTree();
+      const asset = await makeAsset(db, workspace.id, { songId: first.id });
+      const object = await makeStorageObject(db, workspace.id);
+      await makeAssetVersion(db, workspace.id, asset.id, object.id, 1);
+      await makeSnapshot(db, workspace.id, project.id);
+
+      await deleteEntity(db, context, 'project', project.id);
+      await runPurge(db, context, {
+        now: AFTER_WINDOW,
+        workspaceId: workspace.id,
+        dryRun: false,
+        reaper: { delete: async () => undefined },
+      });
+
+      const purged = (await eventsFor(workspace.id)).filter(
+        (event) => (event.metadata as { purged?: boolean }).purged === true,
+      );
+      const byTarget = new Map(purged.map((event) => [event.targetId, event]));
+
+      expect(byTarget.get(asset.id)?.action).toBe('asset.deleted');
+      expect(byTarget.get(asset.id)?.targetType).toBe('asset');
+      expect(byTarget.get(first.id)?.action).toBe('song.deleted');
+      expect(byTarget.get(project.id)?.action).toBe('project.deleted');
+
+      // And the bytes went with them.
+      expect(
+        await db.select().from(storageObjects).where(eq(storageObjects.workspaceId, workspace.id)),
+      ).toEqual([]);
+    }, 60_000);
+
+    it('refuses to purge when the plan names objects and no reaper was given', async () => {
+      const { workspace, first, context } = await makeTree();
+      const asset = await makeAsset(db, workspace.id, { songId: first.id });
+      const object = await makeStorageObject(db, workspace.id);
+      await makeAssetVersion(db, workspace.id, asset.id, object.id, 1);
+
+      await deleteEntity(db, context, 'song', first.id);
+
+      // Deleting the rows without the objects orphans bytes that nothing will ever reference
+      // again — the guard exists for exactly this, and before the planner reached storage it
+      // could never fire because the list it checks was always empty.
+      await expect(
+        runPurge(db, context, {
+          now: AFTER_WINDOW,
+          workspaceId: workspace.id,
+          dryRun: false,
+        }),
+      ).rejects.toThrow(/no reaper was supplied/);
+
+      expect(await db.select().from(songs).where(eq(songs.id, first.id))).toHaveLength(1);
+    }, 60_000);
 
     it('keeps the purge audit events after the rows are gone', async () => {
       const { workspace, folder, context } = await makeTree();

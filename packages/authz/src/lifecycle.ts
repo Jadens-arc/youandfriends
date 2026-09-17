@@ -1,5 +1,6 @@
 import { type WorkspaceId } from '@youandfriends/contracts';
 import {
+  deleteAsset,
   deleteFolder,
   deleteProject,
   deleteSong,
@@ -10,6 +11,7 @@ import {
   type CascadeResult,
   type DirectDatabase,
   type ObjectReaper,
+  type PurgeCandidate,
   type PurgeOptions,
   type PurgeResult,
 } from '@youandfriends/db';
@@ -48,18 +50,32 @@ function auditContext(context: LifecycleContext): AuditContext {
   };
 }
 
-type Entity = 'folder' | 'project' | 'song';
+/** What a caller may delete by name. Snapshots are reached by cascade, never asked for. */
+type Entity = 'folder' | 'project' | 'song' | 'asset';
+
+/**
+ * Every entity a cascade can touch, including the ones no caller names directly.
+ *
+ * A snapshot is never deleted by name — it goes when its project does — but it still gets its
+ * own event. The rule this module exists to keep is one event per row touched, and a snapshot
+ * counted inside somebody else's event is a row whose disappearance nobody can explain.
+ */
+type Touched = Entity | 'snapshot';
 
 const DELETE_ACTION = {
   folder: 'folder.deleted',
   project: 'project.deleted',
   song: 'song.deleted',
+  asset: 'asset.deleted',
+  snapshot: 'snapshot.deleted',
 } as const;
 
 const RESTORE_ACTION = {
   folder: 'folder.restored',
   project: 'project.restored',
   song: 'song.restored',
+  asset: 'asset.restored',
+  snapshot: 'snapshot.restored',
 } as const;
 
 /**
@@ -92,7 +108,9 @@ export async function deleteEntity(
         ? await deleteFolder(tx, id, options)
         : entity === 'project'
           ? await deleteProject(tx, id, options)
-          : await deleteSong(tx, id, options);
+          : entity === 'asset'
+            ? await deleteAsset(tx, id, options)
+            : await deleteSong(tx, id, options);
 
     await emitFor(audit, result, DELETE_ACTION, { batch });
     return result;
@@ -114,10 +132,26 @@ export async function restoreEntity(
 
 type ActionMap = typeof DELETE_ACTION | typeof RESTORE_ACTION;
 
+/**
+ * A purge candidate's table, as the entity its audit event names.
+ *
+ * A map rather than a chain of ternaries: the chain had a trailing `: 'song.deleted'`, so
+ * adding `assets` and `snapshots` to the planner would have filed every purged asset under
+ * `song.deleted` — an audit log that is wrong is worse than one that is missing, because it
+ * gets believed.
+ */
+const PURGED_ENTITY = {
+  folders: 'folder',
+  projects: 'project',
+  songs: 'song',
+  assets: 'asset',
+  snapshots: 'snapshot',
+} as const satisfies Record<PurgeCandidate['table'], Touched>;
+
 async function emitFor(
   audit: (entry: {
-    action: ActionMap[Entity];
-    targetType: Entity;
+    action: ActionMap[Touched];
+    targetType: Touched;
     targetId: string;
     metadata: Record<string, unknown>;
   }) => Promise<void>,
@@ -125,10 +159,12 @@ async function emitFor(
   actions: ActionMap,
   metadata: Record<string, unknown>,
 ): Promise<void> {
-  const groups: [Entity, readonly string[]][] = [
+  const groups: [Touched, readonly string[]][] = [
     ['folder', result.folders],
     ['project', result.projects],
     ['song', result.songs],
+    ['asset', result.assets],
+    ['snapshot', result.snapshots],
   ];
 
   for (const [entity, ids] of groups) {
@@ -171,27 +207,36 @@ export async function runPurge(
 
     // Purge is audited per row, like delete, and for the same reason — except that here the
     // row itself is gone, so the audit event is the only remaining record that it existed.
-    for (const candidate of plan.candidates) {
-      await audit({
-        action:
-          candidate.table === 'folders'
-            ? 'folder.deleted'
-            : candidate.table === 'projects'
-              ? 'project.deleted'
-              : 'song.deleted',
-        targetType:
-          candidate.table === 'folders'
-            ? 'folder'
-            : candidate.table === 'projects'
-              ? 'project'
-              : 'song',
-        targetId: candidate.id,
-        metadata: {
-          purged: true,
-          deletedAt: candidate.deletedAt.toISOString(),
-          purgeAfter: candidate.purgeAfter.toISOString(),
-        },
-      });
+    //
+    // Written from what `executePurge` actually destroyed, not from the plan. A row its owner
+    // restored between planning and running is correctly not purged, and an event claiming it
+    // was would be a lie the log keeps forever.
+    const deletedAt = new Map(
+      plan.candidates.map((candidate) => [candidate.id, candidate] as const),
+    );
+
+    for (const [table, ids] of Object.entries(executed.destroyed) as [
+      PurgeCandidate['table'],
+      readonly string[],
+    ][]) {
+      const entity = PURGED_ENTITY[table];
+      for (const id of ids) {
+        const candidate = deletedAt.get(id);
+        await audit({
+          action: DELETE_ACTION[entity],
+          targetType: entity,
+          targetId: id,
+          metadata: {
+            purged: true,
+            ...(candidate === undefined
+              ? {}
+              : {
+                  deletedAt: candidate.deletedAt.toISOString(),
+                  purgeAfter: candidate.purgeAfter.toISOString(),
+                }),
+          },
+        });
+      }
     }
 
     return executed;

@@ -1,6 +1,6 @@
-import { and, eq, inArray, isNull, isNotNull, like, sql, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, isNotNull, like, or, sql, type SQL } from 'drizzle-orm';
 
-import { folders, projects, songs } from './schema/index';
+import { assets, folders, projects, snapshots, songs } from './schema/index';
 import type { Transaction } from './transaction';
 
 /**
@@ -21,7 +21,25 @@ export interface CascadeResult {
   readonly folders: string[];
   readonly projects: string[];
   readonly songs: string[];
+  /** Project Files entries — stems, sessions, artwork, anything uploaded. */
+  readonly assets: string[];
+  /** Folder snapshots, which hang off a project. */
+  readonly snapshots: string[];
 }
+
+/** Every table the cascade reaches. */
+type Cascaded = typeof folders | typeof projects | typeof songs | typeof assets | typeof snapshots;
+
+/** Every list empty, so each cascade states only the tables it actually reaches. */
+const EMPTY_CASCADE = (): Omit<CascadeResult, 'batch'> => ({
+  folders: [],
+  projects: [],
+  songs: [],
+  assets: [],
+  snapshots: [],
+});
+
+const empty = (batch: string): CascadeResult => ({ batch, ...EMPTY_CASCADE() });
 
 export interface SoftDeleteOptions {
   readonly workspaceId: string;
@@ -34,8 +52,7 @@ export interface SoftDeleteOptions {
   readonly recoveryWindowDays: number;
 }
 
-const live = (table: typeof folders | typeof projects | typeof songs): SQL =>
-  isNull(table.deletedAt) as SQL;
+const live = (table: Cascaded): SQL => isNull(table.deletedAt) as SQL;
 
 /** `purge_after`, fixed at delete time. See the column's own comment for why. */
 export function purgeAfterFrom(now: Date, recoveryWindowDays: number): Date {
@@ -54,13 +71,12 @@ function tombstone(options: SoftDeleteOptions) {
 }
 
 /**
- * Soft-delete a song.
+ * Soft-delete a song, and the assets hanging off it.
  *
- * **Does not yet cascade to the song's assets or snapshots**, which task `026` gave
- * soft-delete columns of their own. Trashing a song therefore leaves its stems live and
- * visible, and restore is not symmetric for them. Task `028` closes it; this comment is here
- * rather than absent because the previous one claimed "the leaf case: nothing cascades from
- * here", which stopped being true the moment assets existed.
+ * Not the leaf case. A song's stems, sessions, and bounces are `assets` with `song_id` set, and
+ * leaving them live when the song is trashed means they stay visible through `scopedQuery`,
+ * stay reachable by a download, and never come back symmetrically. Snapshots are not reached
+ * from here — they hang off a project, never a song.
  */
 export async function deleteSong(
   tx: Transaction,
@@ -73,11 +89,94 @@ export async function deleteSong(
     .where(and(eq(songs.id, songId), eq(songs.workspaceId, options.workspaceId), live(songs)))
     .returning({ id: songs.id });
 
-  return { batch: options.batch, folders: [], projects: [], songs: marked.map((row) => row.id) };
+  if (marked.length === 0) return empty(options.batch);
+
+  const markedAssets = await tx
+    .update(assets)
+    .set(tombstone(options))
+    .where(
+      and(eq(assets.songId, songId), eq(assets.workspaceId, options.workspaceId), live(assets)),
+    )
+    .returning({ id: assets.id });
+
+  return {
+    ...EMPTY_CASCADE(),
+    batch: options.batch,
+    songs: marked.map((row) => row.id),
+    assets: markedAssets.map((row) => row.id),
+  };
 }
 
 /**
- * Soft-delete a project and the songs inside it.
+ * Soft-delete a single asset, without touching what it hangs off.
+ *
+ * An asset trashed on its own has a recovery window of its own, and
+ * needs both a way in and a way out. Its versions are immutable and carry no tombstone — they
+ * go when the asset is finally purged, not when it is trashed.
+ */
+export async function deleteAsset(
+  tx: Transaction,
+  assetId: string,
+  options: SoftDeleteOptions,
+): Promise<CascadeResult> {
+  const marked = await tx
+    .update(assets)
+    .set(tombstone(options))
+    .where(and(eq(assets.id, assetId), eq(assets.workspaceId, options.workspaceId), live(assets)))
+    .returning({ id: assets.id });
+
+  return { ...EMPTY_CASCADE(), batch: options.batch, assets: marked.map((row) => row.id) };
+}
+
+/**
+ * Mark the Project Files and snapshots belonging to a set of projects and their songs.
+ *
+ * Shared by the project and folder cascades so the two cannot drift. An asset hangs off
+ * exactly one of a song or a project (`assets_one_owner`), so both sides have to be swept;
+ * snapshots hang off a project only.
+ */
+async function cascadeToFiles(
+  tx: Transaction,
+  options: SoftDeleteOptions,
+  projectIds: readonly string[],
+  songIds: readonly string[],
+): Promise<{ assets: string[]; snapshots: string[] }> {
+  const owners: SQL[] = [];
+  if (projectIds.length > 0) owners.push(inArray(assets.projectId, [...projectIds]) as SQL);
+  if (songIds.length > 0) owners.push(inArray(assets.songId, [...songIds]) as SQL);
+
+  const markedAssets =
+    owners.length === 0
+      ? []
+      : await tx
+          .update(assets)
+          .set(tombstone(options))
+          .where(and(eq(assets.workspaceId, options.workspaceId), live(assets), or(...owners)))
+          .returning({ id: assets.id });
+
+  const markedSnapshots =
+    projectIds.length === 0
+      ? []
+      : await tx
+          .update(snapshots)
+          .set(tombstone(options))
+          .where(
+            and(
+              eq(snapshots.workspaceId, options.workspaceId),
+              inArray(snapshots.projectId, [...projectIds]),
+              live(snapshots),
+            ),
+          )
+          .returning({ id: snapshots.id });
+
+  return {
+    assets: markedAssets.map((row) => row.id),
+    snapshots: markedSnapshots.map((row) => row.id),
+  };
+}
+
+/**
+ * Soft-delete a project, the songs inside it, and the files belonging to either.
  *
  * Only songs that are **currently live** are marked. A song already in the trash keeps the
  * batch of the delete that put it there, so restoring this project leaves it where its owner
@@ -100,9 +199,7 @@ export async function deleteProject(
     )
     .returning({ id: projects.id });
 
-  if (markedProjects.length === 0) {
-    return { batch: options.batch, folders: [], projects: [], songs: [] };
-  }
+  if (markedProjects.length === 0) return empty(options.batch);
 
   const markedSongs = await tx
     .update(songs)
@@ -112,11 +209,16 @@ export async function deleteProject(
     )
     .returning({ id: songs.id });
 
+  const projectIds = markedProjects.map((row) => row.id);
+  const songIds = markedSongs.map((row) => row.id);
+  const files = await cascadeToFiles(tx, options, projectIds, songIds);
+
   return {
+    ...EMPTY_CASCADE(),
     batch: options.batch,
-    folders: [],
-    projects: markedProjects.map((row) => row.id),
-    songs: markedSongs.map((row) => row.id),
+    projects: projectIds,
+    songs: songIds,
+    ...files,
   };
 }
 
@@ -138,9 +240,7 @@ export async function deleteFolder(
       and(eq(folders.id, folderId), eq(folders.workspaceId, options.workspaceId), live(folders)),
     );
 
-  if (!target) {
-    return { batch: options.batch, folders: [], projects: [], songs: [] };
-  }
+  if (!target) return empty(options.batch);
 
   const subtree = and(
     eq(folders.workspaceId, options.workspaceId),
@@ -190,11 +290,16 @@ export async function deleteFolder(
           )
           .returning({ id: songs.id });
 
+  const songIds = markedSongs.map((row) => row.id);
+  const files = await cascadeToFiles(tx, options, projectIds, songIds);
+
   return {
+    ...EMPTY_CASCADE(),
     batch: options.batch,
     folders: folderIds,
     projects: projectIds,
-    songs: markedSongs.map((row) => row.id),
+    songs: songIds,
+    ...files,
   };
 }
 
@@ -228,7 +333,7 @@ export async function restoreBatch(
   batch: string,
   workspaceId: string,
 ): Promise<CascadeResult> {
-  const inBatch = (table: typeof folders | typeof projects | typeof songs): SQL =>
+  const inBatch = (table: Cascaded): SQL =>
     and(
       eq(table.workspaceId, workspaceId),
       eq(table.deletedBatch, batch),
@@ -249,6 +354,56 @@ export async function restoreBatch(
     throw new RestoreBlockedError(
       `song ${first?.songId} cannot be restored while project ${first?.projectId} is in the trash. ` +
         'Restore the project first.',
+    );
+  }
+
+  // An asset has exactly one owner and no unfiled state to fall back on, so it blocks for the
+  // same reason a song does rather than coming back attached to something invisible.
+  const blockedOnSong = await tx
+    .select({ assetId: assets.id, ownerId: songs.id })
+    .from(assets)
+    .innerJoin(songs, eq(songs.id, assets.songId))
+    .where(
+      and(inBatch(assets), isNotNull(songs.deletedAt), sql`${songs.deletedBatch} <> ${batch}`),
+    );
+
+  const blockedOnProject = await tx
+    .select({ assetId: assets.id, ownerId: projects.id })
+    .from(assets)
+    .innerJoin(projects, eq(projects.id, assets.projectId))
+    .where(
+      and(
+        inBatch(assets),
+        isNotNull(projects.deletedAt),
+        sql`${projects.deletedBatch} <> ${batch}`,
+      ),
+    );
+
+  const blockedAsset = blockedOnSong[0] ?? blockedOnProject[0];
+  if (blockedAsset !== undefined) {
+    throw new RestoreBlockedError(
+      `asset ${blockedAsset.assetId} cannot be restored while ${blockedAsset.ownerId} is in the ` +
+        'trash. Restore its song or project first.',
+    );
+  }
+
+  const blockedSnapshot = await tx
+    .select({ snapshotId: snapshots.id, projectId: projects.id })
+    .from(snapshots)
+    .innerJoin(projects, eq(projects.id, snapshots.projectId))
+    .where(
+      and(
+        inBatch(snapshots),
+        isNotNull(projects.deletedAt),
+        sql`${projects.deletedBatch} <> ${batch}`,
+      ),
+    );
+
+  const firstSnapshot = blockedSnapshot[0];
+  if (firstSnapshot !== undefined) {
+    throw new RestoreBlockedError(
+      `snapshot ${firstSnapshot.snapshotId} cannot be restored while project ` +
+        `${firstSnapshot.projectId} is in the trash. Restore the project first.`,
     );
   }
 
@@ -292,11 +447,25 @@ export async function restoreBatch(
     .where(inBatch(songs))
     .returning({ id: songs.id });
 
+  const restoredAssets = await tx
+    .update(assets)
+    .set(clearTombstone)
+    .where(inBatch(assets))
+    .returning({ id: assets.id });
+
+  const restoredSnapshots = await tx
+    .update(snapshots)
+    .set(clearTombstone)
+    .where(inBatch(snapshots))
+    .returning({ id: snapshots.id });
+
   return {
     batch,
     folders: restoredFolders.map((row) => row.id),
     projects: restoredProjects.map((row) => row.id),
     songs: restoredSongs.map((row) => row.id),
+    assets: restoredAssets.map((row) => row.id),
+    snapshots: restoredSnapshots.map((row) => row.id),
   };
 }
 

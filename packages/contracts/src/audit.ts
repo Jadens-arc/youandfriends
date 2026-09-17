@@ -67,11 +67,14 @@ export const AUDIT_ACTIONS = [
   'project.deleted',
   'folder.deleted',
   'asset.deleted',
+  'snapshot.deleted',
   'comment.deleted',
 
   'song.restored',
   'project.restored',
   'folder.restored',
+  'asset.restored',
+  'snapshot.restored',
   'lyrics.revision_restored',
 
   'member.added',
@@ -128,11 +131,14 @@ export const AUDIT_ACTION_INFO: Readonly<
   'song.deleted': { class: 'deletion', emittedBy: '025' },
   'project.deleted': { class: 'deletion', emittedBy: '025' },
   'folder.deleted': { class: 'deletion', emittedBy: '025' },
-  'asset.deleted': { class: 'deletion', emittedBy: '025' },
+  'asset.deleted': { class: 'deletion', emittedBy: '028' },
+  'snapshot.deleted': { class: 'deletion', emittedBy: '028' },
   'comment.deleted': { class: 'deletion', emittedBy: '090' },
 
   'song.restored': { class: 'restoration', emittedBy: '025' },
   'project.restored': { class: 'restoration', emittedBy: '025' },
+  'asset.restored': { class: 'restoration', emittedBy: '028' },
+  'snapshot.restored': { class: 'restoration', emittedBy: '028' },
   'folder.restored': { class: 'restoration', emittedBy: '025' },
   'lyrics.revision_restored': { class: 'restoration', emittedBy: '083' },
 
@@ -151,6 +157,7 @@ export const AUDIT_TARGET_TYPES = [
   'project',
   'song',
   'asset',
+  'snapshot',
   'version',
   'lyrics',
   'comment',

@@ -13,6 +13,7 @@ export {
   databaseError,
   makeAsset,
   makeAssetVersion,
+  makeSnapshot,
   makeMixVersion,
   makeStorageObject,
   expectDatabaseError,

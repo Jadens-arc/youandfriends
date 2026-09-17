@@ -73,10 +73,29 @@ try {
     console.log('\nNothing to purge.');
   } else {
     const result = await withTransaction(db, (tx) => executePurge(tx, plan, null));
+    const { purged } = result;
+
+    // Every table, not the three that existed when this line was written. A run that destroyed
+    // two hundred assets and their objects used to report `0 folders, 0 projects, 0 songs` —
+    // and this is the whole human-readable product of the one command that destroys user work.
     console.log(
-      `\nPurged ${result.purged.folders} folders, ${result.purged.projects} projects, ` +
-        `${result.purged.songs} songs.`,
+      `\nPurged ${purged.folders} folders, ${purged.projects} projects, ${purged.songs} songs, ` +
+        `${purged.assets} assets, ${purged.snapshots} snapshots.`,
     );
+    console.log(
+      `  ${result.mixVersionsDeleted} mix versions went with them, and ` +
+        `${result.storageObjectsDeleted} storage objects.`,
+    );
+
+    // The plan is a proposal, never a warrant: execution re-checks every row. Saying so when
+    // the two disagree is the difference between a surprising number and an explained one.
+    const destroyed = Object.values(result.destroyed).reduce((n, ids) => n + ids.length, 0);
+    if (destroyed !== plan.candidates.length) {
+      console.log(
+        `  ${plan.candidates.length - destroyed} planned rows were skipped: restored between ` +
+          'planning and running.',
+      );
+    }
   }
 } catch (error) {
   console.error(`Purge failed: ${error instanceof Error ? error.message : String(error)}`);
