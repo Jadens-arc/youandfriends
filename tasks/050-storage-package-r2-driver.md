@@ -80,6 +80,14 @@ Additive package. Reverting breaks all upload and playback tasks.
 
 `pending`
 
+## Blocker
+
+Docker is unavailable in this environment, so MinIO cannot run — and the acceptance criterion
+reads "works against MinIO", not "compiles". The driver could be written here and the
+verification could not, which would mean claiming a storage layer nobody has seen move bytes.
+Passed over rather than half-done; task `100` taken in its place. Needs either Docker, or a
+decision to verify against real R2 with credentials.
+
 ## Commit
 
 _(not yet)_

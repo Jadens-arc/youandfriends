@@ -45,7 +45,13 @@ describe('the showcase lock', () => {
 
 describe('route protection', () => {
   it('leaves only the sign-in surfaces and signed webhooks public', () => {
-    for (const path of ['/sign-in', '/sign-in/factor-one', '/sign-up', '/api/webhooks/clerk']) {
+    for (const path of [
+      '/sign-in',
+      '/sign-in/factor-one',
+      '/sign-up',
+      '/api/webhooks/clerk',
+      '/offline',
+    ]) {
       expect(isPublicRoute(request(path)), path).toBe(true);
     }
   });
@@ -59,7 +65,12 @@ describe('route protection', () => {
   });
 
   it('does not let a lookalike path slip through as public', () => {
-    for (const path of ['/sign-in-not-really', '/api/webhooksss', '/x/sign-in']) {
+    for (const path of [
+      '/sign-in-not-really',
+      '/api/webhooksss',
+      '/x/sign-in',
+      '/offline-workspace',
+    ]) {
       expect(isPublicRoute(request(path)), path).toBe(false);
     }
   });

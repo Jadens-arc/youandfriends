@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="You &amp; Friends">
+  <!--
+    The app icon: the ampersand of the wordmark, set in Newsreader Italic.
+
+    `docs/DESIGN.md` §16 — "The wordmark is typeset in the editorial serif, with the ampersand
+    permitted in an italic optical variant. No separate logo mark is to be invented." So this is
+    not a drawn mark: it is the real glyph, extracted from the same Newsreader Italic the product
+    renders its titles in, as a path so it needs no font at raster time.
+
+    Espresso ground with the cream glyph — the navigation rail's own pairing, not a new palette.
+  -->
+  <rect width="512" height="512" fill="#2A1F18"/>
+  <g transform="translate(91.40 400.42) scale(0.21349 -0.21349)">
+    <path fill="#F3EEE3" d="M962 219 918 176Q844 103 767.5 60.5Q691 18 615.0 -0.5Q539 -19 466 -19Q344 -19 262.0 23.0Q180 65 139.5 139.0Q99 213 99 309Q99 379 120.0 444.0Q141 509 192.5 568.0Q244 627 334.5 679.5Q425 732 565 778L634 807Q751 856 822.0 909.5Q893 963 924.0 1024.0Q955 1085 955 1154Q955 1215 916.5 1252.0Q878 1289 803 1289Q718 1289 665.0 1257.5Q612 1226 586.5 1174.0Q561 1122 561 1062Q561 1006 578.5 948.5Q596 891 629 836L1073 103L1255 47L1243 0H965L523 740Q491 794 470.0 844.0Q449 894 438.5 940.5Q428 987 428 1031Q428 1133 476.5 1210.0Q525 1287 611.5 1329.5Q698 1372 810 1372Q902 1372 962.5 1343.0Q1023 1314 1053.0 1263.0Q1083 1212 1083 1147Q1083 1063 1042.0 994.5Q1001 926 908.5 864.0Q816 802 659 737L591 715Q448 664 373.0 601.0Q298 538 271.0 469.0Q244 400 244 330Q244 225 312.0 160.5Q380 96 516 96Q602 96 691.5 125.0Q781 154 870 238L912 278Q956 327 997.0 391.0Q1038 455 1076.5 538.5Q1115 622 1149 732L1007 775L1022 822H1443L1429 775L1267 732Q1195 557 1118.5 432.0Q1042 307 962 219Z"/>
+  </g>
+</svg>

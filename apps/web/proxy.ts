@@ -40,6 +40,10 @@ export const isPublicRoute = createRouteMatcher([
   '/sign-up/(.*)',
   '/api/webhooks',
   '/api/webhooks/(.*)',
+  // The service worker's offline fallback. It must be reachable with no session, because it is
+  // what a navigation lands on when there is no network — and redirecting to sign-in needs the
+  // network. It carries nothing about any workspace, deliberately (task `100`).
+  '/offline',
 ]);
 
 /**

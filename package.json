@@ -22,7 +22,8 @@
     "test:coverage": "turbo run test:coverage",
     "audit": "pnpm audit --audit-level=high || true",
     "status": "node scripts/generate-status.mjs",
-    "generate:permission-matrix": "tsx scripts/generate-permission-matrix.mjs"
+    "generate:permission-matrix": "tsx scripts/generate-permission-matrix.mjs",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
