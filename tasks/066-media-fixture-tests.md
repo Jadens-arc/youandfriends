@@ -46,6 +46,14 @@ scripts/release-check.mjs
 - A loud skip when ffmpeg is missing, never a silent pass — same principle as task `052`.
 - Keep fixtures small. A few seconds each; the 'very long' case can be a few minutes of generated tone, produced at test time rather than committed.
 - These fixtures are shared with the seed (task `027`) — one generation script, two consumers.
+- **The encoded formats are this task's to add.** Task `027` produces WAV 44.1/16 and 48/24
+  natively and stops there: FLAC, MP3, and M4A need an encoder, and ffmpeg is not a dependency
+  until task `064`. `encoderAvailable()` in `packages/db/src/seed/fixtures/audio.ts` returns
+  `false` today and is the hook to replace with a real probe.
+- **The seed's `storage_objects` rows describe bytes that are in no bucket.** They carry real
+  sizes and SHA-256 checksums of tones generated in memory, but nothing was uploaded — object
+  storage arrives with task `050`. A test here that treats the presence of the row as evidence
+  the object is fetchable will fail confusingly.
 
 ## Security/privacy considerations
 
