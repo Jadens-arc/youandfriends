@@ -1,7 +1,15 @@
 import { fileURLToPath } from 'node:url';
 
 import preset from '@youandfriends/config/vitest/react';
+import { loadDatabaseEnv, REPO_ROOT } from '@youandfriends/db/env-file';
 import { defineConfig, mergeConfig } from 'vitest/config';
+
+/**
+ * Authentication provisions a `users` row, so its tests need a real Postgres — the same loader
+ * the database package uses, reading the developer's `.env.test.local` or the ambient
+ * environment in CI. When nothing supplies one, those suites skip **loudly** (CLAUDE.md §7).
+ */
+loadDatabaseEnv(REPO_ROOT);
 
 export default mergeConfig(
   preset,
@@ -31,6 +39,14 @@ export default mergeConfig(
           // Framework entry points with no logic of our own.
           'app/layout.tsx',
           'app/global-error.tsx',
+          // Clerk's own components with our tokens passed in. What is ours here is the token
+          // values, asserted in `lib/auth/__tests__/appearance.test.ts`; what is Clerk's
+          // cannot be rendered without a publishable key and a network.
+          'app/(auth)/**',
+          // The production Clerk read. It is `currentUser()` plus field selection; the
+          // selection is asserted in `lib/auth/__tests__/identity.test.ts` against a stub
+          // shaped like Clerk's user, and the wiring is what the build verifies.
+          'lib/auth/current-session.ts',
           '**/*.config.*',
         ],
         // Ratchet (task 001 policy). Set to just below what the testable surface currently

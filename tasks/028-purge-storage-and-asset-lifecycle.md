@@ -114,6 +114,13 @@ amended, because the first two were regressions I introduced and shipped.
    `0 folders, 0 projects, 0 songs` — the entire human-readable product of the one command that
    destroys user work.
 
+The test review found two more, both silent: `PurgeResult.purged.snapshots` and
+`mixVersionsDeleted` were asserted by nothing, although `bin/purge.mjs` prints both — a
+copy-paste there would have left every row delete and every audit event correct and only the
+operator's record wrong. And `deleteFolder`'s sweep of **project**-owned assets and snapshots was
+exercised only for song-owned ones, so passing `[]` where `projectIds` belongs at that one call
+site would have dropped every piece of artwork from a folder-level trash with nothing red.
+
 Also fixed: the purge audit loop wrote from `plan.candidates`, so a row restored between planning
 and running got an event saying it was destroyed while it still existed; it writes from what
 `executePurge` actually deleted now. The per-row `storageObjects` metadata was a run-wide count
@@ -179,7 +186,7 @@ fixture: assets=2 objects=3
 
 Before this change step 1 read `visible: 2` and step 4 read `3 before -> 3 after`.
 
-**Verified by mutation**, fourteen of them, each failing by name: the planner returning no storage
+**Verified by mutation**, seventeen of them, each failing by name: the planner returning no storage
 keys; `deleteSong` not cascading to assets; dropping the survivor check; removing the song→asset
 relationship from the fixed point; `restoreBatch` not restoring assets; `executePurge` not
 deleting the storage rows; a purged asset audited as `song.deleted`; snapshots getting no audit
@@ -201,8 +208,8 @@ Reverting the rest restores the orphaning described above — do not revert.
 
 ## Status
 
-`in-progress`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`c912e4c`

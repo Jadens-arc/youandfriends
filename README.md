@@ -45,6 +45,7 @@ Rationale for each significant choice is in [`docs/adr/`](docs/adr/).
 | Docker           | For Postgres and MinIO in tests (from task `052`)             |
 | ffmpeg + ffprobe | For the media pipeline (from task `060`). Not yet required.   |
 | Rust toolchain   | For the macOS sync agent (from task `111`). **macOS only.**   |
+| A Clerk app      | For signing in (from task `030`). Setup below.                |
 
 Tasks whose prerequisites are absent **skip loudly** in the test suite — they never pass
 silently.
@@ -63,6 +64,29 @@ pnpm dev
 
 `.env.example` documents every variable, what it is for, and where to obtain it. It contains
 no values and never will.
+
+### Clerk
+
+Signing in needs a Clerk application. Nothing in the app can authenticate without one, and the
+tests that do not need a session run regardless — so a missing key is a sign-in that fails, not
+a build that fails.
+
+1. Create an application at [dashboard.clerk.com](https://dashboard.clerk.com).
+2. Copy **Publishable key** and **Secret key** from **API Keys** into `.env.local`:
+
+   ```
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
+   CLERK_SECRET_KEY=...
+   ```
+
+3. Set the same two in the Vercel project's environment variables, or previews cannot sign in.
+4. **Turn off public sign-up** in Clerk under **User & Authentication → Restrictions**.
+   Iteration one is invitation-only (task `030` non-scope; public sign-up is deferred `209`).
+   The `/sign-up` route exists to complete an invitation — the route being reachable is not the
+   same as sign-up being open, and Clerk is what enforces the difference.
+
+The secret key is a server secret: it is covered by the redaction list from task `002`, and it
+belongs in `.env.local` and Vercel, never in a commit (`CLAUDE.md` §8).
 
 ## Quality gates
 

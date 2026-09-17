@@ -16,6 +16,11 @@ The owner's private space exists from the first moment, already theirs, with not
 - A settings surface: workspace name, storage usage against `YOUANDFRIENDS_WORKSPACE_QUOTA_BYTES`, member list.
 - Storage usage computed from `storage_objects`, cached and refreshed on a sensible cadence.
 - Workspace switching scaffolding for the single-workspace case, so multi-workspace is additive later.
+- **Audit events for sign-in, sign-out, and failed access**, moved here from task `030`.
+  `audit_events.workspace_id` is `NOT NULL`, so these could not be written before a workspace
+  existed — and this task is what creates one. Correct `emittedBy` for `auth.signed_in`,
+  `auth.signed_out`, `auth.session_revoked`, and `access.denied` in
+  `packages/contracts/src/audit.ts`, which still says `030`.
 
 ## Non-scope
 

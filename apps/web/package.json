@@ -14,9 +14,12 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.9.4",
     "@tailwindcss/postcss": "^4.3.3",
+    "@youandfriends/authz": "workspace:*",
     "@youandfriends/config": "workspace:*",
     "@youandfriends/contracts": "workspace:*",
+    "@youandfriends/db": "workspace:*",
     "@youandfriends/ui": "workspace:*",
     "next": "^16.3.5",
     "react": "^19.2.0",

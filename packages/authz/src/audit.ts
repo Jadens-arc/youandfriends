@@ -1,5 +1,6 @@
 import {
   AUDIT_ACTION_INFO,
+  newUlid,
   type AuditAction,
   type AuditTargetType,
   type WorkspaceId,
@@ -71,49 +72,6 @@ export function safeMetadata(
     : {};
 }
 
-const CROCKFORD = ['0123456789', 'ABCDEFGHJKMN', 'PQRSTVWXYZ'].join('');
-
-const encode = (value: number, length: number): string => {
-  let remaining = value;
-  const out: string[] = [];
-  for (let index = 0; index < length; index += 1) {
-    out.unshift(CROCKFORD[remaining % 32] ?? '0');
-    remaining = Math.floor(remaining / 32);
-  }
-  return out.join('');
-};
-
-/** Milliseconds and counter of the last id issued, for the monotonic step below. */
-let lastMillis = 0;
-let sequence = 0;
-
-/**
- * A sortable, ULID-shaped id, **monotonic within a millisecond**.
- *
- * The time prefix alone is not enough. Several events are written inside one transaction —
- * "renamed, then deleted" — and they share a timestamp to the millisecond, so a purely random
- * suffix would sort them arbitrarily. An investigation reading the log would see the effect
- * before the cause. The counter makes the order they were written the order they are read.
- */
-function defaultId(): string {
-  const millis = Date.now();
-  if (millis === lastMillis) {
-    sequence += 1;
-  } else {
-    lastMillis = millis;
-    sequence = 0;
-  }
-
-  const random = Array.from(
-    { length: 10 },
-    () => CROCKFORD[Math.floor(Math.random() * 32)] ?? '0',
-  ).join('');
-
-  // 10 chars of time, 6 of counter, 10 of randomness: 26 in total, the ULID shape the
-  // contracts validate.
-  return `${encode(millis, 10)}${encode(sequence, 6)}${random}`;
-}
-
 /** The handle a caller works with: the transaction, and an emitter bound to it. */
 export interface AuditedTransaction {
   readonly tx: Transaction;
@@ -133,7 +91,7 @@ export async function withAuditedTransaction<T>(
   run: (handle: AuditedTransaction) => Promise<T>,
 ): Promise<T> {
   const now = context.now ?? (() => new Date());
-  const newId = context.newId ?? defaultId;
+  const newId = context.newId ?? newUlid;
 
   return withTransaction(db, async (tx) => {
     const audit: AuditEmitter = async (entry) => {
@@ -160,9 +118,11 @@ export async function withAuditedTransaction<T>(
  * The id generator, exported for its own tests only.
  *
  * Not part of the package's surface: callers get ids by emitting events. Named so that an
- * import of it outside a test reads as the mistake it would be.
+ * import of it outside a test reads as the mistake it would be. It re-exports
+ * `newUlid` from `contracts`, which is where the generator lives now — three copies of a
+ * Crockford alphabet is three chances to get its width or its characters wrong.
  */
-export const auditIdForTests = defaultId;
+export const auditIdForTests = newUlid;
 
 /** The class an action belongs to. Exported so callers need not reach into the contract map. */
 export function auditClassOf(action: AuditAction): string {
