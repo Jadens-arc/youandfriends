@@ -1,5 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
 
 import { isShowcaseEnabled, SHOWCASE_PATH } from '@/lib/showcase';
 
@@ -97,14 +97,15 @@ function unconfigured(): NextResponse {
   );
 }
 
-export default clerkMiddleware(async (auth, request: NextRequest) => {
-  const refused = showcaseGuard(request);
-  if (refused !== null) return refused;
-
-  // Before anything that would touch Clerk. `auth.protect()` throws a bare 500 when the key is
-  // absent, and a 500 tells an operator nothing.
-  if (!clerkConfigured) return unconfigured();
-
+/**
+ * The authenticated path. Only ever invoked when Clerk is configured.
+ *
+ * Constructing this is safe without a key; **invoking** it is not. `clerkMiddleware` resolves
+ * the publishable key inside its own request handler, before the callback below runs — which is
+ * why a guard placed in the callback never fired, and the first attempt at this shipped a 500
+ * that said nothing. Found by deploying it and reading the stack, not by reasoning about it.
+ */
+const authenticatedProxy = clerkMiddleware(async (auth, request: NextRequest) => {
   if (!isPublicRoute(request)) {
     // Throws on failure, and the throw is the point. Redirecting to sign-in is Clerk's
     // behaviour for a browser request; an API route gets a 404-shaped refusal from the
@@ -114,6 +115,20 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
 
   return NextResponse.next();
 });
+
+export default function proxy(
+  request: NextRequest,
+  event: NextFetchEvent,
+): ReturnType<typeof authenticatedProxy> | NextResponse {
+  const refused = showcaseGuard(request);
+  if (refused !== null) return refused;
+
+  // Outside `clerkMiddleware`, deliberately. Inside its callback this check is unreachable:
+  // the key is resolved — and thrown on — before the callback is entered.
+  if (!clerkConfigured) return unconfigured();
+
+  return authenticatedProxy(request, event);
+}
 
 export const config = {
   matcher: [

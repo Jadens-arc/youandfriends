@@ -91,22 +91,31 @@ describe('when authentication is not configured', () => {
   const source = readFileSync(join(process.cwd(), 'proxy.ts'), 'utf8');
 
   it('refuses everything rather than serving the workspace unauthenticated', () => {
-    // The tempting fix is to skip `clerkMiddleware` when unconfigured, which would serve the
-    // app with no authentication at all. This asserts the opposite shape: one refusal for
-    // every route, public ones included, because without Clerk there is no sign-in to send
-    // anyone to.
+    // The tempting fix is to serve the app with no authentication when the key is missing.
+    // This asserts the opposite shape: one refusal for every route, public ones included,
+    // because without Clerk there is no sign-in to send anyone to.
     expect(source).toContain('if (!clerkConfigured) return unconfigured()');
     expect(source).toContain('status: 503');
   });
 
-  it('checks the key before anything that would reach Clerk', () => {
-    // After the protect call it would never run — the throw gets there first. Matched on
-    // `await auth.protect()`, which appears only in code; the bare name appears in comments
-    // too, and matching that made this test pass against prose.
-    const guardAt = source.indexOf('if (!clerkConfigured)');
-    const protectAt = source.indexOf('await auth.protect()');
-    expect(guardAt).toBeGreaterThan(-1);
-    expect(guardAt).toBeLessThan(protectAt);
+  it('guards outside clerkMiddleware, not inside its callback', () => {
+    // The first attempt put this check in the callback, where it is unreachable:
+    // `clerkMiddleware` resolves the publishable key inside its own handler, before the
+    // callback is entered, so the throw got there first and production served a bare 500
+    // anyway. Deploying it is what found that.
+    //
+    // So the property is structural: the guard must sit in the exported `proxy`, above the
+    // delegation, and never inside `authenticatedProxy`.
+    const exportAt = source.indexOf('export default function proxy(');
+    const guardAt = source.indexOf('if (!clerkConfigured) return unconfigured()');
+    const delegateAt = source.indexOf('return authenticatedProxy(request, event)');
+    const callbackAt = source.indexOf('const authenticatedProxy = clerkMiddleware(');
+
+    expect(exportAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeGreaterThan(exportAt);
+    expect(guardAt).toBeLessThan(delegateAt);
+    // And it is after the middleware is constructed, which means it is not inside it.
+    expect(guardAt).toBeGreaterThan(callbackAt);
   });
 
   it('names the variables an operator has to set', () => {
