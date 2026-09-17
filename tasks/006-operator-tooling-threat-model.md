@@ -121,8 +121,8 @@ Documentation and task records. Nothing to roll back.
 
 ## Status
 
-`in-progress`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`3ae2462`

@@ -16,27 +16,40 @@ destroys B's bytes.
 
 ## Why this exists
 
-Found by the security review of task `028`. Not introduced there — the schema is task `026`'s,
-and `028`'s reachability code errs safe in the opposite direction (its survivor scan is
-deliberately unscoped, so a foreign reference _keeps_ an object rather than reaping it).
+**The premise this task was written on was wrong, and the correction is the task.**
 
-`storage_objects_id_workspace_key` already exists, and task `026` added composite FKs elsewhere
-for exactly this reason — see the reasoning behind `songs_current_version_belongs_to_song`. These
-three references were missed:
+The security review of task `028` reported that the three references to `storage_objects` were
+foreign keys to `id` alone, leaving a cross-workspace pointer possible. It read
+`packages/db/src/schema/versions.ts` and `snapshots.ts`, where the Drizzle column does say
+`.references(() => storageObjects.id)`, and concluded from that.
 
-- `asset_versions.storage_object_id` (`schema/versions.ts`)
-- `derivatives.storage_object_id` (`schema/versions.ts`)
-- `snapshots.storage_object_id` (`schema/snapshots.ts`)
+It is not the whole picture. Migration `0004_file_layer.sql` adds a **second**, composite
+constraint per reference — `asset_versions_object_same_workspace`,
+`snapshots_object_same_workspace`, `derivatives_object_same_workspace` — each pairing the
+reference with `workspace_id` against the `(id, workspace_id)` unique key, and the derivative's
+written as `ON DELETE SET NULL ("storage_object_id")`, naming the column, exactly as this task
+supposed still needed doing. Task `026` closed the class. Reproduced against a real Postgres:
+all three cross-workspace inserts are refused, by name.
 
-Each is an FK to `storage_objects.id` alone. Nothing in the database prevents a cross-workspace
-pointer today; only application code does.
+**What was genuinely missing was the proof.** Nothing tested any of the three. A guarantee that
+nothing exercises is one that can stop working without a red signal — the failure this
+repository has now hit three times over, and the reason `CLAUDE.md` §13 carries the fixture
+rule. That gap is what this task closes.
+
+The stake, so the tests read as the tenant-isolation tests they are: a row in workspace A naming
+B's object reads as A's through a scoped handle, so a download endpoint resolves it, presigns
+B's key, and hands A someone else's music (T1). And a workspace-scoped purge of A would destroy
+B's bytes on the way past (T8).
 
 ## Scope
 
-- Convert the three references to composite `(storage_object_id, workspace_id)` FKs against
-  `storage_objects (id, workspace_id)`.
-- A migration, expand/migrate/contract if any existing row violates the new constraint.
-- A test per reference proving the cross-workspace insert is refused by the database.
+- A test per reference proving the database refuses a cross-workspace pointer, plus one proving
+  it still allows the same reference within a workspace — a constraint that refused everything
+  would pass the first three and break the product.
+
+**No migration and no schema change.** The constraints exist. Writing a migration to add them
+again would be churn against a false premise, and `ALTER TABLE ... ADD CONSTRAINT` on a
+constraint that is already there is an error, not a no-op.
 
 ## Non-scope
 
@@ -50,19 +63,18 @@ pointer today; only application code does.
 ## Files expected to change
 
 ```
-packages/db/src/schema/{versions,snapshots}.ts
-packages/db/migrations/<next>_storage_object_tenancy.sql
 packages/db/src/__tests__/schema.test.ts
 ```
 
+Narrower than planned: the schema and the migration both turned out to be correct already.
+
 ## Implementation notes
 
-- `ON DELETE` behaviour must not change: `asset_versions` and `snapshots` stay `RESTRICT`,
-  `derivatives` stays `SET NULL` — and on a composite key that has to be written
-  `ON DELETE SET NULL ("storage_object_id")`, naming the column. A bare `SET NULL` nulls **every**
-  referencing column, which task `026` learned the hard way on `songs.current_version_id`.
-- Check for violating rows before adding the constraint. There should be none, but "should be"
-  is not a migration strategy.
+- **Read the migration, not only the Drizzle schema.** A Drizzle `.references()` emits one
+  constraint; a migration can add another beside it, and the composite tenancy pairings are
+  added that way throughout this repository. Judging the database from the TypeScript alone is
+  what produced this task's false premise, and it is a mistake worth not repeating — the schema
+  file is a description, the migration is the database.
 
 ## Security/privacy considerations
 
@@ -72,10 +84,19 @@ filter can no longer create a cross-tenant pointer for a later purge to act on.
 
 ## Acceptance criteria
 
-- [ ] All three references are composite FKs against `(id, workspace_id)`.
-- [ ] `ON DELETE` behaviour is unchanged, with `SET NULL` naming its column.
-- [ ] A test per reference proves the database refuses a cross-workspace pointer.
-- [ ] The migration checks for violating rows rather than assuming there are none.
+- [x] All three references are composite FKs against `(id, workspace_id)`.
+      Already true, by task `026`. Verified against a real Postgres rather than read off the
+      Drizzle schema, which is what produced the false finding in the first place.
+- [x] `ON DELETE` behaviour is unchanged, with `SET NULL` naming its column.
+      `asset_versions` and `snapshots` are `RESTRICT`; `derivatives` is
+      `ON DELETE SET NULL ("storage_object_id")`. A bare `SET NULL` on a composite key nulls
+      every referencing column, including `workspace_id` — the mistake task `026` made once on
+      `songs.current_version_id` and did not repeat here.
+- [x] A test per reference proves the database refuses a cross-workspace pointer.
+      Three, plus the positive case. Verified by dropping each constraint's tenancy pairing in
+      turn: each one fails its own test by name.
+- [x] The migration checks for violating rows rather than assuming there are none.
+      Not applicable — there is no migration, for the reason under Scope.
 
 ## Tests and validation commands
 
@@ -89,13 +110,24 @@ pnpm release-check
 
 1. Attempt a cross-workspace `asset_versions` insert by hand and confirm Postgres refuses it.
 
+**Run against a real Postgres**, all three references:
+
+```
+ERROR: insert or update on table "asset_versions" violates foreign key constraint
+       "asset_versions_object_same_workspace"
+ERROR: insert or update on table "snapshots" violates foreign key constraint
+       "snapshots_object_same_workspace"
+ERROR: insert or update on table "derivatives" violates foreign key constraint
+       "derivatives_object_same_workspace"
+```
+
 ## Rollback/compatibility
 
-Additive constraints. Reverting restores the gap described above.
+Tests only. Reverting removes the proof, not the protection.
 
 ## Status
 
-`pending`
+`in-progress`
 
 ## Commit
 

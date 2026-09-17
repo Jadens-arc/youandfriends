@@ -1,12 +1,15 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { NON_TENANT_TABLES } from '../schema/index';
+import { assetVersions, derivatives, NON_TENANT_TABLES, snapshots } from '../schema/index';
 import {
   expectDatabaseError,
+  makeAsset,
+  makeAssetVersion,
   makeFolder,
   makeProject,
   makeSong,
+  makeStorageObject,
   makeTenant,
   makeUser,
   SQLSTATE,
@@ -121,6 +124,107 @@ describeWithDatabase('schema', () => {
       for (const [table, why] of Object.entries(NON_TENANT_TABLES)) {
         expect(why.length, `${table} is exempt without a reason`).toBeGreaterThan(10);
       }
+    });
+  });
+
+  describe('a storage object belongs to one workspace, as a database fact', () => {
+    /**
+     * Three tables point at `storage_objects`, and each pairs the reference with
+     * `workspace_id` against the `(id, workspace_id)` unique key. Task `026` added the
+     * constraints; nothing proved them, which is how a guarantee stops working quietly.
+     *
+     * The stake is the whole of T1 plus T8 at once. A row in workspace A naming B's object
+     * reads as A's through a scoped handle — so a download endpoint resolves it, presigns B's
+     * key, and hands A someone else's music. And a workspace-scoped purge of A would destroy
+     * B's bytes on the way past.
+     */
+    async function twoTenants() {
+      const mine = await makeTenant(database.db);
+      const theirs = await makeTenant(database.db);
+      const theirObject = await makeStorageObject(database.db, theirs.workspace.id);
+      const project = await makeProject(database.db, mine.workspace.id, `P ${testId()}`, null);
+      const song = await makeSong(database.db, mine.workspace.id, project.id, 'Track');
+      const asset = await makeAsset(database.db, mine.workspace.id, { songId: song.id });
+      return { mine, theirs, theirObject, project, song, asset };
+    }
+
+    it('refuses an asset version naming another workspace’s object', async () => {
+      const { mine, theirObject, asset } = await twoTenants();
+
+      await expectDatabaseError(
+        database.db.insert(assetVersions).values({
+          id: testId(),
+          workspaceId: mine.workspace.id,
+          assetId: asset.id,
+          versionNumber: 1,
+          storageObjectId: theirObject.id,
+          uploadedBy: mine.user.id,
+        }),
+        SQLSTATE.foreignKeyViolation,
+        /asset_versions_object_same_workspace/,
+      );
+    });
+
+    it('refuses a snapshot naming another workspace’s object', async () => {
+      const { mine, theirObject, project } = await twoTenants();
+
+      await expectDatabaseError(
+        database.db.insert(snapshots).values({
+          id: testId(),
+          workspaceId: mine.workspace.id,
+          projectId: project.id,
+          source: 'browser_folder',
+          name: 'Snapshot',
+          storageObjectId: theirObject.id,
+        }),
+        SQLSTATE.foreignKeyViolation,
+        /snapshots_object_same_workspace/,
+      );
+    });
+
+    it('refuses a derivative naming another workspace’s object', async () => {
+      // The one with no `RESTRICT` behind it — `derivatives.storage_object_id` is
+      // `ON DELETE SET NULL ("storage_object_id")`, naming the column, because a bare
+      // `SET NULL` on a composite key nulls every referencing column including the workspace.
+      const { mine, theirObject, asset } = await twoTenants();
+      const ourObject = await makeStorageObject(database.db, mine.workspace.id);
+      const version = await makeAssetVersion(
+        database.db,
+        mine.workspace.id,
+        asset.id,
+        ourObject.id,
+        1,
+      );
+
+      await expectDatabaseError(
+        database.db.insert(derivatives).values({
+          id: testId(),
+          workspaceId: mine.workspace.id,
+          assetVersionId: version.id,
+          kind: 'streaming_audio',
+          variant: 'aac-192k',
+          storageObjectId: theirObject.id,
+          processingState: 'complete',
+        }),
+        SQLSTATE.foreignKeyViolation,
+        /derivatives_object_same_workspace/,
+      );
+    });
+
+    it('allows the same reference within one workspace', async () => {
+      // The other half. A constraint that refused everything would pass all three tests above
+      // and break the product.
+      const { mine, asset } = await twoTenants();
+      const ourObject = await makeStorageObject(database.db, mine.workspace.id);
+
+      const version = await makeAssetVersion(
+        database.db,
+        mine.workspace.id,
+        asset.id,
+        ourObject.id,
+        1,
+      );
+      expect(version.storageObjectId).toBe(ourObject.id);
     });
   });
 

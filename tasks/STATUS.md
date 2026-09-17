@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **106** |
 
-Task `006` is `in-progress`. 21 of 89 iteration-one tasks are `complete`.
+Task `007` is `in-progress`. 22 of 89 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -32,8 +32,8 @@ Task `006` is `in-progress`. 21 of 89 iteration-one tasks are `complete`.
 | `003` | Shared contracts and validation boundary                               | Foundation                           | `000`, `001`                              | `complete`    | `35dcb65` | —                                                                                                                                                             |
 | `004` | Tighten the secret-detection lint exemption                            | Foundation                           | `001`, `003`                              | `complete`    | `340cc69` | —                                                                                                                                                             |
 | `005` | Close the dependency-boundary subpath hole and test the ID brand       | Foundation                           | `003`                                     | `complete`    | `af96cf4` | —                                                                                                                                                             |
-| `006` | Threat model the operator tooling that writes outside the request path | Foundation                           | `027`                                     | `in-progress` | —         | —                                                                                                                                                             |
-| `007` | Make storage-object ownership a database fact                          | Foundation                           | `028`                                     | `pending`     | —         | —                                                                                                                                                             |
+| `006` | Threat model the operator tooling that writes outside the request path | Foundation                           | `027`                                     | `complete`    | `3ae2462` | —                                                                                                                                                             |
+| `007` | Make storage-object ownership a database fact                          | Foundation                           | `028`                                     | `in-progress` | —         | —                                                                                                                                                             |
 | `010` | Studio Notebook foundation tokens                                      | Studio Notebook design system        | `000`, `001`                              | `complete`    | `cb23adb` | —                                                                                                                                                             |
 | `011` | Typography system and font loading                                     | Studio Notebook design system        | `010`                                     | `complete`    | `3b533fe` | —                                                                                                                                                             |
 | `012` | shadcn primitives restyled into Studio Notebook                        | Studio Notebook design system        | `010`, `011`                              | `complete`    | `ec3cb5d` | —                                                                                                                                                             |
