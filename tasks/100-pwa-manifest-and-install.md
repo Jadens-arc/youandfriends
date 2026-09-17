@@ -109,8 +109,8 @@ Additive. Reverting removes installability. A deployed service worker must be un
 
 ## Status
 
-`in-progress`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`3a628af`
