@@ -12,7 +12,10 @@ Uploads that work in development keep working in production, and a provider chan
 
 ## Scope
 
-- A MinIO service in the test environment, started and torn down by the harness.
+- A MinIO service in the test environment, started and torn down by the harness. **This is
+  where the driver is first run against a real server at all**: task `050` builds it, and the
+  criterion there that read "works against MinIO" was this task written twice. So a green `050`
+  does not mean any byte has moved — that claim starts here.
 - Contract tests for every `StorageDriver` method.
 - Multipart edge cases: minimum part size, maximum part count, out-of-order parts, re-uploading a part, aborting mid-upload, completing with a missing part.
 - Presigned URL expiry behavior.

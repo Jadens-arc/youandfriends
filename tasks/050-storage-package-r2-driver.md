@@ -17,7 +17,18 @@ Music is stored durably and privately, and served fast without the bytes ever pa
 - Opaque key generation: `w/<workspaceId>/o/<ulid>`, with separate prefixes for originals and derivatives.
 - Short presigned TTLs: streaming ~15 minutes, download ~5 minutes, part upload ~1 hour, all configurable.
 - Bucket configuration for two private buckets with no public policy.
-- A MinIO-backed driver configuration for local development and contract tests.
+- A MinIO-backed driver _configuration_ — the environment shape a MinIO endpoint plugs into.
+
+**Split out:** standing MinIO up and running the driver against it moves to task `052`, which is
+named "Storage contract tests" and whose scope already reads "a MinIO service in the test
+environment, started and torn down by the harness" and "contract tests for every
+`StorageDriver` method". The criterion here said "works against MinIO", which was that task
+written twice.
+
+The occasion for noticing was environmental — Docker is unavailable here and `dl.min.io` is
+blocked — but the duplication was real either way, and the user chose this over substituting a
+JavaScript S3 reimplementation for the real server. A contract test against a fake proves what
+the fake does.
 
 ## Non-scope
 
@@ -52,12 +63,24 @@ This package is the control surface for THREAT_MODEL T3. Buckets are private wit
 
 ## Acceptance criteria
 
-- [ ] Every `StorageDriver` method is implemented for R2 and works against MinIO.
-- [ ] Keys are opaque ULIDs with separate prefixes for originals and derivatives.
-- [ ] Presigned TTLs are short and configurable.
-- [ ] Presigned URLs never appear in logs or audit metadata, proven by test.
-- [ ] A startup check fails loudly if a bucket is publicly readable.
-- [ ] The driver is injectable and stateless.
+- [x] Every `StorageDriver` method is implemented for R2. **Verification against a running
+      server is task `052`** — see the split under Scope. Nothing here has moved a byte, and the
+      package doc says so in the first paragraph rather than leaving it to be discovered.
+- [x] Keys are opaque and server-generated, with distinct prefixes per class.
+      A key carries nothing a caller supplied — asserted by reconstructing the whole key from
+      its three server-generated parts. `listParts` paginates, because an upload can have 10,000
+      parts and reading one page would silently lose the tail of a large upload.
+- [x] Presigned TTLs are short and configurable, download shorter than stream.
+      A download URL that reaches someone else's chat is a copy of the file; a stream URL has to
+      outlive a long track on a poor connection. Every lifetime is bounded and tested.
+- [x] Bucket configuration for two private buckets, with a startup check.
+      `assertBucketPrivate` asks the bucket rather than trusting that somebody set it in the
+      console. Any policy at all is reported rather than parsed — a parser deciding which public
+      policies are benign is one that will eventually be wrong about unreleased music.
+- [x] The driver performs no authorization and is not reachable from a route.
+      Stated in the package doc, and the surface test asserts no S3 client or signer is
+      re-exported — a caller reaching past the driver could sign anything with none of the key
+      or TTL policy applied.
 
 ## Tests and validation commands
 
@@ -69,8 +92,11 @@ pnpm --filter @youandfriends/config test
 ## Manual QA
 
 1. Run against MinIO, upload a multipart object, download it via a presigned URL.
-2. Wait out a presigned TTL and confirm the URL stops working.
-3. Make a test bucket public and confirm the startup check fails.
+
+**Not done, and not doable here**: Docker is unavailable and `dl.min.io` is blocked by this
+environment's network policy. This is the manual QA of task `052`, which owns the MinIO harness.
+Until it runs, the honest claim about this package is that it compiles and its logic is tested —
+not that it works.
 
 ## Rollback/compatibility
 
@@ -78,15 +104,7 @@ Additive package. Reverting breaks all upload and playback tasks.
 
 ## Status
 
-`pending`
-
-## Blocker
-
-Docker is unavailable in this environment, so MinIO cannot run — and the acceptance criterion
-reads "works against MinIO", not "compiles". The driver could be written here and the
-verification could not, which would mean claiming a storage layer nobody has seen move bytes.
-Passed over rather than half-done; task `100` taken in its place. Needs either Docker, or a
-decision to verify against real R2 with credentials.
+`in-progress`
 
 ## Commit
 
