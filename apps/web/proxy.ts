@@ -62,9 +62,48 @@ export function showcaseGuard(request: NextRequest): NextResponse | null {
   return null;
 }
 
+/**
+ * Whether Clerk is configured at all.
+ *
+ * Read from `process.env` directly rather than through `parsePublicEnv`: this runs in the proxy
+ * runtime, where the Zod parse would be a cold-start cost on every request to answer one
+ * question. `NEXT_PUBLIC_` is inlined at build time, so this is a constant by the time it runs.
+ */
+const clerkConfigured = (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '') !== '';
+
+/**
+ * What to serve when authentication is not configured.
+ *
+ * **Still closed.** Every route is refused, including the ones that are normally public —
+ * without Clerk there is no sign-in to send anyone to, and serving the workspace unauthenticated
+ * because a key is missing would be exactly the "weaken a control to make it work" move
+ * `CLAUDE.md` §9 rules out.
+ *
+ * What changes is legibility. Clerk's own failure is a thrown error, which Vercel serves as a
+ * bare `Internal Server Error` — an operator looking at that has no idea a key is missing, and
+ * it looks identical to the application being broken. 503 with a sentence is the same refusal
+ * with the reason attached, and `Retry-After` says it is a configuration state rather than a
+ * crash.
+ */
+function unconfigured(): NextResponse {
+  return new NextResponse(
+    'You & Friends is not configured: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY ' +
+      'are not set, so nobody can sign in and nothing will be served. See the Clerk section of ' +
+      'README.md.\n',
+    {
+      status: 503,
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'retry-after': '300' },
+    },
+  );
+}
+
 export default clerkMiddleware(async (auth, request: NextRequest) => {
   const refused = showcaseGuard(request);
   if (refused !== null) return refused;
+
+  // Before anything that would touch Clerk. `auth.protect()` throws a bare 500 when the key is
+  // absent, and a 500 tells an operator nothing.
+  if (!clerkConfigured) return unconfigured();
 
   if (!isPublicRoute(request)) {
     // Throws on failure, and the throw is the point. Redirecting to sign-in is Clerk's

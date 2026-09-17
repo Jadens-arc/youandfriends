@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { config, isPublicRoute, showcaseGuard } from './proxy';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 function request(path: string): NextRequest {
   return new NextRequest(new URL(path, 'https://youandfriends.org'));
@@ -73,5 +75,43 @@ describe('route protection', () => {
     ]) {
       expect(isPublicRoute(request(path)), path).toBe(false);
     }
+  });
+});
+
+describe('when authentication is not configured', () => {
+  /**
+   * The state a fresh deployment is in before its keys are set, and the one this build was
+   * actually in on Vercel: the build succeeded and every request returned a bare
+   * `Internal Server Error`, because Clerk throws on a missing publishable key.
+   *
+   * Asserted from source rather than by rendering the proxy: `clerkMiddleware` needs a Clerk
+   * runtime to invoke at all, so a test that could call it would need the very thing whose
+   * absence is under test.
+   */
+  const source = readFileSync(join(process.cwd(), 'proxy.ts'), 'utf8');
+
+  it('refuses everything rather than serving the workspace unauthenticated', () => {
+    // The tempting fix is to skip `clerkMiddleware` when unconfigured, which would serve the
+    // app with no authentication at all. This asserts the opposite shape: one refusal for
+    // every route, public ones included, because without Clerk there is no sign-in to send
+    // anyone to.
+    expect(source).toContain('if (!clerkConfigured) return unconfigured()');
+    expect(source).toContain('status: 503');
+  });
+
+  it('checks the key before anything that would reach Clerk', () => {
+    // After the protect call it would never run — the throw gets there first. Matched on
+    // `await auth.protect()`, which appears only in code; the bare name appears in comments
+    // too, and matching that made this test pass against prose.
+    const guardAt = source.indexOf('if (!clerkConfigured)');
+    const protectAt = source.indexOf('await auth.protect()');
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(protectAt);
+  });
+
+  it('names the variables an operator has to set', () => {
+    // A 503 saying "not configured" is barely better than a 500. The point is the next action.
+    expect(source).toContain('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY');
+    expect(source).toContain('CLERK_SECRET_KEY');
   });
 });
