@@ -137,7 +137,7 @@ Reverting removes authentication entirely and exposes the workspace. Never rever
 
 ## Blocker
 
-Clerk keys — the user is creating the application; manual QA steps 1 and 2 cannot run until `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` exist.
+Manual QA steps 1 and 2 have not been run. The Clerk keys now exist — production serves with `clerk.youandfriends.org` and a `pk_live_` key, and the configuration refusal no longer fires — so the task is unblocked but not verified. Signing in and out end to end is what remains.
 
 ## Commit
 
