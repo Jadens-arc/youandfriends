@@ -18,6 +18,7 @@ import { derivatives, assetVersions, mixVersions } from './versions';
 import { favorites } from './favorites';
 import { snapshotEntries, snapshots } from './snapshots';
 import { storageObjects } from './storage-objects';
+import { uploadParts, uploadSessions } from './uploads';
 import { folders } from './folders';
 import { permissionGrants } from './permissions';
 import { projects } from './projects';
@@ -26,6 +27,7 @@ import { users } from './users';
 import { workspaceMemberships, workspaces } from './workspaces';
 
 export * from './assets';
+export * from './uploads';
 export * from './audit';
 export * from './columns';
 export * from './favorites';
@@ -55,6 +57,8 @@ export const NON_TENANT_TABLES: Readonly<Record<string, string>> = {
 };
 
 export const schema = {
+  uploadSessions,
+  uploadParts,
   auditEvents,
   storageObjects,
   assets,

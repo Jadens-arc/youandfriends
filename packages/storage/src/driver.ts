@@ -75,6 +75,15 @@ export interface StorageDriver {
   signStream(key: string): Promise<PresignedUrl>;
   /** Metadata, or `null` when the object is not there. Used by reconciliation. */
   head(key: string): Promise<ObjectHead | null>;
+  /**
+   * The object's first `length` bytes, for deciding what it actually is.
+   *
+   * A ranged read, never a whole object: the caller wants a magic-byte header and the object may
+   * be a 2 GB master. Returns fewer bytes than asked for when the object is shorter, and an
+   * empty array when it is not there — the caller has already established existence with
+   * `head`, so absence here is not the interesting case.
+   */
+  readPrefix(key: string, length: number): Promise<Uint8Array>;
   delete(keys: readonly string[]): Promise<void>;
 }
 
@@ -99,5 +108,5 @@ export const DEFAULT_TTLS: PresignTtls = {
   // Five minutes, not fifteen: a download URL that reaches someone else's chat is a copy of the
   // file, and the window where that works should be as close to the click as possible.
   downloadSeconds: 5 * 60,
-  partSeconds: 60 * 60,
+  partSeconds: 15 * 60,
 };

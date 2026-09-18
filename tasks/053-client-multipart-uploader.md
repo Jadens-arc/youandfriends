@@ -28,7 +28,7 @@ A 2 GB upload that survives a flaky connection, a closed laptop, and an accident
 
 ## Dependencies
 
-`051`
+`051`, `058`
 
 ## Files expected to change
 

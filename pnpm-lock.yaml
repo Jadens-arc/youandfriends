@@ -83,6 +83,12 @@ importers:
       '@youandfriends/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@youandfriends/media':
+        specifier: workspace:*
+        version: link:../../packages/media
+      '@youandfriends/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@youandfriends/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -187,6 +193,9 @@ importers:
       '@types/pg':
         specifier: ^8.23.1
         version: 8.23.1
+      '@youandfriends/storage':
+        specifier: workspace:*
+        version: link:../storage
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10

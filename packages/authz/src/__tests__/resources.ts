@@ -25,6 +25,8 @@ import {
   snapshots,
   songs,
   storageObjects,
+  uploadParts,
+  uploadSessions,
   workspaceMemberships,
 } from '@youandfriends/db';
 import type { DirectDatabase } from '@youandfriends/db';
@@ -36,6 +38,7 @@ import {
   makeProject,
   makeSong,
   makeStorageObject,
+  makeUser,
   testId,
 } from '@youandfriends/db/testing';
 
@@ -54,6 +57,34 @@ async function seedTree(db: DirectDatabase, workspaceId: string) {
   const object = await makeStorageObject(db, workspaceId);
   const version = await makeAssetVersion(db, workspaceId, asset.id, object.id, 1);
   return { folder, project, song, asset, object, version };
+}
+
+/**
+ * A pending upload session, with everything it hangs off.
+ *
+ * Returns the session id so the `upload_parts` seeder can attach a part to a real session rather
+ * than to an invented id — a part row whose `session_id` matches nothing would satisfy the
+ * registry while proving nothing about the table's tenancy.
+ */
+async function seedUploadSession(db: DirectDatabase, workspaceId: string) {
+  const { song, asset } = await seedTree(db, workspaceId);
+  const owner = await makeUser(db);
+  const sessionId = testId();
+
+  await db.insert(uploadSessions).values({
+    id: sessionId,
+    workspaceId,
+    ownerUserId: owner.id,
+    assetId: asset.id,
+    objectKey: `w/${workspaceId}/o/${sessionId}`,
+    uploadId: `multipart-${sessionId}`,
+    maxSizeBytes: 5 * 1024 * 1024,
+    contentTypeHint: 'audio/wav',
+    partSizeBytes: 5 * 1024 * 1024,
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  });
+
+  return { sessionId, songId: song.id };
 }
 
 /**
@@ -335,11 +366,32 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     why: 'Reveals activity, timing, and who is working with whom.',
   },
   {
-    status: 'pending',
+    status: 'live',
     name: 'upload_sessions',
-    tableName: 'upload_sessions',
-    task: '053',
+    table: uploadSessions,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      await seedUploadSession(db, workspaceId);
+    },
     why: 'An in-flight session is a writable handle to storage.',
+  },
+  {
+    status: 'live',
+    name: 'upload_parts',
+    table: uploadParts,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { sessionId } = await seedUploadSession(db, workspaceId);
+      await db.insert(uploadParts).values({
+        id: testId(),
+        workspaceId,
+        sessionId,
+        partNumber: 1,
+        etag: 'etag-1',
+        sizeBytes: 5 * 1024 * 1024,
+      });
+    },
+    why: 'Each row names a part already in the bucket, with its ETag. Reading another workspace\u2019s parts is half of hijacking their upload.',
   },
   {
     status: 'pending',

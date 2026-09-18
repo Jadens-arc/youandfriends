@@ -245,6 +245,40 @@ export function createR2Driver(config: R2Config): StorageDriver {
       }
     },
 
+    async readPrefix(key, length) {
+      if (length <= 0) return new Uint8Array(0);
+      try {
+        const result = await client.send(
+          // `bytes=0-63` is inclusive on both ends, so the last index is `length - 1`. Asking
+          // for more than the object holds is not an error; S3 clamps to what is there.
+          new GetObjectCommand({
+            Bucket: config.bucket,
+            Key: key,
+            Range: `bytes=0-${length - 1}`,
+          }),
+        );
+        // Confirm the server honoured the range *before* buffering. An S3-compatible store that
+        // ignores `Range` answers 200 with the whole body, and `transformToByteArray` would then
+        // pull a 2 GB master into a serverless function's heap to look at 64 bytes. R2 is
+        // S3-compatible rather than S3, so this is not hypothetical until task `052` proves it.
+        const length_ = result.ContentLength ?? 0;
+        if (result.ContentRange === undefined && length_ > length) {
+          throw new Error(
+            `storage ignored the range request for ${key}: got ${length_} bytes, asked for ${length}`,
+          );
+        }
+
+        const bytes = await result.Body?.transformToByteArray();
+        return bytes ?? new Uint8Array(0);
+      } catch (error) {
+        const name = (error as { name?: string }).name;
+        if (name === 'NotFound' || name === 'NoSuchKey') return new Uint8Array(0);
+        // A zero-length object answers a range request with 416 rather than an empty body.
+        if (name === 'InvalidRange') return new Uint8Array(0);
+        throw error;
+      }
+    },
+
     async delete(keys) {
       if (keys.length === 0) return;
       // `DeleteObjects` takes 1,000 at a time.

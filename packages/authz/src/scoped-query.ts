@@ -14,6 +14,8 @@ import {
   snapshots,
   songs,
   storageObjects,
+  uploadParts,
+  uploadSessions,
   workspaceMemberships,
   type Database,
 } from '@youandfriends/db';
@@ -55,6 +57,12 @@ export const SCOPED_TABLES = {
   storageObjects,
   snapshots,
   snapshotEntries,
+  // Added in task `051`. An in-flight session and its parts are tenant-owned rows a library
+  // view will legitimately list, so they are readable this way and carry generated IDOR cases.
+  // The upload protocol itself does not read them through a scoped handle — it uses
+  // `loadUsableSession`, which additionally checks owner, state and expiry.
+  uploadSessions,
+  uploadParts,
 } as const;
 
 export type ScopedTable = (typeof SCOPED_TABLES)[keyof typeof SCOPED_TABLES];

@@ -47,6 +47,16 @@ export {
   type PurgeResult,
 } from './purge';
 export {
+  describeSweepPlan,
+  executeUploadSweep,
+  planUploadSweep,
+  type ExpiredSession,
+  type MultipartAborter,
+  type SweepOptions,
+  type SweepPlan,
+  type SweepResult,
+} from './ops/uploads-sweep';
+export {
   deleteAsset,
   deleteFolder,
   deleteProject,

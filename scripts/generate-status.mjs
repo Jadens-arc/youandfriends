@@ -144,6 +144,15 @@ ${table(deferred)}
   documented exception to the one-task-per-commit rule.
 - \`004\`, \`005\` — Added after task \`003\`'s review surfaced two gaps in controls written
   during \`001\` and \`003\`. Recorded rather than folded silently into an unrelated task.
+- \`058\` — Split out of \`051\` before coding. The upload protocol does not need HTTP to be
+  correct, but a route needs to resolve a workspace from a request, and that is \`031\`, which is
+  \`pending\`. \`051\` delivers the tested protocol; \`058\` puts transport in front of it.
+  \`053\` depends on both.
+- \`050\`, \`051\` — Both landed **without a live run against an object store**: no byte has yet
+  moved through the storage path. Their logic is tested against a stub driver that can be made to
+  answer wrongly on purpose, which a real bucket cannot, but that is not the same evidence.
+  \`052\` (MinIO contract tests) is where the real path is exercised and should run before
+  anything else is built on top of them.
 `;
 }
 

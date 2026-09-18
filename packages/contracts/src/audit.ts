@@ -113,9 +113,9 @@ export const AUDIT_ACTION_INFO: Readonly<
   'permission.revoked': { class: 'permission', emittedBy: '024' },
   'permission.changed': { class: 'permission', emittedBy: '024' },
 
-  'upload.started': { class: 'upload', emittedBy: '053' },
-  'upload.completed': { class: 'upload', emittedBy: '053' },
-  'upload.aborted': { class: 'upload', emittedBy: '053' },
+  'upload.started': { class: 'upload', emittedBy: '051' },
+  'upload.completed': { class: 'upload', emittedBy: '051' },
+  'upload.aborted': { class: 'upload', emittedBy: '051' },
   'version.created': { class: 'upload', emittedBy: '057' },
 
   'song.updated': { class: 'edit', emittedBy: '044' },
