@@ -2,7 +2,7 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
-  "description": "You & Friends — the web application.",
+  "description": "You & Friends \u2014 the web application.",
   "scripts": {
     "dev": "next dev",
     "build": "cross-env NODE_ENV=production next build",
@@ -20,6 +20,8 @@
     "@youandfriends/config": "workspace:*",
     "@youandfriends/contracts": "workspace:*",
     "@youandfriends/db": "workspace:*",
+    "@youandfriends/media": "workspace:*",
+    "@youandfriends/storage": "workspace:*",
     "@youandfriends/ui": "workspace:*",
     "next": "^16.3.5",
     "react": "^19.2.0",

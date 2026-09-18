@@ -17,6 +17,7 @@ export * from './assets';
 export * from './audit';
 export * from './errors';
 export * from './ids';
+export * from './uploads';
 export * from './pagination';
 export * from './result';
 export * from './roles';

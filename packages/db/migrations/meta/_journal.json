@@ -43,6 +43,13 @@
       "when": 1789624013600,
       "tag": "0005_file_lifecycle_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789684588749,
+      "tag": "0006_upload_sessions",
+      "breakpoints": true
     }
   ]
 }

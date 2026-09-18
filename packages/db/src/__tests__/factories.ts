@@ -27,7 +27,17 @@ const CROCKFORD = ['0123456789', 'ABCDEFGHJKMN', 'PQRSTVWXYZ'].join('');
  */
 export function testId(): string {
   const bytes = randomBytes(26);
-  return Array.from(bytes, (byte) => CROCKFORD[byte % 32]).join('');
+  const body = Array.from(bytes.subarray(1), (byte) => CROCKFORD[byte % 32]).join('');
+  // The first character is bounded to 0-7, because a ULID's leading character encodes the high
+  // bits of a 48-bit timestamp and cannot exceed 7 — which is what `ulidSchema` in
+  // `@youandfriends/contracts` checks for.
+  //
+  // Without the bound, three quarters of the ids this factory produced were rejected by the
+  // product's own contracts. Nothing noticed until a route validated one, and then it failed
+  // *intermittently* — the worst shape a test failure can take, and a sign that every test
+  // using these ids had been exercising a value production never sees.
+  const first = CROCKFORD[(bytes[0] ?? 0) % 8] ?? '0';
+  return `${first}${body}`;
 }
 
 export async function makeUser(db: DirectDatabase, overrides: { email?: string } = {}) {

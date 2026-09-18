@@ -11,17 +11,18 @@
     "./env-file": "./src/env-file.ts"
   },
   "scripts": {
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
     "generate": "drizzle-kit generate",
+    "lint": "eslint .",
     "migrate": "tsx bin/migrate.mjs",
     "migrate:dry": "tsx bin/migrate-dry.mjs",
-    "studio": "drizzle-kit studio",
+    "ops:uploads:sweep": "tsx bin/uploads-sweep.mjs",
     "purge": "tsx bin/purge.mjs",
-    "seed": "tsx bin/seed.mjs"
+    "seed": "tsx bin/seed.mjs",
+    "studio": "drizzle-kit studio",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@types/pg": "^8.23.1",
     "@youandfriends/config": "workspace:*",
+    "@youandfriends/storage": "workspace:*",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.23.13",
     "typescript": "~5.9.3",
