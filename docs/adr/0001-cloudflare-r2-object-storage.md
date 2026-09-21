@@ -53,6 +53,24 @@ production, and at minimum once per quarter:
 | R2 max object size ≥ 5 TiB                             | Our 2 GB ceiling is far below, but confirm |
 | Presigned URL max TTL ≥ 1 hour                         | Download/stream URL lifetime               |
 
+### MinIO contract evidence and the remaining R2 gap
+
+Task `052` runs the driver against
+`quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e`.
+That is real S3-compatible protocol evidence, but it is **not** evidence about live R2. The
+contract suite distinguishes the two rather than calling MinIO proof of provider parity:
+
+| Behavior                                                                                             | Verified against MinIO                                                                                                                             | R2 status                                                                       |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Create, sign part, list, complete, abort, sign download/stream, head, ranged prefix read, and delete | Yes, with bytes moved through the server                                                                                                           | Assumed from S3 compatibility; re-run against R2 before production              |
+| Non-final parts are at least 5 MiB and part numbers stop at 10,000                                   | MinIO rejects a small non-final part and part `10,001`                                                                                             | The documented limits above remain an unverified R2 assumption                  |
+| Parallel completion order                                                                            | Parts uploaded and supplied out of order complete in ascending part-number order                                                                   | Assumed                                                                         |
+| Re-upload and missing-part behavior                                                                  | A repeated part number replaces its bytes; a manifest naming a missing part is rejected; writing after completion is rejected                      | Assumed; error names may differ                                                 |
+| Abort behavior                                                                                       | Mid-upload abort invalidates the upload; abort after completion is an idempotent no-op                                                             | Assumed; specifically verify R2's abort-after-complete response                 |
+| Presigned URL scope and expiry                                                                       | Changing the signed key is rejected; one-second part, download, and stream URLs are all rejected after expiry                                      | Assumed; bearer-TTL policy does not depend on MinIO parity                      |
+| ETag and checksum metadata                                                                           | Part ETag is quoted content MD5; final multipart ETag follows the multipart digest form; `ChecksumSHA256` is absent when no checksum was requested | Never treat ETag as SHA-256; verify R2 metadata before making checksum required |
+| Range handling                                                                                       | Prefix and stream range requests return only the requested bytes                                                                                   | Assumed                                                                         |
+
 Quotas are configurable via `YOUANDFRIENDS_MAX_OBJECT_BYTES` and
 `YOUANDFRIENDS_WORKSPACE_QUOTA_BYTES` rather than hard-coded, so a limit change is a config
 edit and not a code change.

@@ -55,6 +55,13 @@ const GATES = [
     name: 'db/authz integration',
     command: 'pnpm --filter @youandfriends/authz test',
   },
+  {
+    // Registered by task `052`. Direct runs skip loudly when no server exists; release-check
+    // owns the Compose lifecycle so CI actually exercises the pinned server image.
+    name: 'storage contract (MinIO)',
+    command: 'pnpm --filter @youandfriends/storage test:contract:managed',
+    skipReason: minioSkipReason,
+  },
   { name: 'build', command: 'pnpm build' },
   {
     // Registered by task `020`. `docs/OPERATIONS.md` §4 requires a dry run before every
@@ -76,12 +83,18 @@ const GATES = [
 
 /** Gates a later task will register. Listed so their absence is visible, not forgotten. */
 const PENDING_GATES = [
-  ['storage contract (MinIO)', 'task 052'],
   ['media fixtures (ffmpeg)', 'task 066'],
   ['rust clippy + tests', 'task 118'],
   ['playwright (desktop + iPhone)', 'task 120'],
   ['secret scan', 'task 122'],
 ];
+
+function minioSkipReason() {
+  const probe = spawnSync('docker', ['info'], { stdio: 'ignore' });
+  return probe.status === 0
+    ? null
+    : 'Docker is unavailable, so the MinIO service cannot be started by the contract harness';
+}
 
 const pad = (s) => s.padEnd(24);
 
@@ -149,6 +162,10 @@ if (blocker) {
 }
 
 const advisory = results.filter((r) => r.status === 'advisory').map((r) => r.gate.name);
-console.log('VERDICT: registered gates pass');
+console.log(
+  skipped.length === 0
+    ? 'VERDICT: registered gates pass'
+    : 'VERDICT: registered gates incomplete — prerequisite-dependent gates skipped',
+);
 if (advisory.length > 0) console.log(`ADVISORY: ${advisory.join(', ')} — review, not blocking`);
 console.log('NOTE: gates listed above as not yet registered are not covered by this run.\n');

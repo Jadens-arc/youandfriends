@@ -10,8 +10,10 @@
  * own the check, because a driver that also decided who may read would put two answers to that
  * question in the codebase.
  *
- * **Nothing here has been run against a real bucket.** Task `052` stands up MinIO and runs the
- * contract tests; until then this compiles, its logic is tested, and no byte has moved.
+ * **The S3-compatible path is pinned by contract tests, not assumed.** Task `052` moves generated
+ * bytes through a real MinIO server and records the remaining R2 assumptions in ADR 0001. Run
+ * `pnpm --filter @youandfriends/storage test:contract`; without MinIO it skips loudly rather than
+ * reporting protocol evidence it did not collect.
  */
 
 export const PACKAGE_NAME = '@youandfriends/storage' as const;

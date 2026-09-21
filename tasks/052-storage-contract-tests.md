@@ -37,6 +37,7 @@ Uploads that work in development keep working in production, and a provider chan
 ```
 packages/storage/src/__tests__/contract/**
 packages/storage/src/__tests__/minio-harness.ts
+packages/storage/src/__tests__/minio-runner.ts
 docker-compose.test.yml
 scripts/release-check.mjs
 ```
@@ -54,13 +55,13 @@ These tests verify controls from T4 at the storage layer: part-count limits, key
 
 ## Acceptance criteria
 
-- [ ] MinIO starts and stops via the test harness.
-- [ ] Every driver method has a contract test.
-- [ ] Multipart edge cases and failure paths are covered.
-- [ ] Presigned expiry is verified.
-- [ ] A presigned URL for one key cannot write to another key.
-- [ ] The suite is in `release-check` and skips loudly when MinIO is unavailable.
-- [ ] Verified-versus-assumed behaviors are recorded in ADR 0001.
+- [x] MinIO starts and stops via the test harness.
+- [x] Every driver method has a contract test.
+- [x] Multipart edge cases and failure paths are covered.
+- [x] Presigned expiry is verified.
+- [x] A presigned URL for one key cannot write to another key.
+- [x] The suite is in `release-check` and skips loudly when MinIO is unavailable.
+- [x] Verified-versus-assumed behaviors are recorded in ADR 0001.
 
 ## Tests and validation commands
 
@@ -75,13 +76,21 @@ pnpm release-check
 1. Stop MinIO and confirm the suite skips loudly rather than passing.
 2. Review the verified-versus-assumed table in ADR 0001 for honesty.
 
+Done: the managed release-check runner started the pinned Compose service, waited for health, ran
+all ten tests, and removed the container, network, bucket, and ephemeral data in `finally`. With the
+service stopped, a direct run reported one skipped file and ten skipped tests after printing
+`MINIO CONTRACT TESTS SKIPPED` with the exact start command. ADR 0001 names MinIO as evidence only
+for the pinned image and keeps every live-R2 behavior in the assumption column. Managed runs
+override caller endpoint and credential variables and require the service, so they cannot turn an
+endpoint override or a failed startup into a passing skipped suite.
+
 ## Rollback/compatibility
 
 Test-only. Reverting removes the guard that makes storage changes safe.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
