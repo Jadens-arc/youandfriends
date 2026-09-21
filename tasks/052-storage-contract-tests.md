@@ -94,4 +94,4 @@ Test-only. Reverting removes the guard that makes storage changes safe.
 
 ## Commit
 
-_(not yet)_
+`dae8638`
