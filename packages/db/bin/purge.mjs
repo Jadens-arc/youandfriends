@@ -34,7 +34,9 @@ import { withTransaction } from '../src/transaction.ts';
 loadDatabaseEnv(REPO_ROOT);
 
 const argv = process.argv.slice(2);
+/** @param {string} flag */
 const has = (flag) => argv.includes(flag);
+/** @param {string} flag */
 const value = (flag) => {
   const index = argv.indexOf(flag);
   return index === -1 ? undefined : argv[index + 1];
@@ -45,7 +47,7 @@ const workspaceId = value('--workspace');
 const limitArgument = value('--limit');
 const limit = limitArgument === undefined ? undefined : Number.parseInt(limitArgument, 10);
 
-if (limitArgument !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
+if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
   console.error(`--limit must be a positive integer, got ${limitArgument}`);
   process.exit(2);
 }

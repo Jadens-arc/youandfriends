@@ -39,7 +39,9 @@ import { describeTarget } from '../src/target-host.ts';
 loadDatabaseEnv(REPO_ROOT);
 
 const argv = process.argv.slice(2);
+/** @param {string} flag */
 const has = (flag) => argv.includes(flag);
+/** @param {string} flag */
 const value = (flag) => {
   const index = argv.indexOf(flag);
   return index === -1 ? undefined : argv[index + 1];
@@ -50,7 +52,7 @@ const workspaceId = value('--workspace');
 const limitArgument = value('--limit');
 const limit = limitArgument === undefined ? undefined : Number.parseInt(limitArgument, 10);
 
-if (limitArgument !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
+if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
   console.error(`--limit must be a positive integer, got ${limitArgument}`);
   process.exit(2);
 }
@@ -89,9 +91,10 @@ try {
       // omitted resolves to the *derivatives* bucket, and this job would then ask that bucket to
       // abort uploads that live in originals. R2 answers `NoSuchUpload`, every session lands in
       // `failed`, and the sweep reclaims nothing while printing errors that read like a transient
-      // R2 problem. `bin/` is not typechecked, so nothing but a reader catches the arity.
+      // R2 problem. The dedicated `bin/**` typecheck must keep this arity visible.
       const driver = createR2Driver(r2ConfigFrom(env, 'originals'));
-      abort = (key, uploadId) => driver.abortMultipart(key, uploadId);
+      abort = (/** @type {string} */ key, /** @type {string} */ uploadId) =>
+        driver.abortMultipart(key, uploadId);
     }
 
     const result = await executeUploadSweep(db, plan, abort);

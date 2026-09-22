@@ -75,10 +75,10 @@ An arity error there is not a style problem.
 
 ## Acceptance criteria
 
-- [ ] `pnpm --filter @youandfriends/db typecheck` covers `bin/**` and passes.
-- [ ] Reintroducing `r2ConfigFrom(env)` with one argument fails the typecheck, demonstrated.
-- [ ] `release-check` runs the extended typecheck.
-- [ ] No script's behaviour changes.
+- [x] `pnpm --filter @youandfriends/db typecheck` covers `bin/**` and passes.
+- [x] Reintroducing `r2ConfigFrom(env)` with one argument fails the typecheck, demonstrated.
+- [x] `release-check` runs the extended typecheck.
+- [x] No script's behaviour changes.
 
 ## Tests and validation commands
 
@@ -92,13 +92,21 @@ pnpm release-check
 1. `pnpm --filter @youandfriends/db ops:uploads:sweep --dry-run` still runs.
 2. `pnpm --filter @youandfriends/db purge --dry-run` still runs.
 
+Done: `tsconfig.bin.json` includes all five `packages/db/bin/*.mjs` entry points with
+`allowJs`, `checkJs`, and `allowImportingTsExtensions`, and the package typecheck runs it after
+the source typecheck. Replacing `r2ConfigFrom(env, 'originals')` with `r2ConfigFrom(env)` produced
+`TS2554: Expected 2 arguments, but got 1`; restoring the bucket argument returned the gate to
+green. Both dry-run commands started and exited cleanly, loudly skipping because no disposable
+database was configured. `apps/sync-mac` does not exist yet, so there is no equivalent script
+surface to add. Independent test and security reviews found no blockers.
+
 ## Rollback/compatibility
 
 Configuration and annotations only. Reverting restores the hole.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
