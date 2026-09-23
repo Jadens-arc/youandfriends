@@ -21,7 +21,10 @@ interface Destination {
  * destination and the cost of a cramped bar is paid on every other tap.
  */
 const DESTINATIONS: readonly Destination[] = [
-  { href: '/library', label: 'Library', icon: Library },
+  // Cast rather than a literal: task `040` made `/library` an optional catch-all
+  // (`/library/[[...path]]`), and Next's generated route type has no bare-segment member for
+  // one — the same limitation `MobileHeader`'s own `parent as Route` already works around.
+  { href: '/library' as Route, label: 'Library', icon: Library },
   { href: '/recent', label: 'Recent', icon: Clock },
   { href: '/search', label: 'Search', icon: Search },
   { href: '/shared', label: 'Shared', icon: Share2 },

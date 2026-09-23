@@ -44,6 +44,48 @@ export async function workspaceRoleOf(
   return membership?.role ?? null;
 }
 
+/** A membership row's shape, distinguishing "no row" from "a row with no workspace-wide role". */
+export interface MembershipRow {
+  /** `null` for a scope-limited collaborator (ADR 0010) — a real membership, no baseline. */
+  readonly role: Role | null;
+  readonly canDownload: boolean;
+  readonly canInvite: boolean;
+}
+
+/**
+ * The raw membership row for this subject in this workspace, or `null` if none exists at all.
+ *
+ * Unlike {@link workspaceRoleOf}, this keeps "no row" and "a row with `role: null`" distinct —
+ * the difference between "not a member of this workspace at all" and "a scope-limited
+ * collaborator, whose access is entirely their `permission_grants` rows" (ADR 0010). A caller
+ * that needs to tell those apart, such as the library folder tree (task `040`) deciding whether
+ * to refuse a request outright or resolve it against grants alone, needs this; a caller that
+ * only wants "do they have a workspace-wide role" wants {@link workspaceRoleOf} instead.
+ */
+export async function membershipRowOf(
+  db: Database,
+  subject: Subject,
+  workspaceId: WorkspaceId,
+): Promise<MembershipRow | null> {
+  if (!inheritsMembership(subject)) return null;
+
+  const [row] = await db
+    .select({
+      role: workspaceMemberships.role,
+      canDownload: workspaceMemberships.canDownload,
+      canInvite: workspaceMemberships.canInvite,
+    })
+    .from(workspaceMemberships)
+    .where(
+      and(
+        eq(workspaceMemberships.workspaceId, workspaceId),
+        eq(workspaceMemberships.userId, subject.userId),
+      ),
+    );
+
+  return row ?? null;
+}
+
 /** Whether this subject may perform a workspace-level action. */
 export async function canInWorkspace(
   db: Database,

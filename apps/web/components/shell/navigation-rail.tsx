@@ -16,7 +16,10 @@ interface Destination {
 }
 
 const DESTINATIONS: readonly Destination[] = [
-  { href: '/library', label: 'Library', icon: Library },
+  // Cast rather than a literal: task `040` made `/library` an optional catch-all
+  // (`/library/[[...path]]`), and Next's generated route type has no bare-segment member for
+  // one — the same limitation the logo link below works around too.
+  { href: '/library' as Route, label: 'Library', icon: Library },
   { href: '/recent', label: 'Recent', icon: Clock },
   { href: '/shared', label: 'Shared', icon: Share2 },
   { href: '/favorites', label: 'Favorites', icon: Heart },
@@ -42,7 +45,7 @@ export function NavigationRail() {
       className="on-espresso bg-espresso flex h-full w-16 shrink-0 flex-col items-center gap-1 py-3"
     >
       <Link
-        href="/library"
+        href={'/library' as Route}
         className={cn(
           'text-heading mb-2 flex size-10 items-center justify-center rounded font-serif',
           'text-on-espresso',
