@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-import { folderIdSchema } from './ids';
+import { folderIdSchema, projectIdSchema, songIdSchema, uploadSessionIdSchema } from './ids';
+import { normalizeRelativePath } from './snapshots';
 
 /**
  * Creating projects and songs (task `046`). One schema per form, shared by the dialog and the
@@ -35,3 +36,61 @@ export const createSongSchema = z.object({
   title: nameOf('song', SONG_TITLE_MAX),
 });
 export type CreateSongRequest = z.input<typeof createSongSchema>;
+
+/**
+ * The kinds a person can upload directly into a song or project (task `055`). Mixes go through
+ * the version stack (`/api/songs/:id/versions`); voice notes belong to comments (task `093`).
+ */
+export const UPLOADABLE_KINDS = ['master', 'stem', 'sample', 'project_file', 'artwork'] as const;
+export type UploadableKind = (typeof UPLOADABLE_KINDS)[number];
+
+/** Kinds that belong to a song, and kinds that may belong to a project. */
+export const SONG_ASSET_KINDS: readonly UploadableKind[] = [
+  'master',
+  'stem',
+  'sample',
+  'project_file',
+];
+export const PROJECT_ASSET_KINDS: readonly UploadableKind[] = ['project_file', 'artwork'];
+
+/**
+ * A Project Files folder as stored on `assets.folder_path`: `''` for the root, otherwise
+ * `/A/B/`. Built from a relative path with the same allow-list as snapshot paths, so the two
+ * cannot disagree about what a safe folder name is.
+ */
+export function toFolderPath(relative: string): string | null {
+  const trimmed = relative.trim().replace(/^\/+|\/+$/g, '');
+  if (trimmed === '') return '';
+  const result = normalizeRelativePath(trimmed);
+  return result.ok ? `/${result.path}/` : null;
+}
+
+export const createAssetSchema = z
+  .object({
+    songId: songIdSchema.optional(),
+    projectId: projectIdSchema.optional(),
+    kind: z.enum(UPLOADABLE_KINDS),
+    name: z.string().trim().min(1, 'Give the file a name.').max(255),
+    /** A relative folder inside Project Files, e.g. `Sessions/2026`. */
+    folder: z
+      .string()
+      .max(1000)
+      .optional()
+      .refine((value) => value === undefined || toFolderPath(value) !== null, {
+        message: 'That folder name uses characters that can’t be stored yet.',
+      }),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+  })
+  .refine((value) => (value.songId === undefined) !== (value.projectId === undefined), {
+    message: 'A file belongs to a song or a project.',
+  })
+  .refine(
+    (value) =>
+      value.songId !== undefined
+        ? SONG_ASSET_KINDS.includes(value.kind)
+        : PROJECT_ASSET_KINDS.includes(value.kind),
+    { message: 'That kind of file does not belong there.' },
+  );
+export type CreateAssetRequest = z.input<typeof createAssetSchema>;
+
+export const recordAssetVersionSchema = z.object({ sessionId: uploadSessionIdSchema });

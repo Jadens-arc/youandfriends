@@ -39,6 +39,7 @@ export function uploadContextFor(
   driver: StorageDriver = originalsDriver(),
 ): UploadContext {
   const db = transactionalDatabase();
+  const env = parseServerEnv();
   return {
     db,
     driver,
@@ -49,6 +50,8 @@ export function uploadContextFor(
     subject: context.subject,
     userId: context.userId,
     correlationId,
+    quotaBytes: env.YOUANDFRIENDS_WORKSPACE_QUOTA_BYTES,
+    maxObjectBytes: env.YOUANDFRIENDS_MAX_OBJECT_BYTES,
   };
 }
 
@@ -66,6 +69,9 @@ export const UPLOAD_ERROR_STATUS: Readonly<Record<UploadError['code'], number>> 
   object_missing: 409,
   checksum_mismatch: 422,
   invalid_state: 409,
+  // 413 rather than 507: nothing is wrong with the server, the request is too large for the
+  // space this workspace has left.
+  quota_exceeded: 413,
 };
 
 /** What the client is told for each — a fixed sentence, never the service's own message. */
@@ -78,6 +84,7 @@ const UPLOAD_ERROR_MESSAGE: Readonly<Record<UploadError['code'], string>> = {
   object_missing: 'Some parts of the upload never arrived. Retry the missing parts.',
   checksum_mismatch: 'The uploaded file does not match its checksum.',
   invalid_state: 'This upload has already finished or been cancelled.',
+  quota_exceeded: 'This workspace does not have room for this file.',
 };
 
 const PUBLIC_CODE: Readonly<Record<UploadError['code'], ErrorResponse['code']>> = {
@@ -89,6 +96,7 @@ const PUBLIC_CODE: Readonly<Record<UploadError['code'], ErrorResponse['code']>> 
   object_missing: 'conflict',
   checksum_mismatch: 'validation_failed',
   invalid_state: 'conflict',
+  quota_exceeded: 'validation_failed',
 };
 
 export function mapUploadError(error: unknown, correlationId: string): Response | null {

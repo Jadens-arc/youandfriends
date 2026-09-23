@@ -257,7 +257,7 @@ export function VersionPanel({
         <p className="text-body text-muted-foreground font-sans italic">
           No versions yet. The first mix you upload becomes the current version.
         </p>
-        {capabilities.edit ? <UploadVersion songId={songId} /> : null}
+        {capabilities.edit ? <UploadVersion songId={songId} songTitle={songTitle} /> : null}
       </div>
     );
   }
@@ -290,7 +290,7 @@ export function VersionPanel({
             onSelect={setSelectedId}
             now={now}
           />
-          {capabilities.edit ? <UploadVersion songId={songId} /> : null}
+          {capabilities.edit ? <UploadVersion songId={songId} songTitle={songTitle} /> : null}
           <p aria-live="polite" className="sr-only">
             {copied ? 'Link to this version copied' : ''}
           </p>

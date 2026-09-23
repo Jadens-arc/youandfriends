@@ -55,14 +55,16 @@ Destination selection is authorization-sensitive: only destinations the user may
 
 ## Acceptance criteria
 
-- [ ] Drop zones work on all relevant surfaces with clear destination context.
-- [ ] The upload tray persists across route changes.
-- [ ] Per-file progress, speed, and smoothed time estimates display.
-- [ ] Pause, resume, cancel, and retry work per file and per queue.
-- [ ] Transient and permanent errors are visually and textually distinct.
-- [ ] Only writable destinations are offered, filtered server-side.
-- [ ] Quota warnings appear before the limit is exceeded.
-- [ ] Closing the tab with active uploads warns the user.
+- [x] Drop zones work on all relevant surfaces with clear destination context. (The song page — including its Files tab — and the project page's detail pane, each only for people who may upload there; the overlay says "Drop to upload to <name>" and the dialog is titled with the destination. "Upload files" is the keyboard path to the same dialog.)
+- [x] The upload tray persists across route changes. (`UploadTray` in the workspace layout beside the player; the queue is a module-level store read with `useSyncExternalStore`.)
+- [x] Per-file progress, speed, and smoothed time estimates display. (Exponentially smoothed speed, estimate refreshed at most once a second and phrased coarsely; `lib/upload/__tests__/store.test.ts` shows a tenfold burst moving the shown rate only part of the way.)
+- [x] Pause, resume, cancel, and retry work per file and per queue. (A resumed upload records its version when it finishes; a retry reuses the first attempt's asset so persisted parts resume.)
+- [x] Transient and permanent errors are visually and textually distinct. ("Connection trouble — …" with a Wi-Fi-off icon versus the refusal's own sentence with a warning icon.)
+- [x] Only writable destinations are offered, filtered server-side. (`GET /api/uploads/destinations`, resolved through one load of the viewer's grants — `lib/assets/__tests__/service.test.ts` covers a song-level deny, a viewer, and a song shared alone. Surfaces render drop zones only when the server said the viewer may edit.)
+- [x] Quota warnings appear before the limit is exceeded. (The dialog warns at 90% and refuses before sending when files will not fit; the server now also refuses a session that would exceed `YOUANDFRIENDS_WORKSPACE_QUOTA_BYTES` or a file over `YOUANDFRIENDS_MAX_OBJECT_BYTES`, answering 413.)
+- [x] Closing the tab with active uploads warns the user. (`beforeunload` only while something is moving.)
+
+Also: `POST /api/assets` and `POST /api/assets/:assetId/versions` for masters, stems, samples, Project Files, and artwork; the song page's "Upload new version" now goes through the same queue; and the library's first-run state offers "Upload your first song", which creates a project and a song per file and queues each as its first mix. Background upload after the tab closes is not available in browsers and is not pretended — `docs/OPERATIONS.md` §9 already says so.
 
 ## Tests and validation commands
 
@@ -83,7 +85,7 @@ UI only. Reverting loses the interface; the upload API remains.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

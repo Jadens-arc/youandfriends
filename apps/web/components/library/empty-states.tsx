@@ -5,9 +5,9 @@ import { Disc3, FolderOpen } from 'lucide-react';
  * is the first screen a new workspace sees, and "No results" is the wrong first sentence for a
  * place meant to hold someone's music.
  *
- * `uploadAction` is the slot for the first-upload call to action. Browser upload arrives in
- * phase 5 (task `055` wires it here); until then the state says what will happen, and offers no
- * button that goes nowhere (CLAUDE.md §12: never claim a capability that is not there).
+ * `uploadAction` is the slot for the first-upload call to action, filled by task `055` with
+ * "Upload your first song" for anyone who may start a project. Someone who may not gets the
+ * state alone — no button that goes nowhere (CLAUDE.md §12).
  */
 export function FirstRunState({ uploadAction }: { readonly uploadAction?: React.ReactNode }) {
   return (

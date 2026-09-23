@@ -2,6 +2,7 @@ import { AppError } from '@youandfriends/contracts';
 import { notFound } from 'next/navigation';
 
 import { NewProjectButton } from '@/components/library/create-dialogs';
+import { StartFromUpload } from '@/components/upload/start-from-upload';
 import { EmptyFolderState, FirstRunState } from '@/components/library/empty-states';
 import { LibraryToolbar } from '@/components/library/library-toolbar';
 import { LibraryModules } from '@/components/library/modules';
@@ -55,7 +56,14 @@ export async function ProjectShelf({
     return (
       <div className="flex flex-col gap-10 p-4 md:p-8">
         <FirstRunState
-          uploadAction={mayCreateProject ? <NewProjectButton folderId={null} /> : undefined}
+          uploadAction={
+            mayCreateProject ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <StartFromUpload />
+                <NewProjectButton folderId={null} />
+              </div>
+            ) : undefined
+          }
         />
         <LibraryModules modules={library.modules} now={now} />
       </div>

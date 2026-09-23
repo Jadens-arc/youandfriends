@@ -125,11 +125,13 @@ export {
   listMixVersions,
   listProjectSongs,
   listSongFiles,
+  listWorkspaceSongs,
   type MixVersionRow,
   type ProjectHeaderRow,
   type ProjectSongRow,
   type SongFileRow,
   type SongHeaderRow,
+  type WorkspaceSongRow,
 } from './queries/songs';
 export {
   acceptInvitation,

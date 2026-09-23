@@ -6,7 +6,8 @@ import { NewSongButton } from '@/components/library/create-dialogs';
 import { CoverArt } from '@/components/library/cover-art';
 import { MobileBackTarget } from '@/components/shell/mobile/back-target';
 import { SongList } from '@/components/song/song-list';
-import { SplitLayout } from '@/components/song/song-workspace';
+import { MaybeDropZone, SplitLayout } from '@/components/song/song-workspace';
+import { UploadFilesButton } from '@/components/upload/drop-zone';
 import { WorkStatusBadge } from '@/components/song/status-badge';
 import { FolderUpload } from '@/components/upload/folder-upload';
 import { libraryContext } from '@/lib/library/context';
@@ -37,6 +38,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
   );
   const { project } = workspace;
   const listLabel = `Songs in ${project.name}`;
+  const surface = { type: 'project', id: project.id, name: project.name } as const;
 
   const summary = (
     <header className="flex items-end gap-4">
@@ -86,22 +88,27 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           </div>
         }
         detail={
-          <div className="flex flex-col gap-6 p-6">
-            {summary}
-            <p className="text-body text-muted-foreground font-sans">
-              {workspace.songs.length === 0
-                ? 'This project has no songs yet.'
-                : 'Choose a song to open it.'}
-            </p>
-            {workspace.canEdit ? (
-              <div className="flex flex-col items-start gap-2">
-                <h2 className="text-caption text-muted-foreground font-sans font-medium tracking-wide uppercase">
-                  Project Files
-                </h2>
-                <FolderUpload projectId={project.id} />
-              </div>
-            ) : null}
-          </div>
+          <MaybeDropZone enabled={workspace.canEdit} surface={surface}>
+            <div className="flex flex-col gap-6 p-6">
+              {summary}
+              <p className="text-body text-muted-foreground font-sans">
+                {workspace.songs.length === 0
+                  ? 'This project has no songs yet.'
+                  : 'Choose a song to open it.'}
+              </p>
+              {workspace.canEdit ? (
+                <div className="flex flex-col items-start gap-2">
+                  <h2 className="text-caption text-muted-foreground font-sans font-medium tracking-wide uppercase">
+                    Project Files
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    <UploadFilesButton surface={surface} />
+                    <FolderUpload projectId={project.id} />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </MaybeDropZone>
         }
       />
     </>

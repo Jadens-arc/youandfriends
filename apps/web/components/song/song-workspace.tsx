@@ -2,6 +2,8 @@ import { cn } from '@youandfriends/ui';
 
 import type { SongWorkspace as SongWorkspaceData } from '@/lib/songs/workspace';
 
+import { DropZone, UploadFilesButton } from '@/components/upload/drop-zone';
+
 import { FileGroups } from './file-groups';
 import { SongHeader } from './song-header';
 import { SongList } from './song-list';
@@ -65,6 +67,7 @@ export function SongWorkspaceView({
   readonly now: Date;
 }) {
   const listLabel = workspace.project === null ? 'Songs' : `Songs in ${workspace.project.name}`;
+  const surface = { type: 'song', id: workspace.song.id, name: workspace.song.title } as const;
 
   return (
     <SplitLayout
@@ -74,31 +77,63 @@ export function SongWorkspaceView({
         <SongList songs={workspace.siblings} currentSongId={workspace.song.id} label={listLabel} />
       }
       detail={
-        <article className="flex flex-col gap-6 p-4 md:p-6" data-song-id={workspace.song.id}>
-          <SongHeader workspace={workspace} />
-          <SongTabs
-            panels={{
-              overview: (
-                <VersionPanel
-                  versions={workspace.versions}
-                  linkedVersionId={linkedVersionId}
-                  now={now}
-                  songTitle={workspace.song.title}
-                  songId={workspace.song.id}
-                  capabilities={workspace.capabilities}
-                />
-              ),
-              lyrics: (
-                <p className="text-body text-muted-foreground font-sans italic">No lyrics yet.</p>
-              ),
-              files: <FileGroups files={workspace.files} />,
-              activity: (
-                <p className="text-body text-muted-foreground font-sans italic">No comments yet.</p>
-              ),
-            }}
-          />
-        </article>
+        <MaybeDropZone enabled={workspace.capabilities.edit} surface={surface}>
+          <article className="flex flex-col gap-6 p-4 md:p-6" data-song-id={workspace.song.id}>
+            <SongHeader workspace={workspace} />
+            <SongTabs
+              panels={{
+                overview: (
+                  <VersionPanel
+                    versions={workspace.versions}
+                    linkedVersionId={linkedVersionId}
+                    now={now}
+                    songTitle={workspace.song.title}
+                    songId={workspace.song.id}
+                    capabilities={workspace.capabilities}
+                  />
+                ),
+                lyrics: (
+                  <p className="text-body text-muted-foreground font-sans italic">No lyrics yet.</p>
+                ),
+                files: (
+                  <div className="flex flex-col gap-4">
+                    {workspace.capabilities.edit ? (
+                      <div>
+                        <UploadFilesButton surface={surface} />
+                      </div>
+                    ) : null}
+                    <FileGroups files={workspace.files} />
+                  </div>
+                ),
+                activity: (
+                  <p className="text-body text-muted-foreground font-sans italic">
+                    No comments yet.
+                  </p>
+                ),
+              }}
+            />
+          </article>
+        </MaybeDropZone>
       }
     />
+  );
+}
+
+/** A drop zone only for people who may upload; everyone else gets the page as it is. */
+export function MaybeDropZone({
+  enabled,
+  surface,
+  children,
+}: {
+  readonly enabled: boolean;
+  readonly surface: React.ComponentProps<typeof DropZone>['surface'];
+  readonly children: React.ReactNode;
+}) {
+  return enabled ? (
+    <DropZone surface={surface} className="min-h-full">
+      {children}
+    </DropZone>
+  ) : (
+    children
   );
 }

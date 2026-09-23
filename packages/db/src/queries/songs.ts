@@ -362,3 +362,32 @@ export async function favoritedTargets(
     );
   return new Set(rows.map((row) => row.targetId));
 }
+
+export interface WorkspaceSongRow {
+  readonly id: string;
+  readonly title: string;
+  readonly projectId: string;
+}
+
+/**
+ * Every live song in a workspace whose project is live too — candidates only, for `authz` to
+ * filter (task `055`'s upload destinations). Ordered for a picker: by project, then tracklist.
+ */
+export async function listWorkspaceSongs(
+  db: Database,
+  workspaceId: string,
+): Promise<WorkspaceSongRow[]> {
+  return db
+    .select({ id: songs.id, title: songs.title, projectId: songs.projectId })
+    .from(songs)
+    .innerJoin(
+      projects,
+      and(
+        eq(projects.id, songs.projectId),
+        eq(projects.workspaceId, songs.workspaceId),
+        isNull(projects.deletedAt),
+      ),
+    )
+    .where(and(eq(songs.workspaceId, workspaceId), isNull(songs.deletedAt)))
+    .orderBy(asc(projects.name), asc(songs.createdAt), asc(songs.id));
+}
