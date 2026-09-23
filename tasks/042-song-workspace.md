@@ -95,4 +95,4 @@ UI plus queries. Central to phases 7–9; reverting breaks them.
 
 ## Commit
 
-_(not yet)_
+`564a54c`
