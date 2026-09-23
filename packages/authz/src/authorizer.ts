@@ -117,6 +117,24 @@ export function permits(access: EffectiveAccess, action: Action): boolean {
   return requirement.capability === undefined || access[requirement.capability];
 }
 
+/**
+ * Every grant a subject holds in a workspace, across every scope.
+ *
+ * Exported for callers that need to resolve access for *many* targets against one grant set
+ * without a query per target — the library folder tree (task `040`) is the first: it resolves
+ * every folder in a workspace against a single load of this subject's grants, rather than
+ * calling `resolveAccess` once per folder.
+ */
+export function grantsForSubjectInWorkspace(
+  db: Database,
+  workspaceId: WorkspaceId,
+  subject: Subject,
+): Promise<ResolvableGrant[]> {
+  const id = subjectId(subject);
+  if (id === null) return Promise.resolve([]);
+  return loadGrants(db, workspaceId, subject, id);
+}
+
 async function loadGrants(
   db: Database,
   workspaceId: WorkspaceId,

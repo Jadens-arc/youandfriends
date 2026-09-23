@@ -93,6 +93,16 @@ export {
   type WorkspaceMember,
 } from './queries/workspace';
 export {
+  createFolder,
+  getFolder,
+  listWorkspaceFolders,
+  moveFolder,
+  renameFolder,
+  type CreateFolderInput,
+  type FolderRow,
+  type FolderWriteResult,
+} from './queries/folders';
+export {
   acceptInvitation,
   createInvitation,
   findInvitationById,

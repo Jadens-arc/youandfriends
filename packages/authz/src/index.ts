@@ -22,6 +22,7 @@ export const PACKAGE_NAME = '@youandfriends/authz' as const;
 
 export {
   createAuthorizer,
+  grantsForSubjectInWorkspace,
   permits,
   type Authorizer,
   type AuthorizerOptions,
@@ -44,7 +45,20 @@ export {
   type AuditQuery,
 } from './audit-query';
 export { buildChain, foldersInPath, type ChainInput } from './chain';
-export { assertCanInWorkspace, canInWorkspace, workspaceRoleOf } from './workspace';
+export {
+  assertCanInWorkspace,
+  canInWorkspace,
+  membershipRowOf,
+  workspaceRoleOf,
+  type MembershipRow,
+} from './workspace';
+export {
+  filterVisibleFolders,
+  loadFolderAccess,
+  loadVisibleFolders,
+  resolveFolderAccess,
+  type FolderPath,
+} from './library';
 export {
   canGrantAccess,
   describeGrantRefusal,
