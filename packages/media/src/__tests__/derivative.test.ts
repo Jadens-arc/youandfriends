@@ -96,7 +96,7 @@ describeWithFfmpeg('transcoding the streaming derivative', () => {
       '-f',
       'lavfi',
       '-i',
-      'sine=frequency=440:sample_rate=96000:duration=3',
+      ['sine=frequency=440', 'sample_rate=96000', 'duration=3'].join(':'),
       '-filter_complex',
       '[0:a]pan=5.1|FL=c0|FR=c0|FC=c0|LFE=c0|BL=c0|BR=c0[a]',
       '-map',

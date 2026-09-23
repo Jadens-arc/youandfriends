@@ -60,6 +60,8 @@ The original's immutability is a data-integrity control (T8) and is asserted by 
 - [x] Unusual channel layouts downmix cleanly to stereo. (A 96 kHz 5.1 file becomes 44.1 kHz stereo.)
 - [x] Playback starts without downloading the whole file. (The test reads the top-level boxes: `ftyp`, `moov`, then `moof`/`mdat` fragments.)
 
+**Process note.** The implementation commit (`d4c37c7`) was pushed with a failing lint gate: two long ffmpeg flag strings tripped `no-secrets`, and the commit command did not stop on the gate's failure. It was fixed in a follow-up commit (`062: fix lint`) rather than by rewriting pushed history, so this task spans two commits; the gate script now refuses to commit on any failure.
+
 Manual QA in Safari and Chrome, and `pnpm --filter @youandfriends/storage test:contract`, were not run here — there is no browser playback harness yet (task `120`) and MinIO cannot be pulled in this environment.
 
 ## Tests and validation commands
