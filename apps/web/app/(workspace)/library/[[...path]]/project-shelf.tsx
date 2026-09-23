@@ -1,6 +1,7 @@
 import { AppError } from '@youandfriends/contracts';
 import { notFound } from 'next/navigation';
 
+import { NewProjectButton } from '@/components/library/create-dialogs';
 import { EmptyFolderState, FirstRunState } from '@/components/library/empty-states';
 import { LibraryToolbar } from '@/components/library/library-toolbar';
 import { LibraryModules } from '@/components/library/modules';
@@ -16,6 +17,8 @@ export interface ProjectShelfProps {
   readonly view: LibraryView;
   readonly sort: LibrarySort;
   readonly quotaBytes: number;
+  /** Whether this viewer may start a project here — decided server-side by the page. */
+  readonly mayCreateProject?: boolean;
 }
 
 /**
@@ -28,7 +31,14 @@ export interface ProjectShelfProps {
  * The modules belong to the library's front page, so they appear at the root only. Inside a
  * folder the shelf is just that folder's projects.
  */
-export async function ProjectShelf({ context, folder, view, sort, quotaBytes }: ProjectShelfProps) {
+export async function ProjectShelf({
+  context,
+  folder,
+  view,
+  sort,
+  quotaBytes,
+  mayCreateProject = false,
+}: ProjectShelfProps) {
   const library = await readProjectLibrary(context, {
     folderId: folder?.id ?? null,
     quotaBytes,
@@ -44,7 +54,9 @@ export async function ProjectShelf({ context, folder, view, sort, quotaBytes }: 
   if (!library.hasAnyProject && folder === null) {
     return (
       <div className="flex flex-col gap-10 p-4 md:p-8">
-        <FirstRunState />
+        <FirstRunState
+          uploadAction={mayCreateProject ? <NewProjectButton folderId={null} /> : undefined}
+        />
         <LibraryModules modules={library.modules} now={now} />
       </div>
     );
@@ -56,9 +68,12 @@ export async function ProjectShelf({ context, folder, view, sort, quotaBytes }: 
         aria-labelledby="library-shelf-heading"
         className="flex min-w-0 flex-1 flex-col gap-4"
       >
-        <h1 id="library-shelf-heading" className="text-title text-foreground font-serif">
-          {folder?.name ?? 'Projects'}
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 id="library-shelf-heading" className="text-title text-foreground font-serif">
+            {folder?.name ?? 'Projects'}
+          </h1>
+          {mayCreateProject ? <NewProjectButton folderId={folder?.id ?? null} /> : null}
+        </div>
         <LibraryToolbar view={view} sort={sort} count={projects.length} />
         {projects.length === 0 && folder !== null ? (
           <EmptyFolderState folderName={folder.name} />

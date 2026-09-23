@@ -16,11 +16,11 @@ acceptance criterion.
 
 |                     | Count   |
 | ------------------- | ------- |
-| Iteration-one tasks | 94      |
+| Iteration-one tasks | 95      |
 | Deferred tasks      | 17      |
-| **Total**           | **111** |
+| **Total**           | **112** |
 
-Task `043` is next. `016`, `029` are passed over until their dependencies are `complete`. 39 of 94 iteration-one tasks are `complete`.
+Task `043` is next. `016`, `029` are passed over until their dependencies are `complete`. 40 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -60,12 +60,13 @@ Task `043` is next. `016`, `029` are passed over until their dependencies are `c
 | `043` | Song and project metadata editing                                      | Library navigation                   | `042`, `024`                              | `pending`  | —         | —       |
 | `044` | Favorites, recents, and activity                                       | Library navigation                   | `042`, `024`                              | `pending`  | —         | —       |
 | `045` | Command palette and search                                             | Library navigation                   | `041`, `080`                              | `pending`  | —         | —       |
+| `046` | Create projects and songs                                              | Library navigation                   | `041`, `042`, `024`                       | `complete` | —         | —       |
 | `050` | Storage package and R2 driver                                          | Upload, storage, versions            | `002`, `003`                              | `complete` | `683c0ca` | —       |
 | `051` | Upload session API                                                     | Upload, storage, versions            | `050`, `026`, `023`                       | `complete` | `3221a64` | —       |
 | `052` | Storage contract tests against MinIO                                   | Upload, storage, versions            | `050`, `051`                              | `complete` | `dae8638` | —       |
 | `053` | Client multipart uploader                                              | Upload, storage, versions            | `051`, `058`                              | `complete` | `929e816` | —       |
-| `054` | Browser folder upload and snapshots                                    | Upload, storage, versions            | `053`, `026`                              | `complete` | —         | —       |
-| `055` | Upload interface and progress                                          | Upload, storage, versions            | `053`, `054`, `014`                       | `pending`  | —         | —       |
+| `054` | Browser folder upload and snapshots                                    | Upload, storage, versions            | `053`, `026`                              | `complete` | `df5d104` | —       |
+| `055` | Upload interface and progress                                          | Upload, storage, versions            | `053`, `054`, `014`, `046`                | `pending`  | —         | —       |
 | `056` | Mix version stack and current pointer                                  | Upload, storage, versions            | `051`, `026`, `042`                       | `complete` | `f9d642e` | —       |
 | `057` | Project Files: folders and tags                                        | Upload, storage, versions            | `054`, `056`                              | `pending`  | —         | —       |
 | `058` | Upload HTTP endpoints                                                  | Upload, storage, versions            | `051`, `031`, `030`                       | `complete` | `06862fa` | —       |

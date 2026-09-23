@@ -9,7 +9,9 @@ import { folderHref, projectHref, songHref } from '@/lib/songs/routes';
 import { ModuleItem, ModuleSection } from './module-section';
 
 const VERB: Readonly<Record<ContentActivityAction, string>> = {
+  'project.created': 'started',
   'project.updated': 'updated',
+  'song.created': 'started',
   'song.updated': 'updated',
   'folder.updated': 'updated',
   'folder.moved': 'moved',

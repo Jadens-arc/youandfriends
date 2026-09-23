@@ -2,6 +2,7 @@ import { AppError } from '@youandfriends/contracts';
 import type { Route } from 'next';
 import { notFound } from 'next/navigation';
 
+import { NewSongButton } from '@/components/library/create-dialogs';
 import { CoverArt } from '@/components/library/cover-art';
 import { MobileBackTarget } from '@/components/shell/mobile/back-target';
 import { SongList } from '@/components/song/song-list';
@@ -76,6 +77,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
               {summary}
               {workspace.canEdit ? <FolderUpload projectId={project.id} /> : null}
             </div>
+            {workspace.canEdit ? (
+              <div className="px-4 pt-3">
+                <NewSongButton projectId={project.id} />
+              </div>
+            ) : null}
             <SongList songs={workspace.songs} currentSongId={null} label={listLabel} />
           </div>
         }

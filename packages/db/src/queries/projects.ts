@@ -371,7 +371,9 @@ export async function listFavoritesOf(
  * stays out of every non-owner's view until someone decides, here, that it belongs.
  */
 export const CONTENT_ACTIVITY_ACTIONS = [
+  'project.created',
   'project.updated',
+  'song.created',
   'song.updated',
   'folder.updated',
   'folder.moved',
