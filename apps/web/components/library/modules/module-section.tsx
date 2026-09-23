@@ -1,4 +1,6 @@
-import { cn } from '@youandfriends/ui';
+import { cn, focusRing, transition } from '@youandfriends/ui';
+import type { Route } from 'next';
+import Link from 'next/link';
 import * as React from 'react';
 
 /**
@@ -36,17 +38,30 @@ export function ModuleSection({
   );
 }
 
-/** One line in a module list: a primary label and a quiet secondary one. */
+/**
+ * One line in a module list: a primary label and a quiet secondary one. With `href`, the primary
+ * label is the link — the secondary line stays plain text, so each row is one tab stop.
+ */
 export function ModuleItem({
   primary,
   secondary,
+  href,
 }: {
   readonly primary: React.ReactNode;
   readonly secondary?: React.ReactNode;
+  readonly href?: Route | undefined;
 }) {
   return (
     <li className="flex min-w-0 flex-col py-1">
-      <span className="text-body text-foreground truncate font-sans">{primary}</span>
+      <span className="text-body text-foreground truncate font-sans">
+        {href === undefined ? (
+          primary
+        ) : (
+          <Link href={href} className={cn('rounded-sm hover:underline', transition, focusRing)}>
+            {primary}
+          </Link>
+        )}
+      </span>
       {secondary === undefined ? null : (
         <span className="text-caption text-muted-foreground truncate font-sans">{secondary}</span>
       )}

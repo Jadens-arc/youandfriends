@@ -1,5 +1,6 @@
 import { formatRelative } from '@/lib/library/format';
 import type { SongSummary } from '@/lib/library/projects';
+import { songHref } from '@/lib/songs/routes';
 
 import { ModuleItem, ModuleSection } from './module-section';
 
@@ -21,6 +22,7 @@ export function RecentSongs({
           <ModuleItem
             key={song.id}
             primary={song.title}
+            href={songHref(song.id)}
             secondary={
               <>
                 {song.projectName ?? 'Song'} ·{' '}

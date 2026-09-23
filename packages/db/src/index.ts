@@ -119,6 +119,19 @@ export {
   type SongListRow,
 } from './queries/projects';
 export {
+  favoritedTargets,
+  getProjectHeader,
+  getSongHeader,
+  listMixVersions,
+  listProjectSongs,
+  listSongFiles,
+  type MixVersionRow,
+  type ProjectHeaderRow,
+  type ProjectSongRow,
+  type SongFileRow,
+  type SongHeaderRow,
+} from './queries/songs';
+export {
   acceptInvitation,
   createInvitation,
   findInvitationById,

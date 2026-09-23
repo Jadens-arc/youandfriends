@@ -257,33 +257,72 @@ export function projectCollaboratorsFrom(
   grants: readonly MemberGrant[],
   now: Date,
 ): Map<string, string[]> {
+  const grantsByUser = groupGrantsByUser(grants);
+  const result = new Map<string, string[]>();
+  for (const project of projects) {
+    const chain = buildChain({ projectId: project.id, folderPath: project.folderPath });
+    result.set(project.id, membersReaching(chain, members, grantsByUser, now));
+  }
+  return result;
+}
+
+/** A song as {@link songCollaboratorsFrom} needs it: its own chain, through its project. */
+export interface SongChain {
+  readonly id: string;
+  readonly projectId: string;
+  readonly folderPath: string;
+}
+
+/**
+ * Who can reach one song (task `042`) — the project rule above, one level further down, so a
+ * member denied on the song itself is absent from its header even though the project's card
+ * lists them.
+ */
+export function songCollaboratorsFrom(
+  song: SongChain,
+  members: readonly MemberBaselineRow[],
+  grants: readonly MemberGrant[],
+  now: Date,
+): string[] {
+  const chain = buildChain({
+    songId: song.id,
+    projectId: song.projectId,
+    folderPath: song.folderPath,
+  });
+  return membersReaching(chain, members, groupGrantsByUser(grants), now);
+}
+
+function groupGrantsByUser(grants: readonly MemberGrant[]): Map<string, MemberGrant[]> {
   const grantsByUser = new Map<string, MemberGrant[]>();
   for (const grant of grants) {
     const list = grantsByUser.get(grant.userId) ?? [];
     list.push(grant);
     grantsByUser.set(grant.userId, list);
   }
+  return grantsByUser;
+}
 
-  const result = new Map<string, string[]>();
-  for (const project of projects) {
-    const chain = buildChain({ projectId: project.id, folderPath: project.folderPath });
-    const people: string[] = [];
-    for (const member of members) {
-      const membership: MembershipBaseline | null =
-        member.role === null
-          ? null
-          : { role: member.role, canDownload: member.canDownload, canInvite: member.canInvite };
-      const access = resolve({
-        chain,
-        grants: grantsByUser.get(member.userId) ?? [],
-        membership,
-        now,
-      });
-      if (access.role !== null) people.push(member.userId);
-    }
-    result.set(project.id, people);
+function membersReaching(
+  chain: ReturnType<typeof buildChain>,
+  members: readonly MemberBaselineRow[],
+  grantsByUser: ReadonlyMap<string, readonly MemberGrant[]>,
+  now: Date,
+): string[] {
+  const people: string[] = [];
+  for (const member of members) {
+    const membership: MembershipBaseline | null =
+      member.role === null
+        ? null
+        : { role: member.role, canDownload: member.canDownload, canInvite: member.canInvite };
+    const access = resolve({
+      chain,
+      grants: grantsByUser.get(member.userId) ?? [],
+      membership,
+      now,
+    });
+    if (access.role !== null) people.push(member.userId);
   }
-  return result;
+  return people;
 }
 
 /**
@@ -302,7 +341,28 @@ export async function loadProjectCollaborators(
   now: () => Date = () => new Date(),
 ): Promise<Map<string, string[]>> {
   if (projects.length === 0) return new Map();
+  const { members, grants } = await loadMembersAndGrants(db, workspaceId);
+  return projectCollaboratorsFrom(projects, members, grants, now());
+}
 
+/**
+ * One song's collaborators. The same precondition as {@link loadProjectCollaborators}: **the
+ * caller must already have decided the viewer may see this song.**
+ */
+export async function loadSongCollaborators(
+  db: Database,
+  workspaceId: WorkspaceId,
+  song: SongChain,
+  now: () => Date = () => new Date(),
+): Promise<string[]> {
+  const { members, grants } = await loadMembersAndGrants(db, workspaceId);
+  return songCollaboratorsFrom(song, members, grants, now());
+}
+
+async function loadMembersAndGrants(
+  db: Database,
+  workspaceId: WorkspaceId,
+): Promise<{ members: MemberBaselineRow[]; grants: MemberGrant[] }> {
   const [members, grants] = await Promise.all([
     db
       .select({
@@ -334,6 +394,5 @@ export async function loadProjectCollaborators(
         ),
       ),
   ]);
-
-  return projectCollaboratorsFrom(projects, members, grants, now());
+  return { members, grants };
 }

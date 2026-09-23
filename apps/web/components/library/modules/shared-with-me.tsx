@@ -1,4 +1,5 @@
 import type { SharedWithMe as SharedWithMeData } from '@/lib/library/projects';
+import { projectHref, songHref } from '@/lib/songs/routes';
 
 import { ModuleItem, ModuleSection } from './module-section';
 
@@ -18,12 +19,18 @@ export function SharedWithMe({ shared }: { readonly shared: SharedWithMeData }) 
     >
       <ul>
         {shared.projects.map((project) => (
-          <ModuleItem key={`project-${project.id}`} primary={project.name} secondary="Project" />
+          <ModuleItem
+            key={`project-${project.id}`}
+            primary={project.name}
+            href={projectHref(project.id)}
+            secondary="Project"
+          />
         ))}
         {shared.songs.map((song) => (
           <ModuleItem
             key={`song-${song.id}`}
             primary={song.title}
+            href={songHref(song.id)}
             secondary={song.projectName === null ? 'Song' : `Song · ${song.projectName}`}
           />
         ))}

@@ -1,7 +1,9 @@
 import { Avatar, AvatarFallback, cn } from '@youandfriends/ui';
+import Link from 'next/link';
 
 import { formatRelative, formatSongCount, initialsOf } from '@/lib/library/format';
 import type { Collaborator, ProjectCard as ProjectCardData } from '@/lib/library/projects';
+import { projectHref } from '@/lib/songs/routes';
 
 import { CoverArt } from './cover-art';
 
@@ -65,6 +67,30 @@ export function CollaboratorStack({
   );
 }
 
+/**
+ * The card's one link. `after:absolute after:inset-0` makes the whole card its hit area; the
+ * focus ring is drawn on that same pseudo-element so it outlines the card, not just the name.
+ */
+function ProjectLink({
+  id,
+  children,
+}: {
+  readonly id: string;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={projectHref(id)}
+      className={cn(
+        'rounded-sm outline-none after:absolute after:inset-0 after:rounded-md after:content-[""] hover:underline',
+        'focus-visible:after:outline-ring focus-visible:after:outline-2 focus-visible:after:outline-offset-2',
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export interface ProjectCardProps {
   readonly project: ProjectCardData;
   readonly now: Date;
@@ -87,12 +113,12 @@ function LastActivity({ at, now }: { readonly at: Date; readonly now: Date }) {
  * artwork (§11) — it carries the card.
  *
  * An `article` with the name as its heading, so a screen reader can move card to card by
- * heading. Not a link yet: the project view it would open arrives with the song workspace
- * (task `042`), and a card that navigates to a 404 is worse than one that does not navigate.
+ * heading. The name is the one link, stretched over the whole card with a pseudo-element, so the
+ * cover is clickable without a second tab stop or a link wrapping a heading.
  */
 export function ProjectCard({ project, now }: ProjectCardProps) {
   return (
-    <article className="group flex min-w-0 flex-col gap-2.5" data-project-id={project.id}>
+    <article className="group relative flex min-w-0 flex-col gap-2.5" data-project-id={project.id}>
       <CoverArt
         id={project.id}
         name={project.name}
@@ -101,7 +127,9 @@ export function ProjectCard({ project, now }: ProjectCardProps) {
         className="shadow-paper"
       />
       <div className="flex min-w-0 flex-col gap-0.5 px-0.5">
-        <h3 className="text-heading text-foreground truncate font-serif">{project.name}</h3>
+        <h3 className="text-heading text-foreground truncate font-serif">
+          <ProjectLink id={project.id}>{project.name}</ProjectLink>
+        </h3>
         <p className="text-caption text-muted-foreground truncate font-sans">
           {project.artist ?? <span className="italic">No artist yet</span>}
         </p>
@@ -125,7 +153,7 @@ export function ProjectCard({ project, now }: ProjectCardProps) {
 export function ProjectRow({ project, now }: ProjectCardProps) {
   return (
     <article
-      className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 md:grid-cols-[3.5rem_minmax(0,2fr)_minmax(0,1fr)_6rem_8rem_auto]"
+      className="relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 md:grid-cols-[3.5rem_minmax(0,2fr)_minmax(0,1fr)_6rem_8rem_auto]"
       data-project-id={project.id}
     >
       <CoverArt
@@ -136,7 +164,7 @@ export function ProjectRow({ project, now }: ProjectCardProps) {
       />
       <div className="min-w-0">
         <h3 className="text-body text-foreground truncate font-serif text-[1.0625rem]">
-          {project.name}
+          <ProjectLink id={project.id}>{project.name}</ProjectLink>
         </h3>
         <p className="text-caption text-muted-foreground truncate font-sans md:hidden">
           {project.artist ?? 'No artist yet'} · {formatSongCount(project.songCount)}

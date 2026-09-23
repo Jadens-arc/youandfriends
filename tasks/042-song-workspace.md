@@ -56,14 +56,20 @@ Every song query runs through `assertCan`. A song id from the URL is untrusted i
 
 ## Acceptance criteria
 
-- [ ] The header renders all required metadata and actions.
-- [ ] Tabs work and the active tab is reflected in the URL and survives reload.
-- [ ] The waveform region is present and correctly sized.
-- [ ] The version selector shows the current version unambiguously.
-- [ ] File groups render as Masters, Stems & Samples, Project Files, Artwork.
-- [ ] Desktop uses the split layout; mobile is full-screen.
-- [ ] Status is never conveyed by color alone.
-- [ ] An unauthorized song id returns 404-shaped.
+- [x] The header renders all required metadata and actions. (`components/song/__tests__/song-header.test.tsx`: cover, title, artist, project, duration, status, collaborators, favourite, share, overflow. Favourite shows state and is inert until task `044` wires the toggle; Share is present and disabled with a screen-reader explanation until deferred task `200`.)
+- [x] Tabs work and the active tab is reflected in the URL and survives reload. (`song-tabs.test.tsx`: `?tab=` is read on render, written with `router.replace`, other parameters kept, keyboard traversal.)
+- [x] The waveform region is present and correctly sized. (A fixed-height region, `h-32 md:h-40`, reserved now so task `072` does not move the layout; it states the version's processing state rather than drawing a fake waveform.)
+- [x] The version selector shows the current version unambiguously. (`version-selector.test.tsx`: exactly one "Current" badge in words, radio-group semantics, arrow keys; selection is component state with an explicit "Copy link to this version" action, and `?version=` is honoured on load.)
+- [x] File groups render as Masters, Stems & Samples, Project Files, Artwork. (`file-groups.test.tsx`; `lib/songs/__tests__/workspace.test.ts` proves mixes and voice notes are excluded and project-level artwork and Project Files included, against a real database.)
+- [x] Desktop uses the split layout; mobile is full-screen. (`SplitLayout`, CSS-switched at `md`; asserted by class in `song-header.test.tsx`. Not measured in a real browser — task `016`/`120` own that.)
+- [x] Status is never conveyed by color alone. (Work status and processing state are always a word, plus an icon for processing.)
+- [x] An unauthorized song id returns 404-shaped. (`lib/songs/__tests__/workspace.test.ts`: another workspace's song from this workspace, this workspace's song to the other tenant, a song-level deny, a trashed song, a malformed id, and an unknown id all refuse `not_found`; `app/(workspace)/songs/__tests__/page.test.tsx` turns that into `notFound()`.)
+
+### Notes
+
+- Library cards, list rows, and the Recent songs, Shared with me, Favorites, and Collaborator activity rows now link to `/projects/[projectId]` and `/songs/[songId]`.
+- A song's mobile "Back" goes to its project (and a project's to its folder, when visible) through `MobileBackTarget`, because `/songs` and `/projects` have no index pages.
+- A version's processing error text is returned only to viewers who may edit the song; others see that it failed.
 
 ## Tests and validation commands
 
@@ -85,7 +91,7 @@ UI plus queries. Central to phases 7–9; reverting breaks them.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
