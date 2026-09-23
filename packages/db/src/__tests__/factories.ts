@@ -1,9 +1,17 @@
 import { randomBytes } from 'node:crypto';
 
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { DirectDatabase } from '../client';
-import { folders, projects, songs, users, workspaceMemberships, workspaces } from '../schema/index';
+import {
+  auditEvents,
+  folders,
+  projects,
+  songs,
+  users,
+  workspaceMemberships,
+  workspaces,
+} from '../schema/index';
 
 /**
  * Row factories for the schema tests.
@@ -282,4 +290,90 @@ export async function makeSnapshot(
     .returning();
   if (!row) throw new Error('snapshot insert returned nothing');
   return row;
+}
+
+/** Favourite something, as one person, in one workspace (task `041`). */
+export async function makeFavorite(
+  db: DirectDatabase,
+  workspaceId: string,
+  userId: string,
+  targetType: 'folder' | 'project' | 'song',
+  targetId: string,
+  createdAt?: Date,
+) {
+  const { favorites } = await import('../schema/index');
+  const [row] = await db
+    .insert(favorites)
+    .values({
+      id: testId(),
+      workspaceId,
+      userId,
+      targetType,
+      targetId,
+      ...(createdAt === undefined ? {} : { createdAt }),
+    })
+    .returning();
+  if (!row) throw new Error('favorite insert returned nothing');
+  return row;
+}
+
+type AuditEventInsert = typeof auditEvents.$inferInsert;
+
+/**
+ * Write an audit event directly, for tests that read the log (task `041`'s activity module).
+ * Production code only ever writes through `withAuditedTransaction` in `packages/authz`; this
+ * exists so a reader's test can place events of any action, actor, and time it needs.
+ */
+export async function makeAuditEvent(
+  db: DirectDatabase,
+  input: {
+    readonly workspaceId: string;
+    readonly actorId: string;
+    readonly action: AuditEventInsert['action'];
+    readonly targetType: AuditEventInsert['targetType'];
+    readonly targetId: string;
+    readonly occurredAt?: Date;
+    readonly actorKind?: 'member' | 'sync_token' | 'share_link';
+  },
+) {
+  const [row] = await db
+    .insert(auditEvents)
+    .values({
+      id: testId(),
+      workspaceId: input.workspaceId,
+      actorKind: input.actorKind ?? 'member',
+      actorId: input.actorId,
+      action: input.action,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      ...(input.occurredAt === undefined ? {} : { occurredAt: input.occurredAt }),
+    })
+    .returning();
+  if (!row) throw new Error('audit insert returned nothing');
+  return row;
+}
+
+/**
+ * Set a row's `updated_at` to a chosen moment.
+ *
+ * `set_updated_at` overwrites `updated_at` with `now()` on every update, by design, so a plain
+ * `UPDATE … SET updated_at` cannot backdate anything. Tests of recency ordering (task `041`)
+ * need rows at known, distinct — or deliberately identical — times, so this switches triggers
+ * off for one statement with `session_replication_role = replica`, scoped to its own
+ * transaction. Test-only: production code has no reason to ever want this.
+ */
+export async function setUpdatedAt(
+  db: DirectDatabase,
+  table: 'projects' | 'songs' | 'folders',
+  ids: string | readonly string[],
+  at: Date | string,
+) {
+  const list = typeof ids === 'string' ? [ids] : [...ids];
+  const moment = typeof at === 'string' ? at : at.toISOString();
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`set local session_replication_role = replica`);
+    await tx.execute(
+      sql`update ${sql.identifier(table)} set updated_at = ${moment}::timestamptz where id in ${list}`,
+    );
+  });
 }

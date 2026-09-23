@@ -18,6 +18,10 @@ Where the work actually happens — everything about a song in one place, in con
 - Version selector making the current version obvious, with A/B selection (behavior in task `075`).
 - File groups: Masters, Stems & Samples, Project Files, Artwork.
 - Desktop split layout: song list left, detail right. Mobile: full-screen with tabs.
+- Make the project library (task `041`) navigable into this view. Project cards and rows, and the
+  song entries in the library's Recent songs, Shared with me, Favorites, and Collaborator activity
+  modules, are plain text today, because there was no destination to link to. Link them to the
+  project's song list and to `/songs/[songId]`.
 
 ## Non-scope
 

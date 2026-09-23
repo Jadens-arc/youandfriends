@@ -54,10 +54,18 @@ export {
 } from './workspace';
 export {
   filterVisibleFolders,
+  libraryAccessFrom,
   loadFolderAccess,
+  loadLibraryAccess,
+  loadProjectCollaborators,
   loadVisibleFolders,
+  projectCollaboratorsFrom,
   resolveFolderAccess,
   type FolderPath,
+  type LibraryAccess,
+  type MemberBaselineRow,
+  type MemberGrant,
+  type ProjectChain,
 } from './library';
 export {
   canGrantAccess,

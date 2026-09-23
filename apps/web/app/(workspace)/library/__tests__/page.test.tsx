@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /**
  * The library route's own logic: what it does with a missing workspace, a refusal from
  * `readLibraryTree`, an unknown or inaccessible folder segment, and a success that wires the
- * browser up. `readLibraryTree` and the four mutations are tested against a real database
+ * browser up — and, since task `041`, how it reads the view/sort cookies and what it hands the
+ * project shelf. `readLibraryTree` and the four mutations are tested against a real database
  * elsewhere (`lib/library/__tests__/folders.test.ts`); the folder tree's own keyboard, expand,
  * and drag behaviour is tested in `components/library/__tests__/folder-tree.test.tsx`. Here the
  * question is how the route responds.
@@ -27,6 +28,36 @@ const navigation = vi.hoisted(() => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
+const cookieJar = vi.hoisted(() => ({ values: new Map<string, string>() }));
+const headers = vi.hoisted(() => ({
+  cookies: vi.fn(async () => ({
+    get: (name: string) => {
+      const value = cookieJar.values.get(name);
+      return value === undefined ? undefined : { name, value };
+    },
+  })),
+}));
+const shelf = vi.hoisted(() => ({
+  ProjectShelf: vi.fn(
+    (props: {
+      folder: { id: string; name: string } | null;
+      view: string;
+      sort: string;
+      quotaBytes: number;
+    }) => (
+      <div
+        data-testid="shelf"
+        data-folder={props.folder?.id ?? 'root'}
+        data-view={props.view}
+        data-sort={props.sort}
+        data-quota={props.quotaBytes}
+      />
+    ),
+  ),
+}));
+
+vi.mock('next/headers', () => headers);
+vi.mock('../[[...path]]/project-shelf', () => shelf);
 vi.mock('@/lib/workspace/current', () => current);
 vi.mock('@/lib/library/context', () => libraryCtx);
 vi.mock('@/lib/library/folders', () => libraryUseCases);
@@ -62,6 +93,7 @@ function tree(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  cookieJar.values.clear();
   current.currentWorkspace.mockResolvedValue(CONTEXT);
   libraryCtx.libraryContext.mockReturnValue({ workspaceId: 'w1' });
   libraryUseCases.readLibraryTree.mockResolvedValue(tree());
@@ -104,5 +136,44 @@ describe('the library page', () => {
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
       'Demos' + 'Rough mixes',
     );
+  });
+
+  describe('the project shelf (task `041`)', () => {
+    it('defaults to a grid sorted by recent activity, at the root', async () => {
+      render(await LibraryPage({ params: Promise.resolve({}) }));
+      const rendered = await screen.findByTestId('shelf');
+      expect(rendered).toHaveAttribute('data-folder', 'root');
+      expect(rendered).toHaveAttribute('data-view', 'grid');
+      expect(rendered).toHaveAttribute('data-sort', 'recent');
+      // The configured quota's default: 100 GiB (`packages/config`).
+      expect(rendered).toHaveAttribute('data-quota', String(107_374_182_400));
+    });
+
+    it('honours the remembered layout and sort', async () => {
+      cookieJar.values.set('yaf-library-view', 'list');
+      cookieJar.values.set('yaf-library-sort', 'artist');
+      render(await LibraryPage({ params: Promise.resolve({}) }));
+      const rendered = await screen.findByTestId('shelf');
+      expect(rendered).toHaveAttribute('data-view', 'list');
+      expect(rendered).toHaveAttribute('data-sort', 'artist');
+    });
+
+    it('treats a tampered preference cookie as the default', async () => {
+      cookieJar.values.set('yaf-library-view', '<script>');
+      cookieJar.values.set('yaf-library-sort', 'owner_email');
+      render(await LibraryPage({ params: Promise.resolve({}) }));
+      const rendered = await screen.findByTestId('shelf');
+      expect(rendered).toHaveAttribute('data-view', 'grid');
+      expect(rendered).toHaveAttribute('data-sort', 'recent');
+    });
+
+    it('scopes the shelf to the open folder', async () => {
+      render(await LibraryPage({ params: Promise.resolve({ path: ['root1', 'child1'] }) }));
+      expect(await screen.findByTestId('shelf')).toHaveAttribute('data-folder', 'child1');
+      expect(shelf.ProjectShelf.mock.calls[0]?.[0].folder).toEqual({
+        id: 'child1',
+        name: 'Rough mixes',
+      });
+    });
   });
 });

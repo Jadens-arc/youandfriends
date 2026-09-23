@@ -103,6 +103,22 @@ export {
   type FolderWriteResult,
 } from './queries/folders';
 export {
+  listContentActivityPage,
+  listFavoritesOf,
+  listRecentSongsPage,
+  listSongsByIds,
+  listWorkspaceProjects,
+  CONTENT_ACTIVITY_ACTIONS,
+  type ActivityRow,
+  type ContentActivityAction,
+  type FavoriteRow,
+  type FavoriteTargetType,
+  type ProjectListRow,
+  type RecencyCursor,
+  type RecencyPage,
+  type SongListRow,
+} from './queries/projects';
+export {
   acceptInvitation,
   createInvitation,
   findInvitationById,

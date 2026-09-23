@@ -1,10 +1,11 @@
 import type { Role, WorkspaceId } from '@youandfriends/contracts';
 import { forbidden } from '@youandfriends/contracts';
-import type { Database } from '@youandfriends/db';
+import { permissionGrants, workspaceMemberships, type Database } from '@youandfriends/db';
+import { and, eq } from 'drizzle-orm';
 
 import { grantsForSubjectInWorkspace } from './authorizer';
-import { buildChain } from './chain';
-import { type MembershipBaseline, resolve, type ResolvableGrant } from './resolve';
+import { buildChain, type ChainInput } from './chain';
+import { isActive, type MembershipBaseline, resolve, type ResolvableGrant } from './resolve';
 import { inheritsMembership, type Subject } from './subjects';
 import { membershipRowOf } from './workspace';
 
@@ -143,4 +144,196 @@ export async function loadFolderAccess<T extends FolderPath>(
 ): Promise<Map<string, Role>> {
   const { grants, membership } = await loadSubjectGrantContext(db, subject, workspaceId);
   return resolveFolderAccess(candidates, grants, membership, now());
+}
+
+/**
+ * Project and song visibility for the project library (task `041`).
+ *
+ * The same move as the folder tree above, one level further down the chain: every project card,
+ * every recent song, every favourite and every activity row is resolved in memory against one
+ * load of the subject's grants and membership row, using the chain `buildChain` already builds
+ * for a single check. The library draws dozens of these per page; a `resolveAccess` round trip
+ * per item would be the N+1 the task forbids, and a workspace-wide `scopedQuery` would miss a
+ * deny on one project exactly as it misses one on a folder.
+ */
+export interface LibraryAccess {
+  /** This subject's role on a folder, from the folder's own materialized path. */
+  folder(folderPath: string): Role | null;
+  /** This subject's role on a project filed at `folderPath` (`''` when unfiled). */
+  project(projectId: string, folderPath: string): Role | null;
+  /** This subject's role on a song, through its project and that project's folder. */
+  song(songId: string, projectId: string, folderPath: string): Role | null;
+  /**
+   * Whether an active, non-deny grant *held by this subject* sits anywhere on a project's
+   * chain — "somebody shared this with you", as opposed to access that comes only from
+   * workspace membership. Drives the "Shared with me" module.
+   */
+  sharedProject(projectId: string, folderPath: string): boolean;
+  /** Song ids this subject holds an active, non-deny grant on directly. */
+  readonly directlySharedSongIds: readonly string[];
+  /**
+   * Song ids this subject holds an active deny on directly. Within a project they can see, these
+   * are the only songs hidden from them — anything above the song already allowed the project —
+   * so this is exactly the set a card's song count and last activity must leave out.
+   */
+  readonly deniedSongIds: readonly string[];
+}
+
+/** Pure: build a {@link LibraryAccess} over grants already in hand. */
+export function libraryAccessFrom(
+  grants: readonly ResolvableGrant[],
+  membership: MembershipBaseline | null,
+  now: Date,
+): LibraryAccess {
+  const roleOf = (chainInput: ChainInput): Role | null =>
+    resolve({ chain: buildChain(chainInput), grants, membership, now }).role;
+
+  const sharing = grants.filter((grant) => !grant.isDeny && isActive(grant, now));
+
+  return {
+    folder: (folderPath) => roleOf({ targetFolderPath: folderPath }),
+    project: (projectId, folderPath) => roleOf({ projectId, folderPath }),
+    song: (songId, projectId, folderPath) => roleOf({ songId, projectId, folderPath }),
+    sharedProject(projectId, folderPath) {
+      const onChain = new Set(
+        buildChain({ projectId, folderPath }).map((link) => `${link.scopeType}:${link.scopeId}`),
+      );
+      return sharing.some((grant) => onChain.has(`${grant.scopeType}:${grant.scopeId}`));
+    },
+    directlySharedSongIds: sharing
+      .filter((grant) => grant.scopeType === 'song')
+      .map((grant) => grant.scopeId),
+    deniedSongIds: grants
+      .filter((grant) => grant.isDeny && grant.scopeType === 'song' && isActive(grant, now))
+      .map((grant) => grant.scopeId),
+  };
+}
+
+/**
+ * Load this subject's {@link LibraryAccess} for one workspace — two queries, however many items
+ * the caller then asks about. Fails closed on the tenant boundary exactly like
+ * {@link loadVisibleFolders}.
+ */
+export async function loadLibraryAccess(
+  db: Database,
+  subject: Subject,
+  workspaceId: WorkspaceId,
+  now: () => Date = () => new Date(),
+): Promise<LibraryAccess> {
+  const { grants, membership } = await loadSubjectGrantContext(db, subject, workspaceId);
+  return libraryAccessFrom(grants, membership, now());
+}
+
+/** A project as {@link projectCollaboratorsFrom} needs it. */
+export interface ProjectChain {
+  readonly id: string;
+  readonly folderPath: string;
+}
+
+/** A workspace member as {@link projectCollaboratorsFrom} needs them. */
+export interface MemberBaselineRow {
+  readonly userId: string;
+  /** `null` for a scope-limited collaborator (ADR 0010). */
+  readonly role: Role | null;
+  readonly canDownload: boolean;
+  readonly canInvite: boolean;
+}
+
+/** A grant, with the member it belongs to. */
+export type MemberGrant = ResolvableGrant & { readonly userId: string };
+
+/**
+ * Who can reach each project: every member whose own resolution on that project's chain
+ * yields a role. Pure — the same `resolve()` every other decision here uses, once per
+ * (member, project) pair, over grants and memberships loaded once.
+ *
+ * "Collaborators" means exactly "the people this project is open to", never "people in the
+ * workspace": a member denied on a folder is absent from every card under it, and a
+ * scope-limited collaborator appears only on the projects their grants reach.
+ */
+export function projectCollaboratorsFrom(
+  projects: readonly ProjectChain[],
+  members: readonly MemberBaselineRow[],
+  grants: readonly MemberGrant[],
+  now: Date,
+): Map<string, string[]> {
+  const grantsByUser = new Map<string, MemberGrant[]>();
+  for (const grant of grants) {
+    const list = grantsByUser.get(grant.userId) ?? [];
+    list.push(grant);
+    grantsByUser.set(grant.userId, list);
+  }
+
+  const result = new Map<string, string[]>();
+  for (const project of projects) {
+    const chain = buildChain({ projectId: project.id, folderPath: project.folderPath });
+    const people: string[] = [];
+    for (const member of members) {
+      const membership: MembershipBaseline | null =
+        member.role === null
+          ? null
+          : { role: member.role, canDownload: member.canDownload, canInvite: member.canInvite };
+      const access = resolve({
+        chain,
+        grants: grantsByUser.get(member.userId) ?? [],
+        membership,
+        now,
+      });
+      if (access.role !== null) people.push(member.userId);
+    }
+    result.set(project.id, people);
+  }
+  return result;
+}
+
+/**
+ * Load every project's collaborators in one workspace: one query for memberships, one for
+ * member grants, then {@link projectCollaboratorsFrom}.
+ *
+ * **The caller must already have decided the viewer may see each project passed in.** The list
+ * of who else can reach a project is membership information (`docs/THREAT_MODEL.md`, asset 3);
+ * it is only ever computed for projects that survived the viewer's own visibility filter, so a
+ * collaborator never learns who works on something they cannot open.
+ */
+export async function loadProjectCollaborators(
+  db: Database,
+  workspaceId: WorkspaceId,
+  projects: readonly ProjectChain[],
+  now: () => Date = () => new Date(),
+): Promise<Map<string, string[]>> {
+  if (projects.length === 0) return new Map();
+
+  const [members, grants] = await Promise.all([
+    db
+      .select({
+        userId: workspaceMemberships.userId,
+        role: workspaceMemberships.role,
+        canDownload: workspaceMemberships.canDownload,
+        canInvite: workspaceMemberships.canInvite,
+      })
+      .from(workspaceMemberships)
+      .where(eq(workspaceMemberships.workspaceId, workspaceId))
+      .orderBy(workspaceMemberships.createdAt, workspaceMemberships.id),
+    db
+      .select({
+        userId: permissionGrants.subjectId,
+        scopeType: permissionGrants.scopeType,
+        scopeId: permissionGrants.scopeId,
+        role: permissionGrants.role,
+        canDownload: permissionGrants.canDownload,
+        canInvite: permissionGrants.canInvite,
+        isDeny: permissionGrants.isDeny,
+        startsAt: permissionGrants.startsAt,
+        endsAt: permissionGrants.endsAt,
+      })
+      .from(permissionGrants)
+      .where(
+        and(
+          eq(permissionGrants.workspaceId, workspaceId),
+          eq(permissionGrants.subjectKind, 'member'),
+        ),
+      ),
+  ]);
+
+  return projectCollaboratorsFrom(projects, members, grants, now());
 }
