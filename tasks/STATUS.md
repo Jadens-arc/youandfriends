@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `062` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 45 of 95 iteration-one tasks are `complete`.
+Task `063` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 46 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -72,8 +72,8 @@ Task `062` is next. `016`, `029`, `045` are passed over until their dependencies
 | `058` | Upload HTTP endpoints                                                  | Upload, storage, versions            | `051`, `031`, `030`                       | `complete` | `06862fa` | —       |
 | `059` | Typecheck the operational scripts                                      | Data, authorization, audit           | `051`                                     | `complete` | `70db6f6` | —       |
 | `060` | Media package, ffprobe validation, capability probe                    | Media pipeline                       | `050`, `003`                              | `complete` | `d783b17` | —       |
-| `061` | EBU R128 loudness and true peak analysis                               | Media pipeline                       | `060`                                     | `complete` | —         | —       |
-| `062` | AAC streaming derivative                                               | Media pipeline                       | `060`, `061`                              | `pending`  | —         | —       |
+| `061` | EBU R128 loudness and true peak analysis                               | Media pipeline                       | `060`                                     | `complete` | `3e3d092` | —       |
+| `062` | AAC streaming derivative                                               | Media pipeline                       | `060`, `061`                              | `complete` | —         | —       |
 | `063` | Multi-resolution waveform peak generation                              | Media pipeline                       | `060`, `062`                              | `pending`  | —         | —       |
 | `064` | Trigger.dev job orchestration                                          | Media pipeline                       | `060`, `061`, `062`, `063`, `051`         | `pending`  | —         | —       |
 | `065` | Processing status and error surfacing                                  | Media pipeline                       | `064`, `056`                              | `pending`  | —         | —       |

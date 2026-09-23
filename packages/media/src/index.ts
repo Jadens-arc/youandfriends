@@ -38,6 +38,19 @@ export {
 } from './dispatcher';
 
 export {
+  DEFAULT_STREAM_BITRATE,
+  DERIVATIVE_CONTENT_TYPE,
+  STREAM_CHANNELS,
+  STREAM_SAMPLE_RATE_HZ,
+  topLevelBoxes,
+  transcodeArgs,
+  transcodeStreamingDerivative,
+  TRANSCODE_TIMEOUT_MS,
+  variantOf,
+  type DerivativeRecipe,
+} from './derivative';
+
+export {
   ABSOLUTE_GATE_LUFS,
   LOUDNESS_TIMEOUT_MS,
   measureLoudness,
