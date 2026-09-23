@@ -7,6 +7,9 @@ import { formatDuration, spokenDuration } from '@/lib/songs/format';
 import { projectHref } from '@/lib/songs/routes';
 import type { SongWorkspace } from '@/lib/songs/workspace';
 
+import { InlineField, InlineStatus } from '@/components/metadata/inline-field';
+import { STATUS_OPTIONS } from '@/lib/songs/format';
+
 import { SongActions } from './song-actions';
 import { WorkStatusBadge } from './status-badge';
 
@@ -21,6 +24,8 @@ import { WorkStatusBadge } from './status-badge';
  */
 export function SongHeader({ workspace }: { readonly workspace: SongWorkspace }) {
   const { song, project } = workspace;
+  const endpoint = `/api/songs/${encodeURIComponent(song.id)}`;
+  const editable = workspace.capabilities.edit;
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end">
       <div className="flex min-w-0 flex-1 items-start gap-4 sm:items-end">
@@ -49,10 +54,28 @@ export function SongHeader({ workspace }: { readonly workspace: SongWorkspace })
               </>
             )}
           </p>
-          <h1 className="text-title text-foreground font-serif break-words">{song.title}</h1>
-          <p className="text-body text-muted-foreground font-sans">
-            {workspace.artist ?? <span className="italic">No artist yet</span>}
-          </p>
+          <InlineField
+            as="h1"
+            endpoint={endpoint}
+            field="title"
+            label="Title"
+            rule="songTitle"
+            value={song.title}
+            placeholder="Untitled"
+            editable={editable}
+            className="text-title text-foreground font-serif break-words"
+          />
+          <InlineField
+            as="p"
+            endpoint={endpoint}
+            field="artist"
+            label="Artist"
+            rule="artist"
+            value={song.artist}
+            placeholder={workspace.artist ?? 'No artist yet'}
+            editable={editable}
+            className="text-body text-muted-foreground font-sans"
+          />
           <div className="text-caption text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 font-sans">
             <span>
               <span className="sr-only">Duration: </span>
@@ -61,7 +84,14 @@ export function SongHeader({ workspace }: { readonly workspace: SongWorkspace })
               </span>
               <span className="sr-only">{spokenDuration(song.durationMs)}</span>
             </span>
-            <WorkStatusBadge status={song.status} />
+            <InlineStatus
+              endpoint={endpoint}
+              value={song.status}
+              options={STATUS_OPTIONS}
+              editable={editable}
+            >
+              <WorkStatusBadge status={song.status} />
+            </InlineStatus>
             <CollaboratorStack collaborators={workspace.collaborators} />
           </div>
         </div>

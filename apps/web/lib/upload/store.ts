@@ -48,6 +48,7 @@ export interface UploadJob {
 
 interface InternalJob extends UploadJob {
   readonly file: File;
+  readonly onRecorded: ((assetId: string) => Promise<void>) | undefined;
   assetId: string | null;
   uploader: MultipartUploader | null;
   lastSample: { at: number; bytes: number } | null;
@@ -142,7 +143,15 @@ export class UploadQueue {
     return this.jobs.find((job) => job.id === id);
   }
 
-  add(files: readonly File[], destination: UploadDestination): string[] {
+  /**
+   * Queue files for one destination. `onRecorded` runs after a file's version is recorded — the
+   * cover-art flow uses it to point the project at the artwork it just uploaded (task `043`).
+   */
+  add(
+    files: readonly File[],
+    destination: UploadDestination,
+    options: { readonly onRecorded?: (assetId: string) => Promise<void> } = {},
+  ): string[] {
     const ids = files.map((file) => {
       this.counter += 1;
       const id = `upload-${this.counter}`;
@@ -158,6 +167,7 @@ export class UploadQueue {
         etaSeconds: null,
         error: null,
         assetId: null,
+        onRecorded: options.onRecorded,
         uploader: null,
         lastSample: null,
         shownAt: 0,
@@ -275,6 +285,7 @@ export class UploadQueue {
         sessionId,
       });
     }
+    if (job.onRecorded !== undefined && job.assetId !== null) await job.onRecorded(job.assetId);
     this.update(id, { state: 'completed', uploadedBytes: job.sizeBytes, etaSeconds: 0 });
     const done = this.snapshot.find((entry) => entry.id === id);
     if (done !== undefined) this.completed?.(done);

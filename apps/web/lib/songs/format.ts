@@ -70,6 +70,12 @@ export const WORK_STATUS_LABELS: Readonly<Record<WorkStatus, string>> = {
   archived: 'Archived',
 };
 
+/** For a status picker, in workflow order. */
+export const STATUS_OPTIONS = (Object.keys(WORK_STATUS_LABELS) as WorkStatus[]).map((value) => ({
+  value,
+  label: WORK_STATUS_LABELS[value],
+}));
+
 export const PROCESSING_LABELS: Readonly<Record<ProcessingState, string>> = {
   queued: 'Queued for processing',
   running: 'Processing',

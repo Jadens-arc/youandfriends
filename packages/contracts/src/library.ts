@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
-import { folderIdSchema, projectIdSchema, songIdSchema, uploadSessionIdSchema } from './ids';
+import {
+  assetIdSchema,
+  folderIdSchema,
+  projectIdSchema,
+  songIdSchema,
+  uploadSessionIdSchema,
+} from './ids';
+import { workStatusSchema } from './work-status';
 import { normalizeRelativePath } from './snapshots';
 
 /**
@@ -140,3 +147,74 @@ export const updateAssetSchema = z
     { message: 'Nothing to change.' },
   );
 export type UpdateAssetRequest = z.input<typeof updateAssetSchema>;
+
+/** Song notes: plain text, rendered escaped. */
+export const SONG_NOTES_MAX = 5000;
+
+const optionalText = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, `Keep the ${label} under ${max} characters.`)
+    .transform((value) => (value === '' ? null : value))
+    .nullable()
+    .optional();
+
+/**
+ * Editing a song's metadata inline (task `043`). Every field optional; at least one present. An
+ * empty artist clears the song's own artist, falling back to its project's.
+ */
+export const updateSongSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(1, 'Give the song a name.')
+      .max(SONG_TITLE_MAX, `Keep the song’s name under ${SONG_TITLE_MAX} characters.`)
+      .optional(),
+    artist: optionalText(PROJECT_NAME_MAX, 'artist'),
+    status: workStatusSchema.optional(),
+    notes: optionalText(SONG_NOTES_MAX, 'notes'),
+  })
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: 'Nothing to change.',
+  });
+export type UpdateSongRequest = z.input<typeof updateSongSchema>;
+
+export const updateProjectSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Give the project a name.')
+      .max(PROJECT_NAME_MAX, `Keep the project’s name under ${PROJECT_NAME_MAX} characters.`)
+      .optional(),
+    artist: optionalText(PROJECT_NAME_MAX, 'artist'),
+    status: workStatusSchema.optional(),
+    /** An artwork asset of this project, or `null` to clear the cover. */
+    coverAssetId: assetIdSchema.nullable().optional(),
+  })
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: 'Nothing to change.',
+  });
+export type UpdateProjectRequest = z.input<typeof updateProjectSchema>;
+
+/**
+ * Each editable field's own rule, by name — what an inline editor validates one field with
+ * (task `043`). The same schemas the whole-object update schemas are built from.
+ */
+export const METADATA_FIELD_SCHEMAS = {
+  songTitle: z
+    .string()
+    .trim()
+    .min(1, 'Give the song a name.')
+    .max(SONG_TITLE_MAX, `Keep the song’s name under ${SONG_TITLE_MAX} characters.`),
+  projectName: z
+    .string()
+    .trim()
+    .min(1, 'Give the project a name.')
+    .max(PROJECT_NAME_MAX, `Keep the project’s name under ${PROJECT_NAME_MAX} characters.`),
+  artist: optionalText(PROJECT_NAME_MAX, 'artist'),
+  notes: optionalText(SONG_NOTES_MAX, 'notes'),
+} as const;
+export type MetadataField = keyof typeof METADATA_FIELD_SCHEMAS;

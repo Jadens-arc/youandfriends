@@ -92,6 +92,13 @@
       "when": 1790204158681,
       "tag": "0012_project_files",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790204752355,
+      "tag": "0013_song_metadata",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import { cn } from '@youandfriends/ui';
 
 import type { SongWorkspace as SongWorkspaceData } from '@/lib/songs/workspace';
 
+import { InlineField } from '@/components/metadata/inline-field';
 import { DropZone, UploadFilesButton } from '@/components/upload/drop-zone';
 
 import { FileGroups } from './file-groups';
@@ -83,14 +84,36 @@ export function SongWorkspaceView({
             <SongTabs
               panels={{
                 overview: (
-                  <VersionPanel
-                    versions={workspace.versions}
-                    linkedVersionId={linkedVersionId}
-                    now={now}
-                    songTitle={workspace.song.title}
-                    songId={workspace.song.id}
-                    capabilities={workspace.capabilities}
-                  />
+                  <div className="flex flex-col gap-6">
+                    <section aria-labelledby="song-notes-heading" className="flex flex-col gap-1">
+                      <h2
+                        id="song-notes-heading"
+                        className="text-caption text-muted-foreground font-sans font-medium tracking-wide uppercase"
+                      >
+                        Notes
+                      </h2>
+                      <InlineField
+                        as="p"
+                        multiline
+                        endpoint={`/api/songs/${encodeURIComponent(workspace.song.id)}`}
+                        field="notes"
+                        label="Notes"
+                        rule="notes"
+                        value={workspace.song.notes}
+                        placeholder="No notes yet."
+                        editable={workspace.capabilities.edit}
+                        className="text-body text-foreground font-sans"
+                      />
+                    </section>
+                    <VersionPanel
+                      versions={workspace.versions}
+                      linkedVersionId={linkedVersionId}
+                      now={now}
+                      songTitle={workspace.song.title}
+                      songId={workspace.song.id}
+                      capabilities={workspace.capabilities}
+                    />
+                  </div>
                 ),
                 lyrics: (
                   <p className="text-body text-muted-foreground font-sans italic">No lyrics yet.</p>

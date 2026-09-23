@@ -29,6 +29,9 @@ export interface SongHeaderRow {
   readonly id: string;
   readonly title: string;
   readonly status: WorkStatusValue;
+  /** The song's own artist, `null` to use the project's. */
+  readonly songArtist: string | null;
+  readonly notes: string | null;
   readonly durationMs: number | null;
   readonly currentVersionId: string | null;
   readonly updatedAt: Date;
@@ -51,6 +54,8 @@ export async function getSongHeader(
       id: songs.id,
       title: songs.title,
       status: songs.status,
+      songArtist: songs.artist,
+      notes: songs.notes,
       durationMs: songs.durationMs,
       currentVersionId: songs.currentVersionId,
       updatedAt: songs.updatedAt,

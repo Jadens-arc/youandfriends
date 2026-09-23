@@ -3,6 +3,8 @@ import type { Route } from 'next';
 import { notFound } from 'next/navigation';
 
 import { NewSongButton } from '@/components/library/create-dialogs';
+import { CoverUpload } from '@/components/metadata/cover-upload';
+import { InlineField, InlineStatus } from '@/components/metadata/inline-field';
 import { CoverArt } from '@/components/library/cover-art';
 import { MobileBackTarget } from '@/components/shell/mobile/back-target';
 import { SongList } from '@/components/song/song-list';
@@ -13,6 +15,7 @@ import { WorkStatusBadge } from '@/components/song/status-badge';
 import { FolderUpload } from '@/components/upload/folder-upload';
 import { libraryContext } from '@/lib/library/context';
 import { formatSongCount } from '@/lib/library/format';
+import { STATUS_OPTIONS } from '@/lib/songs/format';
 import { folderHref } from '@/lib/songs/routes';
 import { readProjectWorkspace } from '@/lib/songs/workspace';
 import { currentWorkspace } from '@/lib/workspace/current';
@@ -39,6 +42,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
   );
   const { project } = workspace;
   const listLabel = `Songs in ${project.name}`;
+  const endpoint = `/api/projects/${encodeURIComponent(project.id)}`;
   const surface = { type: 'project', id: project.id, name: project.name } as const;
 
   const summary = (
@@ -53,14 +57,42 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
         />
       </div>
       <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="text-title text-foreground font-serif break-words">{project.name}</h1>
-        <p className="text-body text-muted-foreground font-sans">
-          {project.artist ?? <span className="italic">No artist yet</span>}
-        </p>
-        <p className="text-caption text-muted-foreground flex items-center gap-2 font-sans">
+        <InlineField
+          as="h1"
+          endpoint={endpoint}
+          field="name"
+          label="Project name"
+          rule="projectName"
+          value={project.name}
+          placeholder="Untitled"
+          editable={workspace.canEdit}
+          className="text-title text-foreground font-serif break-words"
+        />
+        <InlineField
+          as="p"
+          endpoint={endpoint}
+          field="artist"
+          label="Artist"
+          rule="artist"
+          value={project.artist}
+          placeholder="No artist yet"
+          editable={workspace.canEdit}
+          className="text-body text-muted-foreground font-sans"
+        />
+        <div className="text-caption text-muted-foreground flex flex-wrap items-center gap-2 font-sans">
           <span className="tabular">{formatSongCount(workspace.songs.length)}</span>
-          <WorkStatusBadge status={project.status} />
-        </p>
+          <InlineStatus
+            endpoint={endpoint}
+            value={project.status}
+            options={STATUS_OPTIONS}
+            editable={workspace.canEdit}
+          >
+            <WorkStatusBadge status={project.status} />
+          </InlineStatus>
+          {workspace.canEdit ? (
+            <CoverUpload projectId={project.id} projectName={project.name} />
+          ) : null}
+        </div>
       </div>
     </header>
   );

@@ -41,6 +41,8 @@ export function songWorkspace(overrides: Partial<SongWorkspace> = {}): SongWorks
       status: 'mixing',
       durationMs: 187_000,
       updatedAt: new Date('2026-09-22T12:00:00Z'),
+      artist: null,
+      notes: null,
     },
     project: { id: 'P1', name: 'Night Drive', artist: 'The Hours' },
     artist: 'The Hours',

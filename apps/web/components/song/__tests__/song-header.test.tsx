@@ -40,8 +40,25 @@ describe('SongHeader', () => {
   });
 
   it('pairs the status with a word, never colour alone', () => {
-    render(<SongHeader workspace={songWorkspace()} />);
+    const viewer = { comment: false, edit: false, download: false };
+    render(<SongHeader workspace={songWorkspace({ capabilities: viewer })} />);
     expect(screen.getByText('Status:', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Mixing')).toBeInTheDocument();
+  });
+
+  it('shows viewers plain text, never a disabled field', () => {
+    const viewer = { comment: false, edit: false, download: false };
+    render(<SongHeader workspace={songWorkspace({ capabilities: viewer })} />);
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Edit/ })).toBeNull();
+  });
+
+  it('lets an editor edit the title, artist, and status in place', () => {
+    render(<SongHeader workspace={songWorkspace()} />);
+    expect(screen.getByRole('button', { name: /^Edit title:/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit artist: The Hours' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('mixing');
   });
 });
 

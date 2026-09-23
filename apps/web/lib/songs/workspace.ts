@@ -104,6 +104,9 @@ export interface SongWorkspace {
     readonly status: WorkStatus;
     readonly durationMs: number | null;
     readonly updatedAt: Date;
+    /** The song's own artist, when it has one; `artist` below is what to show. */
+    readonly artist: string | null;
+    readonly notes: string | null;
   };
   /** `null` when the song was shared on its own and its project is not open to this viewer. */
   readonly project: {
@@ -228,11 +231,13 @@ export async function readSongWorkspace(
       status: header.status,
       durationMs: header.durationMs,
       updatedAt: header.updatedAt,
+      artist: header.songArtist,
+      notes: header.notes,
     },
     project: projectVisible
       ? { id: header.projectId, name: header.projectName, artist: header.artist }
       : null,
-    artist: header.artist,
+    artist: header.songArtist ?? header.artist,
     cover: null,
     collaborators: collaboratorIds.flatMap((userId) => {
       const displayName = names.get(userId);
