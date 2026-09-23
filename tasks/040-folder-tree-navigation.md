@@ -134,7 +134,7 @@ to show. The folder tree now takes the full content width; task `041` is expecte
 was marked complete:**
 
 1. **The data itself, not just the list, was leaking invisible ancestors.** `readLibraryTree`
-   correctly removed every invisible folder's own *row*, but each surviving row's `path` and
+   correctly removed every invisible folder's own _row_, but each surviving row's `path` and
    `parentId` were the true, unfiltered database values — every real ancestor id up to the
    workspace root, invisible ones included, was still reaching the browser inside a visible
    folder's own fields (in the page's RSC payload, since both were passed straight into a
@@ -160,7 +160,7 @@ The test-coverage review separately found two real gaps, both closed: `renameLib
 collaborator refused) — removing their `assertMayEdit` call would have passed every test in the
 file — and the "Move to…" dialog, the "New folder"/"Rename" dialog, and the mobile drill-down list
 had no tests at all. Both are closed: `apps/web/lib/library/__tests__/folders.test.ts` gained the
-missing negative cases (and two existing assertions were strengthened from "threw *something*" to
+missing negative cases (and two existing assertions were strengthened from "threw _something_" to
 checking the actual `publicCode`), and `apps/web/components/library/__tests__/` gained
 `name-dialog.test.tsx`, `move-to-dialog.test.tsx`, and `mobile-drilldown.test.tsx` — all three are
 plain Radix `Dialog`/list components with no right-click or long-press to simulate, unlike
@@ -173,7 +173,7 @@ Authorization filtering at the query layer is the control here. A folder's mere 
 ## Acceptance criteria
 
 - [x] The tree renders nested folders filtered by authorization at the query layer.
-- [x] Inaccessible folders are absent from the response payload, verified by inspecting the network response. (`apps/web/app/(workspace)/library/__tests__/page.test.tsx`'s 404 case, plus `loadVisibleFolders`'s real-database tests, prove no other folder is ever fetched or rendered as its own row — and, per the security-review finding above, `sanitizeFolderPaths` now ensures no *other* folder's id is named inside a visible folder's own `path`/`parentId` either.)
+- [x] Inaccessible folders are absent from the response payload, verified by inspecting the network response. (`apps/web/app/(workspace)/library/__tests__/page.test.tsx`'s 404 case, plus `loadVisibleFolders`'s real-database tests, prove no other folder is ever fetched or rendered as its own row — and, per the security-review finding above, `sanitizeFolderPaths` now ensures no _other_ folder's id is named inside a visible folder's own `path`/`parentId` either.)
 - [x] Expand/collapse persists per user. (`localStorage`, per the `SplitPane` precedent — see deviation above.)
 - [x] Full keyboard navigation follows the ARIA tree pattern.
 - [x] Create, rename, move, and delete work; move updates the whole subtree.
@@ -203,4 +203,4 @@ UI plus queries. Reverting loses navigation but no data.
 
 ## Commit
 
-_(not yet)_
+`e884a5b`

@@ -13,6 +13,8 @@ export {
   addMember,
   databaseError,
   makeAsset,
+  makeAuditEvent,
+  makeFavorite,
   makeAssetVersion,
   makeSnapshot,
   makeMixVersion,
@@ -26,6 +28,7 @@ export {
   makeWorkspace,
   readFolder,
   SQLSTATE,
+  setUpdatedAt,
   testId,
 } from './factories';
 export { createTestDatabase, unavailableReason, type TestDatabase } from './harness';

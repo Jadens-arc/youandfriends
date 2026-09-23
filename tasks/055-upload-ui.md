@@ -19,6 +19,9 @@ Knowing exactly what is uploading, how far along it is, and what to do when some
 - Error states that say what failed and what to do, distinguishing transient from permanent.
 - Destination and asset-kind selection (master, mix, stem, sample, project file, artwork).
 - Storage quota awareness with a warning before exceeding it.
+- Fill the library's first-run call to action (task `041`): `FirstRunState` in
+  `apps/web/components/library/empty-states.tsx` takes an `uploadAction` slot, left empty until
+  there is an upload flow to open.
 
 ## Non-scope
 

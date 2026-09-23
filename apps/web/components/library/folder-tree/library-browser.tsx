@@ -33,6 +33,9 @@ export interface LibraryBrowserProps {
     newParentId: string | null,
   ) => Promise<FolderMutationResult>;
   readonly deleteAction: (folderId: string) => Promise<FolderMutationResult>;
+  /** The content beside the tree — the project shelf (task `041`). Rendered once, below the
+   *  drill-down on mobile and to the right of the tree on desktop. */
+  readonly children?: React.ReactNode;
 }
 
 type Dialog =
@@ -61,6 +64,7 @@ export function LibraryBrowser({
   renameAction,
   moveAction,
   deleteAction,
+  children,
 }: LibraryBrowserProps) {
   const editable = React.useMemo(() => new Set(editableFolderIds), [editableFolderIds]);
   const [dialog, setDialog] = React.useState<Dialog>(null);
@@ -87,32 +91,42 @@ export function LibraryBrowser({
         <FolderBreadcrumbs crumbs={breadcrumbFor(folders, currentFolderId)} />
       </div>
 
-      <div className="hidden min-h-0 flex-1 md:flex">
-        <FolderTree
-          folders={folders}
-          editableFolderIds={editable}
-          mayEditRoot={mayCreateAtRoot}
-          currentFolderId={currentFolderId}
-          storageKey={`youandfriends:library:tree-expanded:${workspaceId}`}
-          onRequestCreate={(parentId) => setDialog({ kind: 'create', parentId })}
-          onRequestRename={(folder) => setDialog({ kind: 'rename', folder })}
-          onRequestMove={(folder) => setDialog({ kind: 'move', folder })}
-          onRequestDelete={(folder) => setDialog({ kind: 'delete', folder })}
-          onMove={moveAction}
-        />
-      </div>
+      {/* The tree is a fixed-width column rather than task `013`'s `SplitPane`: the shelf beside
+          it must render exactly once for both layouts (below the drill-down on mobile), and
+          `SplitPane` owns both of its panes, which would mean rendering the shelf twice. */}
+      <div className="flex min-h-0 flex-1">
+        <div className="border-border hidden w-64 shrink-0 border-r md:flex lg:w-72">
+          <FolderTree
+            folders={folders}
+            editableFolderIds={editable}
+            mayEditRoot={mayCreateAtRoot}
+            currentFolderId={currentFolderId}
+            storageKey={`youandfriends:library:tree-expanded:${workspaceId}`}
+            onRequestCreate={(parentId) => setDialog({ kind: 'create', parentId })}
+            onRequestRename={(folder) => setDialog({ kind: 'rename', folder })}
+            onRequestMove={(folder) => setDialog({ kind: 'move', folder })}
+            onRequestDelete={(folder) => setDialog({ kind: 'delete', folder })}
+            onMove={moveAction}
+          />
+        </div>
 
-      <div className="min-h-0 flex-1 overflow-auto md:hidden">
-        <MobileDrilldown
-          children={mobileChildren}
-          currentFolderId={currentFolderId}
-          editableFolderIds={editable}
-          mayCreateHere={currentFolderId === null ? mayCreateAtRoot : editable.has(currentFolderId)}
-          onRequestCreate={(parentId) => setDialog({ kind: 'create', parentId })}
-          onRequestRename={(folder) => setDialog({ kind: 'rename', folder })}
-          onRequestMove={(folder) => setDialog({ kind: 'move', folder })}
-          onRequestDelete={(folder) => setDialog({ kind: 'delete', folder })}
-        />
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+          <div className="md:hidden">
+            <MobileDrilldown
+              children={mobileChildren}
+              currentFolderId={currentFolderId}
+              editableFolderIds={editable}
+              mayCreateHere={
+                currentFolderId === null ? mayCreateAtRoot : editable.has(currentFolderId)
+              }
+              onRequestCreate={(parentId) => setDialog({ kind: 'create', parentId })}
+              onRequestRename={(folder) => setDialog({ kind: 'rename', folder })}
+              onRequestMove={(folder) => setDialog({ kind: 'move', folder })}
+              onRequestDelete={(folder) => setDialog({ kind: 'delete', folder })}
+            />
+          </div>
+          {children}
+        </div>
       </div>
 
       {dialog?.kind === 'create' ? (

@@ -1,9 +1,14 @@
+import { parseServerEnv } from '@youandfriends/config';
 import { AppError } from '@youandfriends/contracts';
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 
 import { LibraryBrowser } from '@/components/library/folder-tree';
+import { LibrarySkeleton } from '@/components/library/library-skeleton';
 import { libraryContext } from '@/lib/library/context';
 import { readLibraryTree } from '@/lib/library/folders';
+import { parseSort, parseView, SORT_COOKIE, VIEW_COOKIE } from '@/lib/library/sort';
 import { currentWorkspace } from '@/lib/workspace/current';
 
 import {
@@ -13,6 +18,8 @@ import {
   renameFolderAction,
 } from '../actions';
 
+import { ProjectShelf } from './project-shelf';
+
 export const metadata = { title: 'Library · You & Friends' };
 
 function handleRefusal(error: unknown): never {
@@ -21,7 +28,8 @@ function handleRefusal(error: unknown): never {
 }
 
 /**
- * The folder tree and library navigation (task `040`).
+ * The folder tree and library navigation (task `040`), and the project shelf beside it (task
+ * `041`).
  *
  * `[[...path]]` is an optional catch-all rather than a fixed `[folderId]` segment because the
  * drill-down convention this route already has to honor — `MobileHeader` and `BottomNavigation`
@@ -38,15 +46,26 @@ export default async function LibraryPage({ params }: { params: Promise<{ path?:
   const context = await currentWorkspace();
   if (context === null) notFound();
 
-  const tree = await readLibraryTree(libraryContext(context)).catch(handleRefusal);
+  const library = libraryContext(context);
+  const tree = await readLibraryTree(library).catch(handleRefusal);
 
   const currentFolderId = path?.at(-1) ?? null;
-  if (currentFolderId !== null && !tree.folders.some((folder) => folder.id === currentFolderId)) {
+  const currentFolder =
+    currentFolderId === null
+      ? null
+      : (tree.folders.find((folder) => folder.id === currentFolderId) ?? null);
+  if (currentFolderId !== null && currentFolder === null) {
     // Not visible — indistinguishable from "does not exist" (`docs/THREAT_MODEL.md` T1). A
     // folder from another workspace, one this subject was never granted, or one that was
     // deleted all take the same 404.
     notFound();
   }
+
+  // Display preferences (task `041`). Read here, on the server, so the first paint is already
+  // in the chosen layout — see `lib/library/sort.ts`.
+  const preferences = await cookies();
+  const view = parseView(preferences.get(VIEW_COOKIE)?.value);
+  const sort = parseSort(preferences.get(SORT_COOKIE)?.value);
 
   return (
     <LibraryBrowser
@@ -59,6 +78,18 @@ export default async function LibraryPage({ params }: { params: Promise<{ path?:
       renameAction={renameFolderAction}
       moveAction={moveFolderAction}
       deleteAction={deleteFolderAction}
-    />
+    >
+      <Suspense key={currentFolderId ?? 'root'} fallback={<LibrarySkeleton view={view} />}>
+        <ProjectShelf
+          context={library}
+          folder={
+            currentFolder === null ? null : { id: currentFolder.id, name: currentFolder.name }
+          }
+          view={view}
+          sort={sort}
+          quotaBytes={parseServerEnv().YOUANDFRIENDS_WORKSPACE_QUOTA_BYTES}
+        />
+      </Suspense>
+    </LibraryBrowser>
   );
 }
