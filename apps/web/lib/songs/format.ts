@@ -56,6 +56,26 @@ export function formatLoudness(lufs: number | null): string {
   return `${lufs.toFixed(1).replace('-', '−')} LUFS`;
 }
 
+/** Loudness, or why there is none: a measured value, a stated reason, or an en dash if pending. */
+export function describeLoudness(lufs: number | null, unavailable: string | null): string {
+  if (lufs !== null) return formatLoudness(lufs);
+  switch (unavailable) {
+    case 'silent':
+      return 'Silent';
+    case 'too_short':
+      return 'Too short to measure';
+    case 'unreadable':
+      return 'Could not be measured';
+    default:
+      return '–';
+  }
+}
+
+export function formatRange(lu: number | null): string {
+  if (lu === null || !Number.isFinite(lu)) return '–';
+  return `${lu.toFixed(1)} LU`;
+}
+
 export function formatTruePeak(db: number | null): string {
   if (db === null || !Number.isFinite(db)) return '–';
   return `${db.toFixed(1).replace('-', '−')} dBTP`;

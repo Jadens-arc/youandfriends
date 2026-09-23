@@ -37,6 +37,16 @@ export {
   type TriggerClient,
 } from './dispatcher';
 
+export {
+  ABSOLUTE_GATE_LUFS,
+  LOUDNESS_TIMEOUT_MS,
+  measureLoudness,
+  MIN_MEASURABLE_MS,
+  parseEbur128Summary,
+  type LoudnessResult,
+  type LoudnessUnavailable,
+} from './loudness';
+
 export { NotAudioError, probeAudio, ffprobeOutputSchema, type AudioProbe } from './probe';
 
 export {
@@ -44,6 +54,7 @@ export {
   DEFAULT_TIMEOUT_MS,
   ffmpegPath,
   ffprobePath,
+  runForOutput,
   ToolError,
   type RunOptions,
 } from './run';

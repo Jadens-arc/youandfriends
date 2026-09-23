@@ -8,7 +8,8 @@ import { formatRelative } from '@/lib/library/format';
 import {
   formatBytes,
   formatDuration,
-  formatLoudness,
+  describeLoudness,
+  formatRange,
   formatSampleRate,
   formatTruePeak,
 } from '@/lib/songs/format';
@@ -193,8 +194,12 @@ export function VersionDetails({ version }: { readonly version: SongVersion }) {
           term="Bit depth"
           value={version.bitDepth === null ? '–' : `${version.bitDepth}-bit`}
         />
-        <Fact term="Loudness" value={formatLoudness(version.integratedLufs)} />
+        <Fact
+          term="Loudness"
+          value={describeLoudness(version.integratedLufs, version.loudnessUnavailable)}
+        />
         <Fact term="True peak" value={formatTruePeak(version.truePeakDb)} />
+        <Fact term="Loudness range" value={formatRange(version.loudnessRangeLu)} />
         <Fact term="Size" value={formatBytes(version.sizeBytes)} />
       </dl>
       {version.note === null ? null : (

@@ -61,6 +61,9 @@ export interface SongVersion {
   readonly bitDepth: number | null;
   readonly integratedLufs: number | null;
   readonly truePeakDb: number | null;
+  readonly loudnessRangeLu: number | null;
+  /** Why loudness is missing after analysis: `silent`, `too_short`, `unreadable`. */
+  readonly loudnessUnavailable: string | null;
   readonly processingState: ProcessingState;
   /** Only ever shown to someone who may edit the song — see {@link readSongWorkspace}. */
   readonly processingError: string | null;
@@ -262,6 +265,8 @@ export async function readSongWorkspace(
       bitDepth: row.bitDepth,
       integratedLufs: row.integratedLufs,
       truePeakDb: row.truePeakDb,
+      loudnessRangeLu: row.loudnessRangeLu,
+      loudnessUnavailable: row.loudnessUnavailable,
       processingState: row.processingState,
       // A pipeline error can name codecs, paths inside a temp directory, and tool output. The
       // viewer is told *that* it failed; the detail is for the people who can re-upload.

@@ -20,6 +20,8 @@ export function version(overrides: Partial<SongVersion> = {}): SongVersion {
     bitDepth: 24,
     integratedLufs: -14.2,
     truePeakDb: -1.1,
+    loudnessRangeLu: 5.2,
+    loudnessUnavailable: null,
     processingState: 'complete',
     processingError: null,
     noteEditable: true,

@@ -199,6 +199,8 @@ export interface MixVersionRow {
   readonly bitDepth: number | null;
   readonly integratedLufs: number | null;
   readonly truePeakDb: number | null;
+  readonly loudnessRangeLu: number | null;
+  readonly loudnessUnavailable: string | null;
   readonly processingState: ProcessingStateValue;
   readonly processingError: string | null;
 }
@@ -228,6 +230,8 @@ export async function listMixVersions(
       bitDepth: assetVersions.bitDepth,
       integratedLufs: assetVersions.integratedLufs,
       truePeakDb: assetVersions.truePeakDb,
+      loudnessRangeLu: assetVersions.loudnessRangeLu,
+      loudnessUnavailable: assetVersions.loudnessUnavailable,
       processingState: assetVersions.processingState,
       processingError: assetVersions.processingError,
     })

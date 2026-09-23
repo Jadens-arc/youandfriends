@@ -99,6 +99,22 @@ describe('VersionPanel', () => {
     expect(window.location.href).toBe(before);
   });
 
+  it('says why loudness is missing rather than showing a number or a blank', () => {
+    render(
+      <VersionPanel
+        versions={[
+          version({ integratedLufs: null, truePeakDb: null, loudnessUnavailable: 'silent' }),
+        ]}
+        linkedVersionId={null}
+        now={NOW}
+        songTitle="Headlights"
+        {...PANEL}
+      />,
+    );
+    expect(screen.getByText('Silent')).toBeInTheDocument();
+    expect(screen.queryByText(/inf/)).toBeNull();
+  });
+
   it('shows the failure detail only when it was given one', () => {
     render(
       <VersionPanel

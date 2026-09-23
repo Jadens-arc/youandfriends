@@ -94,8 +94,21 @@ export async function run(
   args: readonly string[],
   options: RunOptions = {},
 ): Promise<string> {
+  return (await runForOutput(tool, args, options)).stdout;
+}
+
+/**
+ * {@link run}, keeping stderr too. ffmpeg writes its analysis filters' reports — the `ebur128`
+ * summary among them — to stderr, so a measurement has to read it. The same bounds apply to both
+ * streams.
+ */
+export async function runForOutput(
+  tool: string,
+  args: readonly string[],
+  options: RunOptions = {},
+): Promise<{ readonly stdout: string; readonly stderr: string }> {
   try {
-    const { stdout } = await execFileAsync(tool, [...args], {
+    const { stdout, stderr } = await execFileAsync(tool, [...args], {
       timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
       maxBuffer: options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES,
       // No shell, explicitly. The default is already false; saying so makes the property
@@ -105,7 +118,7 @@ export async function run(
       killSignal: 'SIGKILL',
       windowsHide: true,
     });
-    return stdout;
+    return { stdout, stderr };
   } catch (error) {
     const failure = error as ExecFailure;
 
