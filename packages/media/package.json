@@ -15,7 +15,9 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@youandfriends/config": "workspace:*"
+    "@youandfriends/config": "workspace:*",
+    "@youandfriends/contracts": "workspace:*",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

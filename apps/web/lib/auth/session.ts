@@ -21,7 +21,9 @@ export interface ResolvedSession {
   readonly subject: Subject;
   readonly userId: string;
   readonly clerkUserId: string;
-  /** True only on the request that created the `users` row. Drives the sign-in audit event. */
+  /** Clerk's name for this person, never their email. Names a newly provisioned workspace. */
+  readonly displayName: string;
+  /** True only on the request that created the `users` row. */
   readonly provisioned: boolean;
 }
 
@@ -70,6 +72,7 @@ export async function resolveSession(options: ResolveOptions): Promise<ResolvedS
       subject: memberSubject(userId as UserId),
       userId,
       clerkUserId: identity.clerkUserId,
+      displayName: identity.displayName,
       provisioned: created,
     };
   } catch (error) {

@@ -44,6 +44,22 @@ export {
   type AuditQuery,
 } from './audit-query';
 export { buildChain, foldersInPath, type ChainInput } from './chain';
+export { assertCanInWorkspace, canInWorkspace, workspaceRoleOf } from './workspace';
+export {
+  canGrantAccess,
+  describeGrantRefusal,
+  inviteRequestSchema,
+  normalizeEmail,
+  type InviteRequest,
+} from './invitations';
+export {
+  buildToken,
+  generateTokenSecret,
+  hashSecret,
+  parseToken,
+  verifySecret,
+  type ParsedToken,
+} from './token-hash';
 export {
   deleteEntity,
   restoreEntity,

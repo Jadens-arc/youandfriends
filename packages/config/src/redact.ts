@@ -41,6 +41,7 @@ const DENIED_VALUE_PATTERNS: readonly RegExp[] = [
   /[?&]X-Amz-Credential=/i,
   /[?&]Signature=/i, // generic presigned shapes
   /\byaf_sync_[A-Za-z0-9_]+/, // You & Friends sync token (ADR 0005)
+  /\byaf_invite_[A-Za-z0-9_]+/, // You & Friends invitation token (task `032`)
   /\bsk_(live|test)_[A-Za-z0-9]{8,}/, // provider secret keys
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
   /\bBearer\s+[A-Za-z0-9._~+/-]{16,}/i,

@@ -117,15 +117,19 @@ pnpm build
 produce one row, one id, and exactly one caller reporting `created: true` — see
 `lib/auth/__tests__/provision.test.ts`. Two would have passed by luck.
 
-**Steps 1 and 2 need Clerk keys**, which are the user's to create:
-`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`, in `.env.local` and in the Vercel
-project settings. The user has taken that on. Until they exist, nothing here can sign in — the
-build, the types, and every code path are verified, but a live session is not, and this task does
-not claim otherwise (CLAUDE.md §6).
+**Steps 1 and 2 are done**, by the user, against production, on 2026-09-22. The Clerk keys
+(`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) are configured in the Vercel project,
+production serves with `clerk.youandfriends.org` and a `pk_live_` key, and the user reports that
+signing in and signing out work and that protection returns once signed out. That closes the gap
+this section used to name: the redirect and the appearance values were verified in code, and
+have now been seen.
 
-What that leaves unverified in practice: that Clerk's redirect actually lands on `/sign-in`, and
-that the appearance values render as intended. Both are verified in code and neither has been
-seen.
+This is recorded as the user's verification, not an agent's. No agent can sign in (it has no
+credentials, and should not), so steps 1 and 2 are the one part of this task that rests on a
+person's report rather than a test run.
+
+"The workspace loads" in step 1 means the signed-in app at this point in the plan. There is no
+workspace to load until task `031` provisions one on first sign-in.
 
 ## Rollback/compatibility
 
@@ -133,11 +137,7 @@ Reverting removes authentication entirely and exposes the workspace. Never rever
 
 ## Status
 
-`in-progress`
-
-## Blocker
-
-Clerk keys — the user is creating the application; manual QA steps 1 and 2 cannot run until `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` exist.
+`complete`
 
 ## Commit
 

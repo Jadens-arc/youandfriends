@@ -4,7 +4,15 @@ import { assetKindSchema, isAudioKind, ASSET_KINDS } from './assets';
 import { isUlid, songIdSchema, ulidSchema } from './ids';
 import { paginationRequestSchema, MAX_PAGE_SIZE } from './pagination';
 import { attempt, err, isOk, ok, toResponseBody } from './result';
-import { capabilitiesSchema, NO_ACCESS, roleAtLeast, roleSchema, ROLES } from './roles';
+import {
+  capabilitiesSchema,
+  INVITABLE_ROLES,
+  invitableRoleSchema,
+  NO_ACCESS,
+  roleAtLeast,
+  roleSchema,
+  ROLES,
+} from './roles';
 
 describe('roles', () => {
   it('defines exactly the four roles from the specification', () => {
@@ -13,6 +21,12 @@ describe('roles', () => {
 
   it('rejects an unknown role', () => {
     expect(roleSchema.safeParse('admin').success).toBe(false);
+  });
+
+  it('never lets an invitation name owner — owner is workspace-wide, not a scope grant', () => {
+    expect(INVITABLE_ROLES).toEqual(['viewer', 'commenter', 'editor']);
+    expect(invitableRoleSchema.safeParse('owner').success).toBe(false);
+    for (const role of INVITABLE_ROLES) expect(ROLES).toContain(role);
   });
 
   it.each([

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bearerToken,
   databaseUrl,
+  inviteToken,
   plainUrl,
   presignedUrl,
   privateKeyPem,
@@ -60,6 +61,7 @@ describe('redaction — credential-shaped values', () => {
 
   it.each([
     ['sync token', syncToken],
+    ['invitation token', inviteToken],
     ['provider secret key', providerSecretKey],
     ['bearer header', bearerToken],
     ['private key', privateKeyPem],

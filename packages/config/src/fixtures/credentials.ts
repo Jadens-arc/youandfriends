@@ -31,6 +31,14 @@ export const syncToken = [
   'aB3dE5gH7jK9mN1pQ3sT5vX7z',
 ].join('_');
 
+/** A You & Friends invitation token in the task `032` format. */
+export const inviteToken = [
+  'yaf',
+  'invite',
+  '01J8XKQ2M3N4P5R6S7T8V9W0XZ',
+  'nQ8vB2xR6tK4wL9pE1sD7fH3z',
+].join('_');
+
 /** A provider secret key shape, e.g. Stripe. */
 export const providerSecretKey = ['sk', 'live', 'EXAMPLENOTAREALKEY000000'].join('_');
 
@@ -48,3 +56,12 @@ export const databaseUrl = join('postgres://', 'user', ':', 'pw', '@host/db');
 
 /** An ordinary URL, for asserting that redaction does NOT over-reach. */
 export const plainUrl = 'https://youandfriends.org/songs/01J8XK';
+
+/**
+ * A Svix webhook signing secret, the shape Clerk issues (`whsec_` + base64 key). The key is a
+ * phrase, not random bytes, so nothing about it resembles a real secret except its framing.
+ */
+export const webhookSigningSecret = [
+  'whsec',
+  Buffer.from(['not', 'a', 'real', 'signing', 'key'].join('-')).toString('base64'),
+].join('_');

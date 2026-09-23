@@ -23,6 +23,7 @@ originating task's scope.
 | Browser → R2 (presigned)   | Object bytes, part numbers, ETags  |
 | Sync agent → API           | Sync token, manifest, snapshot ZIP |
 | Liveblocks → API (webhook) | Room events, document snapshots    |
+| Clerk → API (webhook)      | Session events, user profile       |
 | Trigger.dev → API/R2       | Job results, derivative keys       |
 | Share-link bearer → API    | Opaque link id, password attempt   |
 
@@ -41,6 +42,19 @@ route handlers importing `db` without `authz`. Every sensitive resource class ha
 cross-workspace IDOR test (task `023`). Unauthorized access returns a **404-shaped** response,
 not 403, so existence is not confirmed.
 
+**The current workspace is a claim, not a credential** (task `031`, ADR 0009). A request names
+its workspace in the `yaf_workspace` cookie; membership is re-checked on every request, a
+workspace the person does not belong to is refused and recorded as `access.denied` in that
+workspace's log, and nothing is read from it. Workspace settings and the member list, which
+belong to no scope a grant can attach to, are authorized from the membership row alone
+(`canInWorkspace`); member management is owner-only.
+
+**The Clerk webhook is public and authenticated by signature** (`/api/webhooks/clerk`). The
+Svix signature and timestamp are verified with `CLERK_WEBHOOK_SECRET` before the body is
+parsed, so a forged or replayed delivery cannot write an audit row or provision a user. A
+payload's user is only used to provision the user its session belongs to. Tests sign
+deliveries the way Svix does and run them through the real verifier.
+
 ### T2 — Permission escalation through inheritance
 
 A user granted viewer at song level gains editor because a broader folder grant was resolved
@@ -49,6 +63,17 @@ incorrectly, or a deny at a child is ignored.
 **Controls.** Single resolution path. Most-specific-wins with explicit-deny override, tested
 as an enumerated matrix across role × capability × scope depth. Permission changes take effect
 on the next request and are propagated into active Liveblocks rooms (task `082`).
+
+**A delegated `can_invite` is not delegated authority to mint access beyond its holder's own**
+(task `032`). `can_invite` is independent of role — a commenter can hold it — so without a cap,
+that commenter could invite someone as an editor anywhere in the workspace, which is escalation
+by way of the invitation itself rather than a resolution bug. `canGrantAccess`
+(`packages/authz/src/invitations.ts`) caps the offered role and each offered capability by what
+the inviter's own resolved `EffectiveAccess` holds at the exact target, checked at send time; a
+role is capped by `roleAtLeast`, and `canDownload`/`canInvite` are capped independently, matching
+how they resolve. `owner` cannot be offered by any invitation, enforced twice — the contracts
+layer's `INVITABLE_ROLES` and a database CHECK constraint — because it is workspace-wide
+administration, never a scope grant (ADR 0010).
 
 ### T3 — Object storage exposure
 
@@ -113,6 +138,18 @@ Accidental or malicious deletion.
 run only after referential and retention checks. Originals are immutable — a new upload always
 creates a version, never an overwrite. Lyric revisions are restorable. All destructive actions
 are audited.
+
+**A workspace reaching zero owners is destructive by the same standard — nothing in the product
+can recover it, because every recovery action needs an owner** (task `032`). `changeMemberRole`
+and `removeMember` (`apps/web/lib/workspace/members.ts`) refuse a write that would leave zero.
+The guard's own count is a plain unlocked read, and being right inside the same transaction as
+the write it gates does not by itself make it safe against a _second_ transaction acting on a
+_different_ owner's row at the same moment — two owners demoted or removed concurrently can each
+see the other still as `owner`, under Postgres's default READ COMMITTED isolation, and both
+proceed (write skew; found in security review, reproduced in a looped concurrent test). Closed
+by `lockWorkspaceForMembershipWrite` (`packages/db/src/queries/workspace.ts`), a `SELECT ... FOR
+UPDATE` on the workspace row taken first in both functions, serializing every membership write
+for one workspace against every other. See ADR 0010.
 
 ### T9 — Secret leakage into the repository
 
@@ -181,6 +218,43 @@ Anyone holding the connection string can open `psql` and do worse than any of th
 allows. That is accepted: the credential is the boundary, and the tools are hardened so that
 the ordinary route to disaster — the wrong shell, the wrong afternoon — is closed.
 
+### T11 — Invitation abuse
+
+Guessing or brute-forcing an invitation token, learning whether an address was ever invited by
+the shape of a failure, or accepting an invitation as someone other than the person it was sent
+to (task `032`).
+
+**Controls.** Tokens are `yaf_invite_<ulid>_<secret>` — the ULID is a public lookup key, the
+secret is 256 bits of `crypto.randomBytes`, base64url-encoded, and only its `scrypt` hash is
+stored (ADR 0010 records the deliberate departure from ADR 0005's Argon2id). The secret is
+compared in constant time. **Every failure looks the same to the caller**: a wrong secret, an
+expired invitation, a revoked one, and a token that never existed all produce one generic
+message (`apps/web/lib/invitations/accept.ts`) — whether the difference matters is exactly what
+an attacker probing tokens would use it to learn. The secret is checked _before_ state or
+expiry, so a failed verification tells nothing about whether the invitation is otherwise live.
+
+**An invitation binds to the email it was sent to.** Acceptance compares the invitation's stored
+address against the signed-in Clerk identity's own email, both lowercased and trimmed the same
+way. A mismatch is the one case that _does_ get a specific message — naming the invited address
+to someone who has already proven they hold the token (by presenting a valid, unexpired,
+unrevoked secret) tells them nothing they could not see by comparing their own inbox to their
+own session; it is not the enumeration risk the generic-failure rule above exists to close.
+There is no rebind flow in iteration one: a mismatched invitation simply cannot be accepted.
+
+**Acceptance is atomic.** Marking the invitation accepted, creating the scope-limited membership
+row, and writing the permission grant all happen in one transaction
+(`withAuditedTransaction`); a failure partway rolls all of it back rather than leaving a member
+with no access or a grant with no member, per the task's own acceptance criteria.
+
+**A scope-limited collaborator's membership carries no workspace-wide baseline** — `role: null`
+on `workspace_memberships`, treated by `loadMembership` exactly as "no membership at all" (ADR
+0010). Without this, accepting an invitation to one song would grant viewer-or-better access to
+every other song in the workspace through the resolver's ordinary membership-baseline rule,
+which is the permission-escalation shape T2 exists to prevent, reached through the invitation
+path rather than a resolution bug. Proven end to end against a real database in
+`packages/authz/src/__tests__/scope-limited-membership.test.ts`, not only in the pure resolver
+matrix.
+
 ## Explicit non-goals for iteration one
 
 Stated plainly so they are not mistaken for oversights:
@@ -196,3 +270,13 @@ Stated plainly so they are not mistaken for oversights:
 - Provider compromise (Clerk, Neon, R2, Liveblocks, Trigger.dev) exposes data.
 - A compromised owner account exposes the workspace.
 - Presigned URLs are bearer credentials for their TTL; a URL shared within its window works.
+- **No rate limiting on invitation-token acceptance attempts** (task `032`). The task file's own
+  security notes ask for it; this codebase has no rate-limiting infrastructure yet to hook into
+  — share links (T5), the first feature that would need it, are deferred to task `200`+. The
+  gap is accepted rather than built ad hoc here because an invitation secret is 256 bits of
+  `crypto.randomBytes`, not a short human-chosen value like a share-link password: brute-forcing
+  that space is computationally infeasible regardless of request rate, so the controls that
+  actually close this threat are the ones T11 describes — high entropy, a constant-time
+  comparison, and a generic failure message that does not distinguish "wrong" from "expired"
+  from "never existed" — not throttling. Rate limiting remains worth adding as defense in depth
+  once the infrastructure exists for T5; until then this is a documented gap, not a silent one.

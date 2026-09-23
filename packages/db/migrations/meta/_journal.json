@@ -50,6 +50,20 @@
       "when": 1789684588749,
       "tag": "0006_upload_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790113410011,
+      "tag": "0007_workspace_provisioning",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790150094923,
+      "tag": "0008_invitations",
+      "breakpoints": true
     }
   ]
 }

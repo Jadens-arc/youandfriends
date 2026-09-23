@@ -148,6 +148,14 @@ async function loadGrants(
   return rows;
 }
 
+/**
+ * A membership row with no `role` carries no workspace-wide baseline (task `032`, ADR 0010):
+ * it exists only so `resolveWorkspace` can route a scope-limited collaborator to the right
+ * workspace, and their real access is entirely their own `permission_grants` rows. Treating it
+ * the same as no row at all reuses `resolve()`'s already-proven non-member path — a share-link
+ * bearer and a sync token have grants and no baseline today, and that is exactly this case too
+ * — rather than teaching `resolve()` a third shape for `membership`.
+ */
 async function loadMembership(
   db: Database,
   workspaceId: WorkspaceId,
@@ -167,5 +175,6 @@ async function loadMembership(
       ),
     );
 
-  return row ?? null;
+  if (row === undefined || row.role === null) return null;
+  return { role: row.role, canDownload: row.canDownload, canInvite: row.canInvite };
 }

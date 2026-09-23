@@ -1,3 +1,4 @@
+import { conflict } from '@youandfriends/contracts';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -64,6 +65,25 @@ describeWithDatabase('withTransaction', () => {
     ).rejects.toThrow(TransactionError);
 
     const rows = await database.db.execute(sql`select id from note where id = 4`);
+    expect(rows.rows).toEqual([]);
+  });
+
+  it('lets an AppError the callback threw reach the caller unwrapped, and still rolls back', async () => {
+    // Found while building task `032`: `notFound()`/`conflict()` thrown from inside an
+    // audited transaction (`withAuditedTransaction` calls this) were arriving at route-level
+    // code as an opaque `TransactionError`, so a deliberate 409 read exactly like an
+    // unexplained 500 — the one thing `AppError` exists to prevent.
+    const original = conflict({ detail: 'already pending' });
+
+    const thrown = await withTransaction(database.db, async (tx) => {
+      await tx.execute(sql`insert into note values (5, 'rolled back too')`);
+      throw original;
+    }).catch((error: unknown) => error);
+
+    expect(thrown).toBe(original);
+    expect((thrown as { code?: string }).code).toBe('conflict');
+
+    const rows = await database.db.execute(sql`select id from note where id = 5`);
     expect(rows.rows).toEqual([]);
   });
 

@@ -4,6 +4,7 @@ import { MobileHeader } from '@/components/shell/mobile/mobile-header';
 import { MiniPlayer } from '@/components/shell/mobile/mini-player';
 import { NavigationRail } from '@/components/shell/navigation-rail';
 import { PlayerRegion } from '@/components/shell/player-region';
+import { WorkspaceGate } from '@/components/workspace/workspace-gate';
 
 /**
  * Workspace shell (docs/DESIGN.md §4 and §10).
@@ -42,8 +43,11 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
             inset for the notch. */}
         <MobileHeader />
 
-        {/* The only part that changes on navigation. */}
-        <main className="paper-grain min-h-0 flex-1 overflow-auto">{children}</main>
+        {/* The only part that changes on navigation. The gate resolves the workspace first, and
+            provisions it on a first sign-in (task `031`). */}
+        <main className="paper-grain min-h-0 flex-1 overflow-auto">
+          <WorkspaceGate>{children}</WorkspaceGate>
+        </main>
 
         {/* Mobile: mini-player above bottom navigation. */}
         <div className="md:hidden">

@@ -18,6 +18,7 @@ import {
 } from '@youandfriends/authz';
 import {
   assets,
+  markStorageUsageStale,
   storageObjects,
   uploadParts,
   uploadSessions,
@@ -440,6 +441,11 @@ export async function completeUploadSession(
       .update(uploadSessions)
       .set({ state: 'completed', storageObjectId: objectId })
       .where(eq(uploadSessions.id, sessionId));
+
+    // The workspace now stores more. Invalidate rather than increment: the next read of the
+    // settings page recomputes from `storage_objects`, so the upload shows up then instead of up
+    // to a cache lifetime later (task `031`).
+    await markStorageUsageStale(tx, context.workspaceId);
 
     await audit({
       action: 'upload.completed',

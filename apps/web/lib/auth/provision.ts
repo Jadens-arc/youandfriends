@@ -1,4 +1,4 @@
-import { createPooledClient, users, type PooledDatabase } from '@youandfriends/db';
+import { createPooledClient, users, type Database, type PooledDatabase } from '@youandfriends/db';
 import { parseServerEnv } from '@youandfriends/config';
 import { eq, sql } from 'drizzle-orm';
 
@@ -77,7 +77,7 @@ export async function provisionUser(
 
 /** The row behind a Clerk id, or `null`. Read-only; does not provision. */
 export async function findUserByClerkId(
-  db: PooledDatabase,
+  db: Database,
   clerkUserId: string,
 ): Promise<{ id: string } | null> {
   const [row] = await db

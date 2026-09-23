@@ -34,6 +34,16 @@ describe('NavigationRail', () => {
     expect(screen.getByRole('link', { name: /Library/ })).toHaveAttribute('aria-current', 'page');
   });
 
+  it('reaches settings, and marks it current anywhere beneath it', () => {
+    mockPathname.current = '/settings/members';
+    render(<NavigationRail />);
+
+    const settings = screen.getByRole('link', { name: /Settings/ });
+    expect(settings).toHaveAttribute('href', '/settings');
+    expect(settings).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: /Library/ })).not.toHaveAttribute('aria-current');
+  });
+
   it('gives the wordmark an accessible name rather than a bare ampersand', () => {
     mockPathname.current = '/library';
     render(<NavigationRail />);

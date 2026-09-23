@@ -19,7 +19,7 @@ import {
   workspaceMemberships,
   type Database,
 } from '@youandfriends/db';
-import { and, eq, sql, type SQL } from 'drizzle-orm';
+import { and, eq, isNotNull, sql, type SQL } from 'drizzle-orm';
 
 import { inheritsMembership, type Subject } from './subjects';
 
@@ -106,6 +106,16 @@ export interface ScopedDb {
  * any workspace id a caller cared to supply, and the filter would faithfully scope the query
  * to someone else's data. Failure is `forbidden`, which serializes 404-shaped — a 403 here
  * would confirm the workspace exists (`docs/THREAT_MODEL.md` T1).
+ *
+ * **`role IS NOT NULL`, not merely "a row exists".** A scope-limited collaborator (task `032`)
+ * holds a real `workspace_memberships` row with `role: null`, so they can be a member of this
+ * workspace and reach nothing workspace-wide by design — their access is entirely the
+ * `permission_grants` rows an invitation created. A handle from this function is workspace-wide
+ * by construction (it filters every table by `workspace_id` alone, not by scope), so it would
+ * hand exactly that access to someone this whole task exists to keep from having it, if the
+ * check stopped at "a row exists" the way it correctly could before `role` became nullable
+ * (found in security review, task `032` — this module predates the column's nullability and
+ * had never been revisited against it).
  */
 export async function scopedQuery(
   db: Database,
@@ -126,6 +136,7 @@ export async function scopedQuery(
       and(
         eq(workspaceMemberships.workspaceId, workspaceId),
         eq(workspaceMemberships.userId, subject.userId),
+        isNotNull(workspaceMemberships.role),
       ),
     );
 

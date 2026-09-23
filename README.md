@@ -38,17 +38,30 @@ Rationale for each significant choice is in [`docs/adr/`](docs/adr/).
 
 ## Prerequisites
 
-| Requirement      | Notes                                                         |
-| ---------------- | ------------------------------------------------------------- |
-| Node.js ≥ 22     |                                                               |
-| pnpm 10          | `corepack enable && corepack prepare pnpm@10.33.0 --activate` |
-| Docker           | For Postgres and MinIO in tests (from task `052`)             |
-| ffmpeg + ffprobe | For the media pipeline (from task `060`). Not yet required.   |
-| Rust toolchain   | For the macOS sync agent (from task `111`). **macOS only.**   |
-| A Clerk app      | For signing in (from task `030`). Setup below.                |
+| Requirement      | Notes                                                          |
+| ---------------- | -------------------------------------------------------------- |
+| Node.js ≥ 22     |                                                                |
+| pnpm 10          | `corepack enable && corepack prepare pnpm@10.33.0 --activate`  |
+| Docker           | For Postgres and MinIO in tests (from task `052`)              |
+| ffmpeg + ffprobe | Required by `@youandfriends/media` from task `060`. See below. |
+| Rust toolchain   | For the macOS sync agent (from task `111`). **macOS only.**    |
+| A Clerk app      | For signing in (from task `030`). Setup below.                 |
 
 Tasks whose prerequisites are absent **skip loudly** in the test suite — they never pass
 silently.
+
+> **ffmpeg** — `apt install ffmpeg`, `brew install ffmpeg`, or the image's own package. Any build
+> is not enough: the pipeline needs the `aac` and `libopus` encoders and the `ebur128` filter, and
+> a build missing one runs every command successfully while producing a derivative that is silent
+> or empty. `assertCapabilities()` from `@youandfriends/media` checks this at worker startup and
+> refuses to start otherwise (ADR 0002, ADR 0004). Check yours with:
+>
+> ```bash
+> ffmpeg -hide_banner -encoders | grep -E ' (aac|libopus) '
+> ffmpeg -hide_banner -filters  | grep ' ebur128 '
+> ```
+>
+> Set `YOUANDFRIENDS_FFMPEG_PATH` / `YOUANDFRIENDS_FFPROBE_PATH` if the binaries are not on `PATH`.
 
 > **`NODE_ENV`** — `next build` must run with `NODE_ENV=production`. The build scripts set it
 > explicitly, because an inherited `NODE_ENV=development` makes prerendering fail with a

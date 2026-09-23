@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { bigint, boolean, index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, reference, roleEnum, updatedAt, workspaceId } from './columns';
 import { users } from './users';
@@ -18,10 +18,36 @@ export const workspaces = pgTable(
     ownerUserId: reference('owner_user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
+    /**
+     * Set only on the workspace created for someone on their first sign-in (task `031`), and
+     * unique — so "at most one provisioned workspace per person" is a fact the database keeps.
+     *
+     * A first sign-in arrives as several requests at once, and each of them sees a person with
+     * no workspace. A read-then-insert would give that person one workspace per request; this
+     * key turns every insert after the first into a conflict, and the conflict into the row the
+     * winner made. Null on every workspace created any other way, which a unique index permits.
+     */
+    provisionedForUserId: reference('provisioned_for_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    /**
+     * Bytes stored for this workspace, as of `storageUsageRefreshedAt`. A **cache**, never the
+     * record: `storage_objects` is the record, and this is recomputed from it wholesale rather
+     * than incremented, so it cannot drift further than one refresh.
+     *
+     * Cached because the sum is over a table that grows with every upload, and the settings page
+     * should not scan it on every load (task `031`).
+     */
+    storageUsedBytes: bigint('storage_used_bytes', { mode: 'number' }).notNull().default(0),
+    /** Null means "never computed, or known stale" — the next read recomputes. */
+    storageUsageRefreshedAt: timestamp('storage_usage_refreshed_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [index('workspaces_owner_user_id_idx').on(table.ownerUserId)],
+  (table) => [
+    index('workspaces_owner_user_id_idx').on(table.ownerUserId),
+    uniqueIndex('workspaces_provisioned_for_user_id_key').on(table.provisionedForUserId),
+  ],
 );
 
 /**
@@ -31,6 +57,17 @@ export const workspaces = pgTable(
  * `docs/DESIGN.md` §3 makes them independent: a viewer may be permitted to download and an
  * editor may not. This row is the workspace-level baseline; anything more specific is a
  * `permission_grant` (task `022`), and resolution happens only in `packages/authz`.
+ *
+ * **`role` is nullable, and a null role carries no baseline** (task `032`). `resolve()`
+ * (`packages/authz`) applies a member's `role` to *every* target in the workspace when nothing
+ * more specific speaks — which is exactly right for a full member, and exactly wrong for
+ * someone invited to one song: DESIGN.md's "exactly the folder, project, or song intended — and
+ * no further" cannot hold if merely existing as a member leaks viewer access to the rest of the
+ * library. A scope-limited collaborator still needs a row here — it is what
+ * `resolveWorkspace` (task `031`) uses to route them to the right workspace — but its `role` is
+ * `null`, so `loadMembership` in `packages/authz/src/authorizer.ts` treats it as no baseline at
+ * all, and their access comes entirely from their `permission_grants` row(s). `canDownload` and
+ * `canInvite` on such a row are meaningless for the same reason and are written `false`.
  */
 export const workspaceMemberships = pgTable(
   'workspace_memberships',
@@ -40,7 +77,7 @@ export const workspaceMemberships = pgTable(
     userId: reference('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    role: roleEnum('role').notNull(),
+    role: roleEnum('role'),
     canDownload: boolean('can_download').notNull().default(true),
     canInvite: boolean('can_invite').notNull().default(false),
     createdAt: createdAt(),

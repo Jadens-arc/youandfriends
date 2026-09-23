@@ -20,6 +20,7 @@ import { snapshotEntries, snapshots } from './snapshots';
 import { storageObjects } from './storage-objects';
 import { uploadParts, uploadSessions } from './uploads';
 import { folders } from './folders';
+import { invitations } from './invitations';
 import { permissionGrants } from './permissions';
 import { projects } from './projects';
 import { songs } from './songs';
@@ -32,6 +33,7 @@ export * from './audit';
 export * from './columns';
 export * from './favorites';
 export * from './folders';
+export * from './invitations';
 export * from './permissions';
 export * from './projects';
 export * from './snapshots';
@@ -73,6 +75,7 @@ export const schema = {
   folders,
   projects,
   permissionGrants,
+  invitations,
   songs,
   favorites,
 };
