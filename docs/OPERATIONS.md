@@ -50,6 +50,29 @@ small direct pool against `DATABASE_URL_UNPOOLED` as well as the pooled `DATABAS
 must be set in Vercel. Without them, and without migration `0007`, every workspace page shows
 "Your workspace isn't available" and the log says `workspace resolution failed`.
 
+### The originals bucket's CORS policy
+
+Browsers upload parts straight to R2 with presigned `PUT` URLs (task `053`), so the originals
+bucket needs a CORS rule for the app's origin. The uploader reads each part's `ETag` from the
+response, which a cross-origin response only exposes when the rule lists it. In the Cloudflare
+dashboard → R2 → the originals bucket → **Settings** → **CORS policy**:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://youandfriends.org"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["content-type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Without `ExposeHeaders: ["ETag"]` every upload fails at its first part with "Storage did not
+return an ETag", and the uploader does not retry it — it is configuration, not a network blip.
+Add each preview deployment's origin as needed; never `*`.
+
 ## 2. Stuck uploads
 
 **Symptom:** an upload shows progress but never finalizes, or `upload_sessions` rows sit in

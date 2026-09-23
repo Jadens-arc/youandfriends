@@ -115,4 +115,4 @@ Additive. Reverting removes the HTTP surface but leaves the protocol intact.
 
 ## Commit
 
-_(not yet)_
+`06862fa`

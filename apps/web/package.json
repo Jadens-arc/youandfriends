@@ -2,7 +2,7 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
-  "description": "You & Friends \u2014 the web application.",
+  "description": "You & Friends — the web application.",
   "scripts": {
     "dev": "next dev",
     "build": "cross-env NODE_ENV=production next build",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.4",
+    "@noble/hashes": "^1.8.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@youandfriends/authz": "workspace:*",
     "@youandfriends/config": "workspace:*",
@@ -35,6 +36,7 @@
     "@types/react-dom": "^19.2.0",
     "@youandfriends/config": "workspace:*",
     "cross-env": "^10.1.0",
+    "fake-indexeddb": "^6.2.5",
     "pg": "^8.23.0",
     "typescript": "~5.9.3",
     "vitest": "^3.2.7"
