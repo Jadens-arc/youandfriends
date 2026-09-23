@@ -72,6 +72,24 @@ export async function makeTenant(db: DirectDatabase) {
   return { user, workspace, membership };
 }
 
+/**
+ * Add someone to a workspace. The seam every test of "a collaborator, not the owner" needs —
+ * without it such tests quietly fall back to the owner, the one role that can do everything.
+ */
+export async function addMember(
+  db: DirectDatabase,
+  workspaceId: string,
+  userId: string,
+  role: 'owner' | 'editor' | 'commenter' | 'viewer',
+) {
+  const [row] = await db
+    .insert(workspaceMemberships)
+    .values({ id: testId(), workspaceId, userId, role })
+    .returning();
+  if (!row) throw new Error('membership insert returned nothing');
+  return row;
+}
+
 export async function makeFolder(
   db: DirectDatabase,
   workspaceId: string,

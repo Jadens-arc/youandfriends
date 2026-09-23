@@ -1,7 +1,7 @@
 'use client';
 
 import { cn, focusRing, transition } from '@youandfriends/ui';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Settings } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -13,6 +13,8 @@ const SECTION_LABELS: Readonly<Record<string, string>> = {
   shared: 'Shared',
   favorites: 'Favorites',
   trash: 'Trash',
+  settings: 'Settings',
+  members: 'Members',
 };
 
 function labelFor(segment: string | undefined): string {
@@ -68,6 +70,22 @@ export function MobileHeader() {
           <span className="text-body font-sans">{labelFor(segments.at(-2))}</span>
         </Link>
       )}
+
+      {/* The phone's way to settings. The bottom bar holds the five places music lives and has no
+          room for a sixth, so settings rides in the header of every root destination instead. */}
+      {parent === null && section !== 'settings' ? (
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          className={cn(
+            'text-foreground ml-auto flex min-h-11 min-w-11 items-center justify-center rounded-sm',
+            transition,
+            focusRing,
+          )}
+        >
+          <Settings className="size-5" aria-hidden />
+        </Link>
+      ) : null}
     </header>
   );
 }

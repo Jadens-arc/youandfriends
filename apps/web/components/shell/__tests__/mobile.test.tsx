@@ -107,7 +107,26 @@ describe('MobileHeader', () => {
     render(<MobileHeader />);
 
     expect(screen.getByRole('heading', { name: 'Library' })).toBeInTheDocument();
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Back/ })).not.toBeInTheDocument();
+  });
+
+  it('reaches settings from a root destination, since the bottom bar has no room for it', () => {
+    // Without this the phone has no way to settings at all: the bottom bar holds five places
+    // music lives, and settings is not one of them (task `031`).
+    mockPathname.current = '/library';
+    render(<MobileHeader />);
+
+    const settings = screen.getByRole('link', { name: 'Settings' });
+    expect(settings).toHaveAttribute('href', '/settings');
+    expect(settings.className).toContain('min-h-11');
+  });
+
+  it('does not link settings to itself', () => {
+    mockPathname.current = '/settings';
+    render(<MobileHeader />);
+
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
   it('offers a back affordance once drilled in', () => {

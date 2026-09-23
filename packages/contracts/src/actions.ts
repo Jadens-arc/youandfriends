@@ -38,3 +38,31 @@ export const ACTION_REQUIREMENTS: Readonly<
   download: { minimumRole: 'viewer', capability: 'canDownload' },
   invite: { minimumRole: 'viewer', capability: 'canInvite' },
 };
+
+/**
+ * What a subject may do to the **workspace itself**, rather than to something inside it.
+ *
+ * A separate vocabulary because the target is different in kind. `ACTIONS` resolve through a
+ * scope chain — song → project → folder → workspace — where a grant at any level can widen or
+ * deny. The workspace's own settings and its member list sit above every chain and belong to
+ * nothing a grant can be attached to, so only the membership row answers them. Routing them
+ * through `assertCan` would mean inventing a scope for the workspace, and an invented scope is
+ * one no grant, test, or reviewer validates (the same reasoning as `assertWorkspaceOwner`).
+ *
+ * Member management is owner-only. The member list is sensitive — it is who works with whom,
+ * on unreleased music (`docs/THREAT_MODEL.md`, asset 3) — so seeing it at all needs membership,
+ * and changing it needs ownership (`docs/DESIGN.md` §3: "permission management" is an owner
+ * ability). Delegated invitation is the separate `canInvite` capability, arriving in task `032`.
+ */
+export const WORKSPACE_ACTIONS = ['view_settings', 'rename', 'manage_members'] as const;
+
+export const workspaceActionSchema = z.enum(WORKSPACE_ACTIONS);
+export type WorkspaceAction = z.infer<typeof workspaceActionSchema>;
+
+export const WORKSPACE_ACTION_REQUIREMENTS: Readonly<
+  Record<WorkspaceAction, { readonly minimumRole: Role }>
+> = {
+  view_settings: { minimumRole: 'viewer' },
+  rename: { minimumRole: 'owner' },
+  manage_members: { minimumRole: 'owner' },
+};

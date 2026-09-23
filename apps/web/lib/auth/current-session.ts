@@ -5,6 +5,7 @@ import { currentUser } from '@clerk/nextjs/server';
 import { newUlid } from '@youandfriends/contracts';
 import { loggerForEnv } from '@youandfriends/config';
 
+import { identityFrom } from './identity';
 import type { ClerkIdentity } from './provision';
 import { resolveSession, type ResolvedSession } from './session';
 
@@ -43,15 +44,12 @@ export async function clerkIdentityReader(): Promise<ClerkIdentity | null> {
   const user = await currentUser();
   if (user === null) return null;
 
-  const email =
-    user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? '';
-
-  const displayName =
-    [user.firstName, user.lastName].filter(Boolean).join(' ') ||
-    user.username ||
-    // Never the email: a display name is rendered beside comments and in presence, and
-    // leaking an address there is a privacy regression nobody would notice shipping.
-    'Someone';
-
-  return { clerkUserId: user.id, email, displayName };
+  return identityFrom({
+    id: user.id,
+    primaryEmail: user.primaryEmailAddress?.emailAddress ?? null,
+    emails: user.emailAddresses.map((address) => address.emailAddress),
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+  });
 }

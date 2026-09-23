@@ -23,6 +23,7 @@ originating task's scope.
 | Browser → R2 (presigned)   | Object bytes, part numbers, ETags  |
 | Sync agent → API           | Sync token, manifest, snapshot ZIP |
 | Liveblocks → API (webhook) | Room events, document snapshots    |
+| Clerk → API (webhook)      | Session events, user profile       |
 | Trigger.dev → API/R2       | Job results, derivative keys       |
 | Share-link bearer → API    | Opaque link id, password attempt   |
 
@@ -40,6 +41,19 @@ workspace B by guessing or substituting an ID.
 route handlers importing `db` without `authz`. Every sensitive resource class has an explicit
 cross-workspace IDOR test (task `023`). Unauthorized access returns a **404-shaped** response,
 not 403, so existence is not confirmed.
+
+**The current workspace is a claim, not a credential** (task `031`, ADR 0009). A request names
+its workspace in the `yaf_workspace` cookie; membership is re-checked on every request, a
+workspace the person does not belong to is refused and recorded as `access.denied` in that
+workspace's log, and nothing is read from it. Workspace settings and the member list, which
+belong to no scope a grant can attach to, are authorized from the membership row alone
+(`canInWorkspace`); member management is owner-only.
+
+**The Clerk webhook is public and authenticated by signature** (`/api/webhooks/clerk`). The
+Svix signature and timestamp are verified with `CLERK_WEBHOOK_SECRET` before the body is
+parsed, so a forged or replayed delivery cannot write an audit row or provision a user. A
+payload's user is only used to provision the user its session belongs to. Tests sign
+deliveries the way Svix does and run them through the real verifier.
 
 ### T2 — Permission escalation through inheritance
 

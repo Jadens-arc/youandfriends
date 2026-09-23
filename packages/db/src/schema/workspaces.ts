@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { bigint, boolean, index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 import { createdAt, id, reference, roleEnum, updatedAt, workspaceId } from './columns';
 import { users } from './users';
@@ -18,10 +18,36 @@ export const workspaces = pgTable(
     ownerUserId: reference('owner_user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
+    /**
+     * Set only on the workspace created for someone on their first sign-in (task `031`), and
+     * unique — so "at most one provisioned workspace per person" is a fact the database keeps.
+     *
+     * A first sign-in arrives as several requests at once, and each of them sees a person with
+     * no workspace. A read-then-insert would give that person one workspace per request; this
+     * key turns every insert after the first into a conflict, and the conflict into the row the
+     * winner made. Null on every workspace created any other way, which a unique index permits.
+     */
+    provisionedForUserId: reference('provisioned_for_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    /**
+     * Bytes stored for this workspace, as of `storageUsageRefreshedAt`. A **cache**, never the
+     * record: `storage_objects` is the record, and this is recomputed from it wholesale rather
+     * than incremented, so it cannot drift further than one refresh.
+     *
+     * Cached because the sum is over a table that grows with every upload, and the settings page
+     * should not scan it on every load (task `031`).
+     */
+    storageUsedBytes: bigint('storage_used_bytes', { mode: 'number' }).notNull().default(0),
+    /** Null means "never computed, or known stale" — the next read recomputes. */
+    storageUsageRefreshedAt: timestamp('storage_usage_refreshed_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (table) => [index('workspaces_owner_user_id_idx').on(table.ownerUserId)],
+  (table) => [
+    index('workspaces_owner_user_id_idx').on(table.ownerUserId),
+    uniqueIndex('workspaces_provisioned_for_user_id_key').on(table.provisionedForUserId),
+  ],
 );
 
 /**

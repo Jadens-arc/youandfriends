@@ -1,13 +1,24 @@
 import { readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { parseServerEnv, type ServerEnv } from '@youandfriends/config';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 
 import { createDirectClient } from './client';
 
-/** Where `drizzle-kit generate` writes SQL. Shared by the migrator and the dry run. */
-export const MIGRATIONS_FOLDER = resolve(import.meta.dirname, '../migrations');
+/**
+ * Where `drizzle-kit generate` writes SQL. Shared by the migrator and the dry run.
+ *
+ * The web app bundles this package, and a bundle has no `import.meta.dirname`: evaluating
+ * `resolve(undefined, …)` at module load threw inside every route that imported
+ * `@youandfriends/db`, failing the production build (found in task `031`, the first route to do
+ * so). `import.meta.url` is not the whole answer either — under the web tests' jsdom environment
+ * it is not a `file:` URL. So: `dirname` where the runtime provides it (Node, `tsx`, Vitest), and
+ * the URL, which bundlers rewrite to the source file's, where it does not.
+ */
+const HERE = import.meta.dirname ?? dirname(fileURLToPath(import.meta.url));
+export const MIGRATIONS_FOLDER = resolve(HERE, '../migrations');
 
 /** The SQL files currently on disk, in application order. */
 export function pendingFiles(folder: string = MIGRATIONS_FOLDER): string[] {

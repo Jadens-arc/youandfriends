@@ -44,6 +44,7 @@ export {
   type AuditQuery,
 } from './audit-query';
 export { buildChain, foldersInPath, type ChainInput } from './chain';
+export { assertCanInWorkspace, canInWorkspace, workspaceRoleOf } from './workspace';
 export {
   deleteEntity,
   restoreEntity,

@@ -12,7 +12,7 @@ run against production without a maintenance window unless stated otherwise.
 | Service       | What you create                               | Where the value goes    |
 | ------------- | --------------------------------------------- | ----------------------- |
 | Neon          | Postgres project, `main` + `preview` branches | `DATABASE_URL`          |
-| Clerk         | Application, sign-in configured               | `CLERK_*` keys          |
+| Clerk         | Application, sign-in, session webhook (below) | `CLERK_*` keys          |
 | Cloudflare R2 | Two private buckets: originals, derivatives   | `R2_*`                  |
 | Liveblocks    | Project                                       | `LIVEBLOCKS_SECRET_KEY` |
 | Trigger.dev   | Project                                       | `TRIGGER_*`             |
@@ -28,6 +28,27 @@ run against production without a maintenance window unless stated otherwise.
 5. Verify with the smoke checklist (§7).
 
 Rolling back code is safe. Rolling back a migration is not automatic — see §4.
+
+### The Clerk session webhook
+
+Sign-in, sign-out, and session revocation are audited from Clerk's webhooks; the server never
+sees a sign-out any other way (ADR 0009). In the Clerk dashboard → **Webhooks** → **Add
+endpoint**:
+
+- **URL:** `https://youandfriends.org/api/webhooks/clerk`
+- **Events:** `session.created`, `session.ended`, `session.removed`, `session.revoked`
+- Copy the endpoint's **signing secret** into Vercel as `CLERK_WEBHOOK_SECRET`, then redeploy.
+
+Until the secret is set the endpoint answers **503**, so Clerk queues and retries rather than
+dropping events. A 400 in Clerk's delivery log means the signature did not verify: the secret
+in Vercel is not this endpoint's. Rotate it like any other Clerk key (§8).
+
+### The web app needs a direct database connection
+
+Provisioning a workspace writes three rows that must commit together, so the web app opens a
+small direct pool against `DATABASE_URL_UNPOOLED` as well as the pooled `DATABASE_URL`. Both
+must be set in Vercel. Without them, and without migration `0007`, every workspace page shows
+"Your workspace isn't available" and the log says `workspace resolution failed`.
 
 ## 2. Stuck uploads
 
@@ -290,13 +311,16 @@ it. An untested backup is a hypothesis.
 ## 7. Smoke checklist after deploy
 
 1. Sign in with Clerk.
-2. Library loads; folders, projects, and songs render.
-3. Upload a small audio file; progress advances and finalize completes.
-4. Media job completes; waveform renders; playback starts.
-5. Player survives a route change.
-6. Lyrics editor loads, autosaves, and shows presence in a second browser.
-7. Post a timestamped comment.
-8. iPhone viewport renders the same flows.
+2. Settings shows the workspace name, storage usage, and members; a brand-new account has a
+   workspace immediately.
+3. Clerk's webhook delivery log shows `200` for the sign-in's `session.created`.
+4. Library loads; folders, projects, and songs render.
+5. Upload a small audio file; progress advances and finalize completes.
+6. Media job completes; waveform renders; playback starts.
+7. Player survives a route change.
+8. Lyrics editor loads, autosaves, and shows presence in a second browser.
+9. Post a timestamped comment.
+10. iPhone viewport renders the same flows.
 
 ## 8. Key rotation
 
@@ -307,7 +331,9 @@ revoke the old pair. R2 keys are used only server-side for signing, so rotation 
 invalidate presigned URLs already issued — those expire on their own short TTL.
 
 **Clerk keys.** Rotate in the Clerk dashboard and redeploy. Active sessions survive; rotating
-the secret key does not sign users out.
+the secret key does not sign users out. Rotating the **webhook signing secret** makes
+deliveries fail with 400 until the new one is deployed. Clerk retries them, so rotate and
+redeploy together.
 
 **`DATABASE_URL`.** Rotate the Neon role password, update Vercel and Trigger.dev, redeploy
 both. Update both — a stale job deployment fails silently against the old credential.

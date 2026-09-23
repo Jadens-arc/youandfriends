@@ -80,6 +80,7 @@ export const AUDIT_ACTIONS = [
   'member.added',
   'member.removed',
   'member.role_changed',
+  'workspace.created',
   'workspace.settings_changed',
   'sync_token.issued',
   'sync_token.revoked',
@@ -98,9 +99,12 @@ export type AuditAction = z.infer<typeof auditActionSchema>;
 export const AUDIT_ACTION_INFO: Readonly<
   Record<AuditAction, { readonly class: AuditClass; readonly emittedBy: string }>
 > = {
-  'auth.signed_in': { class: 'authentication', emittedBy: '030' },
-  'auth.signed_out': { class: 'authentication', emittedBy: '030' },
-  'auth.session_revoked': { class: 'authentication', emittedBy: '030' },
+  // Moved from `030`, which had no workspace to attribute them to (`audit_events.workspace_id`
+  // is `NOT NULL`). Written from Clerk's session webhooks — the server never sees a sign-out
+  // any other way.
+  'auth.signed_in': { class: 'authentication', emittedBy: '031' },
+  'auth.signed_out': { class: 'authentication', emittedBy: '031' },
+  'auth.session_revoked': { class: 'authentication', emittedBy: '031' },
 
   'access.granted': { class: 'access', emittedBy: '024' },
   'access.denied': { class: 'access', emittedBy: '024' },
@@ -145,6 +149,7 @@ export const AUDIT_ACTION_INFO: Readonly<
   'member.added': { class: 'administration', emittedBy: '032' },
   'member.removed': { class: 'administration', emittedBy: '032' },
   'member.role_changed': { class: 'administration', emittedBy: '032' },
+  'workspace.created': { class: 'administration', emittedBy: '031' },
   'workspace.settings_changed': { class: 'administration', emittedBy: '031' },
   'sync_token.issued': { class: 'administration', emittedBy: '110' },
   'sync_token.revoked': { class: 'administration', emittedBy: '110' },

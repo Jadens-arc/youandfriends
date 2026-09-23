@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **110** |
 
-Task `031` is next. `016`, `029` are passed over until their dependencies are `complete`. 30 of 93 iteration-one tasks are `complete`.
+Task `032` is next. `016`, `029` are passed over until their dependencies are `complete`. 31 of 93 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -52,7 +52,7 @@ Task `031` is next. `016`, `029` are passed over until their dependencies are `c
 | `028` | Purge reaches storage objects, and assets join the lifecycle           | Data, authorization, audit           | `026`                                     | `complete` | `c912e4c` | —                                                                                                                                                                                    |
 | `029` | Seed lyrics, comments, and notifications                               | Data, authorization, audit           | `027`, `080`, `090`, `095`                | `pending`  | —         | —                                                                                                                                                                                    |
 | `030` | Clerk authentication and session handling                              | Authentication and workspace         | `022`, `012`                              | `complete` | `3255871` | —                                                                                                                                                                                    |
-| `031` | Workspace provisioning and settings                                    | Authentication and workspace         | `030`, `021`                              | `pending`  | —         | —                                                                                                                                                                                    |
+| `031` | Workspace provisioning and settings                                    | Authentication and workspace         | `030`, `021`                              | `complete` | —         | —                                                                                                                                                                                    |
 | `032` | Memberships and invitations                                            | Authentication and workspace         | `031`, `023`, `024`                       | `pending`  | —         | —                                                                                                                                                                                    |
 | `040` | Folder tree and library navigation                                     | Library navigation                   | `032`, `013`, `014`                       | `pending`  | —         | —                                                                                                                                                                                    |
 | `041` | Project library view                                                   | Library navigation                   | `040`                                     | `pending`  | —         | —                                                                                                                                                                                    |

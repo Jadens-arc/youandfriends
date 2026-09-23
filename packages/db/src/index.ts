@@ -70,3 +70,19 @@ export {
   type SoftDeleteOptions,
 } from './soft-delete';
 export { TransactionError, withTransaction, type Transaction } from './transaction';
+export {
+  markStorageUsageStale,
+  membersOf,
+  membershipsOf,
+  provisionWorkspace,
+  refreshStorageUsage,
+  renameWorkspace,
+  storageUsage,
+  workspaceName,
+  STORAGE_USAGE_TTL_MS,
+  type MembershipSummary,
+  type ProvisionedWorkspace,
+  type ProvisionWorkspaceInput,
+  type StorageUsage,
+  type WorkspaceMember,
+} from './queries/workspace';

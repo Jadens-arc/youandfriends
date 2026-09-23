@@ -10,6 +10,7 @@
  */
 
 export {
+  addMember,
   databaseError,
   makeAsset,
   makeAssetVersion,

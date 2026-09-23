@@ -5,6 +5,7 @@ import {
   storageObjects,
   uploadSessions,
   workspaceMemberships,
+  workspaces,
   type DirectDatabase,
 } from '@youandfriends/db';
 import {
@@ -119,6 +120,27 @@ describeWithDatabase('finishing an upload', () => {
 
     expect(result.created).toBe(true);
     expect(result.sizeBytes).toBe(5 * 1024 * 1024);
+  }, 60_000);
+
+  it('marks the workspace’s cached storage usage stale, and only that workspace’s', async () => {
+    // Without this an upload would not show in settings until the cache aged out (task `031`).
+    // The foreign workspace is the row a missing tenant filter would also invalidate.
+    const { context, session, workspace } = await scenario();
+    const elsewhere = await makeTenant(db);
+    const cachedAt = new Date('2026-09-22T10:00:00Z');
+    for (const id of [workspace.id, elsewhere.workspace.id]) {
+      await db
+        .update(workspaces)
+        .set({ storageUsageRefreshedAt: cachedAt })
+        .where(eq(workspaces.id, id));
+    }
+
+    await completeUploadSession(context, session.id, goodParts);
+
+    const refreshedAt = async (id: string) =>
+      (await db.select().from(workspaces).where(eq(workspaces.id, id)))[0]?.storageUsageRefreshedAt;
+    expect(await refreshedAt(workspace.id)).toBeNull();
+    expect(await refreshedAt(elsewhere.workspace.id)).toEqual(cachedAt);
   }, 60_000);
 
   it('never lets the client choose the destination', async () => {

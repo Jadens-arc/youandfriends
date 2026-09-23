@@ -1,7 +1,7 @@
 'use client';
 
 import { cn, focusRingOnEspresso, transition } from '@youandfriends/ui';
-import { Clock, Heart, Library, Share2, Trash2, type LucideIcon } from 'lucide-react';
+import { Clock, Heart, Library, Settings, Share2, Trash2, type LucideIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -56,34 +56,44 @@ export function NavigationRail() {
       </Link>
 
       <ul className="flex flex-col items-center gap-1">
-        {DESTINATIONS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(`${href}/`);
-          return (
-            <li key={href}>
-              <Link
-                href={href}
-                aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'relative flex size-11 flex-col items-center justify-center gap-0.5 rounded',
-                  'text-secondary-on-espresso hover:text-on-espresso',
-                  active && 'bg-on-espresso/10 text-on-espresso',
-                  transition,
-                  focusRingOnEspresso,
-                )}
-              >
-                {active ? (
-                  <span
-                    aria-hidden
-                    className="bg-on-espresso absolute left-0 h-5 w-0.5 rounded-r-full"
-                  />
-                ) : null}
-                <Icon className="size-4" aria-hidden />
-                <span className="text-[0.625rem] leading-none">{label}</span>
-              </Link>
-            </li>
-          );
-        })}
+        {DESTINATIONS.map((destination) => (
+          <RailLink key={destination.href} destination={destination} pathname={pathname} />
+        ))}
+      </ul>
+
+      {/* Settings sits apart from the content destinations, at the foot of the rail: it is about
+          the workspace, not a place its music lives (task `031`). */}
+      <ul className="mt-auto flex flex-col items-center gap-1">
+        <RailLink destination={SETTINGS} pathname={pathname} />
       </ul>
     </nav>
+  );
+}
+
+const SETTINGS: Destination = { href: '/settings', label: 'Settings', icon: Settings };
+
+function RailLink({ destination, pathname }: { destination: Destination; pathname: string }) {
+  const { href, label, icon: Icon } = destination;
+  const active = pathname === href || pathname.startsWith(`${href}/`);
+  return (
+    <li>
+      <Link
+        href={href}
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          'relative flex size-11 flex-col items-center justify-center gap-0.5 rounded',
+          'text-secondary-on-espresso hover:text-on-espresso',
+          active && 'bg-on-espresso/10 text-on-espresso',
+          transition,
+          focusRingOnEspresso,
+        )}
+      >
+        {active ? (
+          <span aria-hidden className="bg-on-espresso absolute left-0 h-5 w-0.5 rounded-r-full" />
+        ) : null}
+        <Icon className="size-4" aria-hidden />
+        <span className="text-[0.625rem] leading-none">{label}</span>
+      </Link>
+    </li>
   );
 }

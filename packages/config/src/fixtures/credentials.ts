@@ -48,3 +48,12 @@ export const databaseUrl = join('postgres://', 'user', ':', 'pw', '@host/db');
 
 /** An ordinary URL, for asserting that redaction does NOT over-reach. */
 export const plainUrl = 'https://youandfriends.org/songs/01J8XK';
+
+/**
+ * A Svix webhook signing secret, the shape Clerk issues (`whsec_` + base64 key). The key is a
+ * phrase, not random bytes, so nothing about it resembles a real secret except its framing.
+ */
+export const webhookSigningSecret = [
+  'whsec',
+  Buffer.from(['not', 'a', 'real', 'signing', 'key'].join('-')).toString('base64'),
+].join('_');
