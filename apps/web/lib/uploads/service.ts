@@ -147,6 +147,7 @@ export async function createUploadSession(context: UploadContext, input: CreateU
       uploadId,
       maxSizeBytes: request.sizeBytes,
       contentTypeHint: request.contentTypeHint,
+      filename: request.filename,
       partSizeBytes: partSize,
       expectedChecksumSha256: request.expectedChecksumSha256 ?? null,
       expiresAt,

@@ -84,6 +84,8 @@ export function SongWorkspaceView({
                   linkedVersionId={linkedVersionId}
                   now={now}
                   songTitle={workspace.song.title}
+                  songId={workspace.song.id}
+                  capabilities={workspace.capabilities}
                 />
               ),
               lyrics: (

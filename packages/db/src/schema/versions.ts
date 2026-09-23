@@ -69,6 +69,8 @@ export const assetVersions = pgTable(
       .references(() => storageObjects.id, { onDelete: 'restrict' }),
     uploadedBy: reference('uploaded_by'),
     note: text('note'),
+    /** The uploader's own filename, from the session (task `056`). Display and download only. */
+    originalFilename: text('original_filename'),
     ...audioMetadata(),
     createdAt: createdAt(),
   },
@@ -127,6 +129,10 @@ export const mixVersions = pgTable(
      * can be dropped, disabled, or raced.
      */
     uniqueIndex('mix_versions_id_song_key').on(table.id, table.songId),
+    // One mix per asset version (task `056`): what makes recording a finished upload as a mix
+    // idempotent. A replay finds the mix version the first call made instead of stacking the
+    // same bytes twice.
+    uniqueIndex('mix_versions_asset_version_key').on(table.workspaceId, table.assetVersionId),
     index('mix_versions_workspace_song_idx').on(
       table.workspaceId,
       table.songId,

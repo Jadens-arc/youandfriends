@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { hashBlob, type ChecksumRequest, type ChecksumResponse } from './checksum';
+import { hashBlob, type ChecksumRequest, type ChecksumResponse } from './hash';
 
 /**
  * The checksum worker (task `053`). Hashes off the main thread and reports progress at most a

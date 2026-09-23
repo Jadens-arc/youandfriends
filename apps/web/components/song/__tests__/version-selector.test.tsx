@@ -1,8 +1,15 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { initialVersionId, VersionPanel, VersionSelector } from '../version-selector';
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
+
+const { initialVersionId, VersionPanel, VersionSelector } = await import('../version-selector');
+
+const PANEL = {
+  songId: 'S1',
+  capabilities: { comment: false, edit: false, download: false },
+} as const;
 
 import { NOW, version, VERSIONS } from './fixtures';
 
@@ -56,7 +63,13 @@ describe('VersionSelector', () => {
 describe('VersionPanel', () => {
   it('starts on the current version and shows its details', () => {
     render(
-      <VersionPanel versions={VERSIONS} linkedVersionId={null} now={NOW} songTitle="Headlights" />,
+      <VersionPanel
+        versions={VERSIONS}
+        linkedVersionId={null}
+        now={NOW}
+        songTitle="Headlights"
+        {...PANEL}
+      />,
     );
     expect(screen.getByRole('heading', { name: 'Version 2' })).toBeInTheDocument();
     expect(screen.getByText('48 kHz')).toBeInTheDocument();
@@ -71,7 +84,13 @@ describe('VersionPanel', () => {
   it('switches details when another version is chosen, without touching the URL', async () => {
     const before = window.location.href;
     render(
-      <VersionPanel versions={VERSIONS} linkedVersionId={null} now={NOW} songTitle="Headlights" />,
+      <VersionPanel
+        versions={VERSIONS}
+        linkedVersionId={null}
+        now={NOW}
+        songTitle="Headlights"
+        {...PANEL}
+      />,
     );
     await userEvent.click(screen.getByRole('radio', { name: /Version 3/ }));
     expect(screen.getByRole('heading', { name: 'Version 3' })).toBeInTheDocument();
@@ -87,6 +106,7 @@ describe('VersionPanel', () => {
         linkedVersionId={null}
         now={NOW}
         songTitle="Headlights"
+        {...PANEL}
       />,
     );
     expect(screen.getByText('Processing failed')).toBeInTheDocument();
@@ -94,7 +114,15 @@ describe('VersionPanel', () => {
   });
 
   it('says what to do when there are no versions yet', () => {
-    render(<VersionPanel versions={[]} linkedVersionId={null} now={NOW} songTitle="Headlights" />);
+    render(
+      <VersionPanel
+        versions={[]}
+        linkedVersionId={null}
+        now={NOW}
+        songTitle="Headlights"
+        {...PANEL}
+      />,
+    );
     expect(screen.getByText(/No versions yet/)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Waveform for Headlights' })).toBeVisible();
   });

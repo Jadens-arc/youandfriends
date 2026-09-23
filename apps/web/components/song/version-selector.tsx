@@ -12,9 +12,11 @@ import {
   formatSampleRate,
   formatTruePeak,
 } from '@/lib/songs/format';
-import type { SongVersion } from '@/lib/songs/workspace';
+import type { SongCapabilities, SongVersion } from '@/lib/songs/workspace';
 
 import { ProcessingBadge } from './status-badge';
+import { UploadVersion } from './versions/upload-version';
+import { VersionActions } from './versions/version-actions';
 import { WaveformRegion } from './waveform-region';
 
 /**
@@ -214,12 +216,16 @@ export function VersionPanel({
   linkedVersionId,
   now,
   songTitle,
+  songId,
+  capabilities,
 }: {
   readonly versions: readonly SongVersion[];
   readonly linkedVersionId: string | null;
   readonly now: Date;
   /** The song's title, for the waveform region's accessible name. */
   readonly songTitle: string;
+  readonly songId: string;
+  readonly capabilities: SongCapabilities;
 }) {
   const [selectedId, setSelectedId] = React.useState(() =>
     initialVersionId(versions, linkedVersionId),
@@ -251,6 +257,7 @@ export function VersionPanel({
         <p className="text-body text-muted-foreground font-sans italic">
           No versions yet. The first mix you upload becomes the current version.
         </p>
+        {capabilities.edit ? <UploadVersion songId={songId} /> : null}
       </div>
     );
   }
@@ -283,11 +290,22 @@ export function VersionPanel({
             onSelect={setSelectedId}
             now={now}
           />
+          {capabilities.edit ? <UploadVersion songId={songId} /> : null}
           <p aria-live="polite" className="sr-only">
             {copied ? 'Link to this version copied' : ''}
           </p>
         </div>
-        {selected === null ? null : <VersionDetails version={selected} />}
+        {selected === null ? null : (
+          <div className="flex flex-col gap-4">
+            <VersionDetails version={selected} />
+            <VersionActions
+              key={selected.id}
+              songId={songId}
+              version={selected}
+              capabilities={capabilities}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

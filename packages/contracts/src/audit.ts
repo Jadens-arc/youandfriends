@@ -131,7 +131,7 @@ export const AUDIT_ACTION_INFO: Readonly<
   'upload.started': { class: 'upload', emittedBy: '051' },
   'upload.completed': { class: 'upload', emittedBy: '051' },
   'upload.aborted': { class: 'upload', emittedBy: '051' },
-  'version.created': { class: 'upload', emittedBy: '057' },
+  'version.created': { class: 'upload', emittedBy: '056' },
 
   'song.updated': { class: 'edit', emittedBy: '044' },
   'project.updated': { class: 'edit', emittedBy: '044' },
@@ -141,7 +141,7 @@ export const AUDIT_ACTION_INFO: Readonly<
   'comment.created': { class: 'edit', emittedBy: '090' },
 
   'asset.downloaded': { class: 'download', emittedBy: '058' },
-  'version.downloaded': { class: 'download', emittedBy: '058' },
+  'version.downloaded': { class: 'download', emittedBy: '056' },
 
   'song.deleted': { class: 'deletion', emittedBy: '025' },
   'project.deleted': { class: 'deletion', emittedBy: '025' },

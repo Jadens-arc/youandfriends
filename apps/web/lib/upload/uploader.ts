@@ -147,6 +147,11 @@ export class MultipartUploader {
     };
   }
 
+  /** The server session, once opened — what the caller records the finished upload against. */
+  get session(): string | null {
+    return this.sessionId;
+  }
+
   get fingerprint(): string {
     return uploadFingerprint(this.target.assetId, this.target.file);
   }

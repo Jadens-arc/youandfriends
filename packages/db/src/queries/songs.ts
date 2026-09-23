@@ -181,6 +181,7 @@ export interface MixVersionRow {
   readonly versionNumber: number;
   readonly note: string | null;
   readonly createdAt: Date;
+  readonly uploadedBy: string | null;
   readonly uploaderName: string | null;
   readonly assetVersionId: string;
   readonly fileName: string;
@@ -209,9 +210,10 @@ export async function listMixVersions(
       versionNumber: mixVersions.versionNumber,
       note: mixVersions.note,
       createdAt: mixVersions.createdAt,
+      uploadedBy: mixVersions.uploadedBy,
       uploaderName: users.displayName,
       assetVersionId: assetVersions.id,
-      fileName: assets.name,
+      fileName: sql<string>`coalesce(${assetVersions.originalFilename}, ${assets.name})`,
       contentType: storageObjects.contentType,
       sizeBytes: storageObjects.sizeBytes,
       durationMs: assetVersions.durationMs,

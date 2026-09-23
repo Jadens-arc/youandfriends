@@ -87,4 +87,4 @@ Additive client code. Reverting breaks uploading from the browser.
 
 ## Commit
 
-_(not yet)_
+`929e816`

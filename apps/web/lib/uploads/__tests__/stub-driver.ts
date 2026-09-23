@@ -22,6 +22,8 @@ export interface StubDriver extends StorageDriver {
   readonly signed: { key: string; partNumber: number }[];
   readonly aborted: string[];
   readonly completed: string[];
+  /** Every download URL signed, with the filename it was signed for. */
+  readonly signedDownloads: { key: string; filename: string | undefined }[];
   parts: UploadedPart[];
   head_: ObjectHead | null;
   /** The bytes `readPrefix` hands back. Defaults to a real WAV header. */
@@ -37,6 +39,7 @@ export function stubDriver(overrides: Partial<StubDriver> = {}): StubDriver {
   const signed: { key: string; partNumber: number }[] = [];
   const aborted: string[] = [];
   const completed: string[] = [];
+  const signedDownloads: { key: string; filename: string | undefined }[] = [];
 
   const driver: StubDriver = {
     created,
@@ -45,6 +48,7 @@ export function stubDriver(overrides: Partial<StubDriver> = {}): StubDriver {
     signed,
     aborted,
     completed,
+    signedDownloads,
     parts: [{ partNumber: 1, etag: 'etag-1', sizeBytes: 5 * 1024 * 1024 }],
     head_: {
       sizeBytes: 5 * 1024 * 1024,
@@ -77,7 +81,8 @@ export function stubDriver(overrides: Partial<StubDriver> = {}): StubDriver {
     async abortMultipart(key) {
       aborted.push(key);
     },
-    async signDownload({ key }) {
+    async signDownload({ key, filename }) {
+      signedDownloads.push({ key, filename });
       return { url: `https://bucket.example/${key}`, expiresAt: new Date() };
     },
     async signStream(key) {

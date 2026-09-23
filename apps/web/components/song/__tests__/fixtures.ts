@@ -22,6 +22,7 @@ export function version(overrides: Partial<SongVersion> = {}): SongVersion {
     truePeakDb: -1.1,
     processingState: 'complete',
     processingError: null,
+    noteEditable: true,
     ...overrides,
   };
 }
