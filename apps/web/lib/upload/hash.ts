@@ -19,7 +19,7 @@ export const HASH_SLICE_BYTES = 8 * 1024 * 1024;
 export type HashProgress = (hashedBytes: number) => void;
 
 /** `Blob.arrayBuffer`, with `FileReader` for the engines (and test DOMs) that lack it. */
-function readSlice(blob: Blob): Promise<ArrayBuffer> {
+export function readSlice(blob: Blob): Promise<ArrayBuffer> {
   if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

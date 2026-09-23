@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **111** |
 
-Task `043` is next. `016`, `029` are passed over until their dependencies are `complete`. 38 of 94 iteration-one tasks are `complete`.
+Task `043` is next. `016`, `029` are passed over until their dependencies are `complete`. 39 of 94 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -64,9 +64,9 @@ Task `043` is next. `016`, `029` are passed over until their dependencies are `c
 | `051` | Upload session API                                                     | Upload, storage, versions            | `050`, `026`, `023`                       | `complete` | `3221a64` | —       |
 | `052` | Storage contract tests against MinIO                                   | Upload, storage, versions            | `050`, `051`                              | `complete` | `dae8638` | —       |
 | `053` | Client multipart uploader                                              | Upload, storage, versions            | `051`, `058`                              | `complete` | `929e816` | —       |
-| `054` | Browser folder upload and snapshots                                    | Upload, storage, versions            | `053`, `026`                              | `pending`  | —         | —       |
+| `054` | Browser folder upload and snapshots                                    | Upload, storage, versions            | `053`, `026`                              | `complete` | —         | —       |
 | `055` | Upload interface and progress                                          | Upload, storage, versions            | `053`, `054`, `014`                       | `pending`  | —         | —       |
-| `056` | Mix version stack and current pointer                                  | Upload, storage, versions            | `051`, `026`, `042`                       | `complete` | —         | —       |
+| `056` | Mix version stack and current pointer                                  | Upload, storage, versions            | `051`, `026`, `042`                       | `complete` | `f9d642e` | —       |
 | `057` | Project Files: folders and tags                                        | Upload, storage, versions            | `054`, `056`                              | `pending`  | —         | —       |
 | `058` | Upload HTTP endpoints                                                  | Upload, storage, versions            | `051`, `031`, `030`                       | `complete` | `06862fa` | —       |
 | `059` | Typecheck the operational scripts                                      | Data, authorization, audit           | `051`                                     | `complete` | `70db6f6` | —       |

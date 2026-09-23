@@ -280,6 +280,8 @@ export interface ProjectWorkspace {
   /** The folder it is filed in, when this viewer can see that folder — "Back" goes there. */
   readonly folder: { readonly id: string; readonly name: string } | null;
   readonly songs: readonly SiblingSong[];
+  /** Whether this viewer may add to the project — uploads, folder snapshots. */
+  readonly canEdit: boolean;
 }
 
 /** A project and the songs in it this viewer can open, or a 404-shaped refusal. */
@@ -289,11 +291,12 @@ export async function readProjectWorkspace(
 ): Promise<ProjectWorkspace> {
   if (!isUlid(projectId)) refuse('project id is not a ULID');
 
-  await context.authz.assertCan(context.subject, 'view', {
+  const access = await context.authz.resolveAccess(context.subject, {
     workspaceId: context.workspaceId,
     scopeType: 'project',
     scopeId: projectId,
   });
+  if (!permits(access, 'view')) refuse(`may not view project ${projectId}`);
 
   const header = await getProjectHeader(context.db, context.workspaceId, projectId);
   if (header === null) refuse(`project ${projectId} is not live`);
@@ -318,6 +321,7 @@ export async function readProjectWorkspace(
       library.folder(header.folderPath) !== null
         ? { id: header.folderId, name: header.folderName }
         : null,
+    canEdit: permits(access, 'edit'),
     songs: songRows
       .filter((row) => library.song(row.id, projectId, header.folderPath) !== null)
       .map((row) => ({

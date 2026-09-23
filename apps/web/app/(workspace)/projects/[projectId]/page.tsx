@@ -7,6 +7,7 @@ import { MobileBackTarget } from '@/components/shell/mobile/back-target';
 import { SongList } from '@/components/song/song-list';
 import { SplitLayout } from '@/components/song/song-workspace';
 import { WorkStatusBadge } from '@/components/song/status-badge';
+import { FolderUpload } from '@/components/upload/folder-upload';
 import { libraryContext } from '@/lib/library/context';
 import { formatSongCount } from '@/lib/library/format';
 import { folderHref } from '@/lib/songs/routes';
@@ -71,7 +72,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
         showListOnMobile
         list={
           <div className="flex flex-col">
-            <div className="p-4 md:hidden">{summary}</div>
+            <div className="flex flex-col gap-3 p-4 md:hidden">
+              {summary}
+              {workspace.canEdit ? <FolderUpload projectId={project.id} /> : null}
+            </div>
             <SongList songs={workspace.songs} currentSongId={null} label={listLabel} />
           </div>
         }
@@ -83,6 +87,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
                 ? 'This project has no songs yet.'
                 : 'Choose a song to open it.'}
             </p>
+            {workspace.canEdit ? (
+              <div className="flex flex-col items-start gap-2">
+                <h2 className="text-caption text-muted-foreground font-sans font-medium tracking-wide uppercase">
+                  Project Files
+                </h2>
+                <FolderUpload projectId={project.id} />
+              </div>
+            ) : null}
           </div>
         }
       />

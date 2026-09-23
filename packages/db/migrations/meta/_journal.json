@@ -71,6 +71,13 @@
       "when": 1790200954432,
       "tag": "0009_version_stack",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790202634619,
+      "tag": "0010_folder_snapshots",
+      "breakpoints": true
     }
   ]
 }

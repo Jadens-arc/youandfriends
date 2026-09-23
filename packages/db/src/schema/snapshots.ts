@@ -39,6 +39,15 @@ export const snapshots = pgTable(
     projectId: reference('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
+    /**
+     * The Project Files asset whose version holds the ZIP (task `054`). Set at creation, before
+     * the upload, so finalize can check that the upload it is handed is *this* snapshot's.
+     *
+     * The foreign key is hand-written in `migrations/0010_folder_snapshots.sql` as the composite
+     * `(asset_id, workspace_id) → assets (id, workspace_id)`, so the asset is provably in the
+     * snapshot's own workspace — the same pattern as the file layer's other parent references.
+     */
+    assetId: reference('asset_id'),
     source: snapshotSourceEnum('source').notNull(),
     name: text('name').notNull(),
     /** The ZIP. Null while the upload is still in flight. */
@@ -92,6 +101,8 @@ export const snapshotEntries = pgTable(
     checksumSha256: varchar('checksum_sha256', { length: 64 }),
     /** True when an ignore rule excluded it from the ZIP but we still recorded that it existed. */
     ignored: boolean('ignored').notNull().default(false),
+    /** Why an ignored entry was left out, as the sentence the person was shown (task `054`). */
+    ignoreReason: text('ignore_reason'),
     createdAt: createdAt(),
   },
   (table) => [

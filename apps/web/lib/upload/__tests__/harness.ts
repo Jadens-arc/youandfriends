@@ -107,6 +107,8 @@ export function fakeServer(): FakeServer {
         await new Promise((resolve) => setTimeout(resolve, 1));
         onProgress(Math.floor(body.size / 2));
         if (holding) {
+          // An abort that already happened will never fire its event again.
+          if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
           await new Promise<void>((resolve, reject) => {
             waiting.push(resolve);
             signal.addEventListener(

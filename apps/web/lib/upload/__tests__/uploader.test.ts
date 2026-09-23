@@ -120,16 +120,20 @@ describe('MultipartUploader', () => {
   it('pauses without losing confirmed parts, and resumes from them', async () => {
     const server = fakeServer();
     const upload = uploader(fileOf(20 * MIB), server, memoryUploadStore(), { concurrency: 1 });
-    // Let part 1 through, then hold part 2 in flight and pause.
+    // Let part 1 through, then hold part 2 in flight and pause — on the event, not on a timer,
+    // so a slow machine cannot pause before part 1 has landed.
     let held = false;
-    upload.subscribe((progress) => {
-      if (progress.completedParts === 1 && !held) {
-        held = true;
-        server.hold();
-      }
+    const partOneLanded = new Promise<void>((resolve) => {
+      upload.subscribe((progress) => {
+        if (progress.completedParts === 1 && !held) {
+          held = true;
+          server.hold();
+          resolve();
+        }
+      });
     });
     const first = upload.start();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await partOneLanded;
     upload.pause();
     expect(await first).toBeNull();
     expect(upload.progress()).toMatchObject({ state: 'paused', completedParts: 1 });
@@ -183,8 +187,13 @@ describe('MultipartUploader', () => {
     const store = memoryUploadStore();
     const upload = uploader(fileOf(20 * MIB), server, store, { concurrency: 1 });
     server.hold();
+    const uploading = new Promise<void>((resolve) => {
+      upload.subscribe((progress) => {
+        if (progress.state === 'uploading') resolve();
+      });
+    });
     const running = upload.start();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await uploading;
     await upload.cancel();
 
     expect(await running).toBeNull();

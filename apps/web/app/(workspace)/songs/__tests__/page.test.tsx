@@ -94,6 +94,7 @@ describe('project page', () => {
       project: { id: 'P1', name: 'Night Drive', artist: null, status: 'idea' },
       cover: null,
       folder: null,
+      canEdit: false,
       songs: songWorkspace().siblings,
     });
     render(await ProjectPage({ params: Promise.resolve({ projectId: 'P1' }) }));
