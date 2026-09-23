@@ -9,7 +9,7 @@ import {
   type CreateSnapshotRequest,
 } from '@youandfriends/contracts';
 import { assets, projects, snapshotEntries, snapshots, uploadSessions } from '@youandfriends/db';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import type { LibraryContext } from '@/lib/library/context';
 import { recordUploadedVersion, type VersionContext } from '@/lib/versions/service';
@@ -89,17 +89,38 @@ export async function createSnapshot(
 
   const newId = context.newId ?? newUlid;
   const snapshotId = newId();
-  const assetId = newId();
+
+  // The same folder uploaded again is a new *version* of one Project Files entry, not a new entry
+  // (task `057`) — or a nightly sync buries the file list within a week.
+  const zipName = `${request.name}.zip`;
+  const [existing] = await context.db
+    .select({ id: assets.id })
+    .from(assets)
+    .where(
+      and(
+        eq(assets.workspaceId, context.workspaceId),
+        eq(assets.projectId, request.projectId),
+        eq(assets.kind, 'project_file'),
+        eq(assets.name, zipName),
+        isNull(assets.deletedAt),
+        sql`'snapshot' = any(${assets.tags})`,
+      ),
+    )
+    .orderBy(assets.createdAt, assets.id)
+    .limit(1);
+  const assetId = existing?.id ?? newId();
 
   await withAuditedTransaction(context.db, auditContextOf(context), async ({ tx, audit }) => {
-    await tx.insert(assets).values({
-      id: assetId,
-      workspaceId: context.workspaceId,
-      projectId: request.projectId,
-      kind: 'project_file',
-      name: `${request.name}.zip`,
-      tags: ['snapshot'],
-    });
+    if (existing === undefined) {
+      await tx.insert(assets).values({
+        id: assetId,
+        workspaceId: context.workspaceId,
+        projectId: request.projectId,
+        kind: 'project_file',
+        name: zipName,
+        tags: ['snapshot'],
+      });
+    }
     await tx.insert(snapshots).values({
       id: snapshotId,
       workspaceId: context.workspaceId,

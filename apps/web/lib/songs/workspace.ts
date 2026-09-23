@@ -13,7 +13,10 @@ import {
   listMixVersions,
   listProjectSongs,
   listSongFiles,
+  listProjectAssets,
   membersOf,
+  workspaceTags,
+  type ProjectAssetRow,
   type SongFileRow,
 } from '@youandfriends/db';
 
@@ -80,6 +83,7 @@ export interface SongFile {
   readonly sizeBytes: number | null;
   readonly contentType: string | null;
   readonly uploadedAt: Date | null;
+  readonly uploaderName: string | null;
   readonly processingState: ProcessingState | null;
 }
 
@@ -117,6 +121,8 @@ export interface SongWorkspace {
   readonly versions: readonly SongVersion[];
   readonly currentVersionId: string | null;
   readonly files: SongFileGroups;
+  /** The workspace's tag vocabulary, suggested when tagging a file (task `057`). */
+  readonly knownTags: readonly string[];
   /** The songs beside this one that the viewer can open, in tracklist order. */
   readonly siblings: readonly SiblingSong[];
 }
@@ -162,6 +168,7 @@ export function groupFiles(rows: readonly SongFileRow[]): SongFileGroups {
       sizeBytes: row.latestSizeBytes,
       contentType: row.latestContentType,
       uploadedAt: row.latestUploadedAt,
+      uploaderName: row.latestUploaderName,
       processingState: row.latestProcessingState,
     });
   }
@@ -187,7 +194,7 @@ export async function readSongWorkspace(
   const library = await loadLibraryAccess(context.db, context.subject, context.workspaceId, now);
   const projectVisible = library.project(header.projectId, header.folderPath) !== null;
 
-  const [versionRows, fileRows, siblingRows, favorites, collaboratorIds, members] =
+  const [versionRows, fileRows, siblingRows, favorites, collaboratorIds, members, knownTags] =
     await Promise.all([
       listMixVersions(context.db, context.workspaceId, songId),
       listSongFiles(context.db, context.workspaceId, {
@@ -203,6 +210,7 @@ export async function readSongWorkspace(
         now,
       ),
       membersOf(context.db, context.workspaceId),
+      workspaceTags(context.db, context.workspaceId),
     ]);
 
   const capabilities: SongCapabilities = {
@@ -257,6 +265,7 @@ export async function readSongWorkspace(
     })),
     currentVersionId: header.currentVersionId,
     files: groupFiles(fileRows),
+    knownTags,
     siblings: siblingRows
       .filter((row) => library.song(row.id, header.projectId, header.folderPath) !== null)
       .map((row) => ({
@@ -282,6 +291,28 @@ export interface ProjectWorkspace {
   readonly songs: readonly SiblingSong[];
   /** Whether this viewer may add to the project — uploads, folder snapshots. */
   readonly canEdit: boolean;
+  /** The project's own Project Files and artwork (task `057`). */
+  readonly files: {
+    readonly projectFiles: readonly SongFile[];
+    readonly artwork: readonly SongFile[];
+  };
+  readonly knownTags: readonly string[];
+}
+
+function projectAssetToFile(row: ProjectAssetRow): SongFile {
+  return {
+    id: row.assetId,
+    kind: row.kind,
+    name: row.name,
+    folderPath: row.folderPath,
+    tags: row.tags,
+    versionCount: row.versionCount,
+    sizeBytes: row.latestSizeBytes,
+    contentType: null,
+    uploadedAt: row.latestUploadedAt,
+    uploaderName: row.latestUploaderName,
+    processingState: row.latestProcessingState,
+  };
 }
 
 /** A project and the songs in it this viewer can open, or a 404-shaped refusal. */
@@ -302,10 +333,13 @@ export async function readProjectWorkspace(
   if (header === null) refuse(`project ${projectId} is not live`);
 
   const now = context.now ?? (() => new Date());
-  const [library, songRows] = await Promise.all([
+  const [library, songRows, assetRows, knownTags] = await Promise.all([
     loadLibraryAccess(context.db, context.subject, context.workspaceId, now),
     listProjectSongs(context.db, context.workspaceId, projectId),
+    listProjectAssets(context.db, context.workspaceId, projectId),
+    workspaceTags(context.db, context.workspaceId),
   ]);
+  const projectFiles = assetRows.map(projectAssetToFile);
 
   return {
     project: {
@@ -322,6 +356,11 @@ export async function readProjectWorkspace(
         ? { id: header.folderId, name: header.folderName }
         : null,
     canEdit: permits(access, 'edit'),
+    files: {
+      projectFiles: projectFiles.filter((file) => file.kind === 'project_file'),
+      artwork: projectFiles.filter((file) => file.kind === 'artwork'),
+    },
+    knownTags,
     songs: songRows
       .filter((row) => library.song(row.id, projectId, header.folderPath) !== null)
       .map((row) => ({

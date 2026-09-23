@@ -54,6 +54,7 @@ export function songWorkspace(overrides: Partial<SongWorkspace> = {}): SongWorks
     versions: VERSIONS,
     currentVersionId: 'V2',
     files: { masters: [], stems: [], project_files: [], artwork: [] },
+    knownTags: [],
     siblings: [
       { id: 'S1', title: 'Headlights', status: 'mixing', durationMs: 187_000, versionCount: 3 },
       { id: 'S2', title: 'Tail Lights', status: 'idea', durationMs: null, versionCount: 0 },

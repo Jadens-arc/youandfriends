@@ -264,6 +264,7 @@ export interface SongFileRow {
   readonly latestSizeBytes: number | null;
   readonly latestContentType: string | null;
   readonly latestUploadedAt: Date | null;
+  readonly latestUploaderName: string | null;
   readonly latestProcessingState: ProcessingStateValue | null;
   readonly updatedAt: Date;
 }
@@ -286,6 +287,7 @@ export async function listSongFiles(
       versionId: assetVersions.id,
       processingState: assetVersions.processingState,
       uploadedAt: assetVersions.createdAt,
+      uploaderName: users.displayName,
       sizeBytes: storageObjects.sizeBytes,
       contentType: storageObjects.contentType,
       versionCount: sql<number>`count(*) over (partition by ${assetVersions.assetId})::int`.as(
@@ -300,6 +302,7 @@ export async function listSongFiles(
         eq(storageObjects.workspaceId, assetVersions.workspaceId),
       ),
     )
+    .leftJoin(users, eq(users.id, assetVersions.uploadedBy))
     .where(eq(assetVersions.workspaceId, workspaceId))
     .orderBy(assetVersions.assetId, desc(assetVersions.versionNumber))
     .as('latest');
@@ -317,6 +320,7 @@ export async function listSongFiles(
       latestSizeBytes: latest.sizeBytes,
       latestContentType: latest.contentType,
       latestUploadedAt: latest.uploadedAt,
+      latestUploaderName: latest.uploaderName,
       latestProcessingState: latest.processingState,
       updatedAt: assets.updatedAt,
     })

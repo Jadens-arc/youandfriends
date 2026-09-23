@@ -61,6 +61,7 @@ export const AUDIT_ACTIONS = [
   'folder.moved',
   'lyrics.updated',
   'comment.created',
+  'asset.updated',
 
   'asset.downloaded',
   'version.downloaded',
@@ -143,6 +144,8 @@ export const AUDIT_ACTION_INFO: Readonly<
   'folder.moved': { class: 'edit', emittedBy: '040' },
   'lyrics.updated': { class: 'edit', emittedBy: '081' },
   'comment.created': { class: 'edit', emittedBy: '090' },
+  // Renaming, moving, and tagging a file in Project Files.
+  'asset.updated': { class: 'edit', emittedBy: '057' },
 
   'asset.downloaded': { class: 'download', emittedBy: '058' },
   'version.downloaded': { class: 'download', emittedBy: '056' },

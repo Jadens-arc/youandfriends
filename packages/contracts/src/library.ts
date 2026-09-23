@@ -37,6 +37,30 @@ export const createSongSchema = z.object({
 });
 export type CreateSongRequest = z.input<typeof createSongSchema>;
 
+/** A tag: short, trimmed, no commas (so a list of them can be typed as one line). */
+export const TAG_MAX = 40;
+export const MAX_TAGS = 20;
+export const tagSchema = z
+  .string()
+  .trim()
+  .min(1, 'A tag needs a name.')
+  .max(TAG_MAX, `Keep tags under ${TAG_MAX} characters.`)
+  .refine((value) => !value.includes(','), { message: 'Tags cannot contain commas.' });
+
+/** Case-insensitive de-duplication, keeping the first spelling — "Logic" and "logic" are one tag. */
+export function normalizeTags(tags: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of tags) {
+    const tag = raw.trim();
+    const key = tag.toLocaleLowerCase('en');
+    if (tag === '' || seen.has(key)) continue;
+    seen.add(key);
+    result.push(tag);
+  }
+  return result;
+}
+
 /**
  * The kinds a person can upload directly into a song or project (task `055`). Mixes go through
  * the version stack (`/api/songs/:id/versions`); voice notes belong to comments (task `093`).
@@ -79,7 +103,7 @@ export const createAssetSchema = z
       .refine((value) => value === undefined || toFolderPath(value) !== null, {
         message: 'That folder name uses characters that can’t be stored yet.',
       }),
-    tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+    tags: z.array(tagSchema).max(MAX_TAGS).optional(),
   })
   .refine((value) => (value.songId === undefined) !== (value.projectId === undefined), {
     message: 'A file belongs to a song or a project.',
@@ -94,3 +118,25 @@ export const createAssetSchema = z
 export type CreateAssetRequest = z.input<typeof createAssetSchema>;
 
 export const recordAssetVersionSchema = z.object({ sessionId: uploadSessionIdSchema });
+
+/**
+ * Renaming, moving, and tagging a file in Project Files (task `057`). At least one field; each
+ * validated with the same rules as upload.
+ */
+export const updateAssetSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Give the file a name.').max(255).optional(),
+    folder: z
+      .string()
+      .max(1000)
+      .optional()
+      .refine((value) => value === undefined || toFolderPath(value) !== null, {
+        message: 'That folder name uses characters that can’t be stored yet.',
+      }),
+    tags: z.array(tagSchema).max(MAX_TAGS).optional(),
+  })
+  .refine(
+    (value) => value.name !== undefined || value.folder !== undefined || value.tags !== undefined,
+    { message: 'Nothing to change.' },
+  );
+export type UpdateAssetRequest = z.input<typeof updateAssetSchema>;

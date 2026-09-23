@@ -119,6 +119,13 @@ export {
   type SongListRow,
 } from './queries/projects';
 export {
+  getLiveAsset,
+  listProjectAssets,
+  workspaceTags,
+  type AssetOwnerRow,
+  type ProjectAssetRow,
+} from './queries/assets';
+export {
   favoritedTargets,
   getProjectHeader,
   getSongHeader,

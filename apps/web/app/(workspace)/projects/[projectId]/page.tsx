@@ -6,6 +6,7 @@ import { NewSongButton } from '@/components/library/create-dialogs';
 import { CoverArt } from '@/components/library/cover-art';
 import { MobileBackTarget } from '@/components/shell/mobile/back-target';
 import { SongList } from '@/components/song/song-list';
+import { ProjectFiles } from '@/components/song/files/project-files';
 import { MaybeDropZone, SplitLayout } from '@/components/song/song-workspace';
 import { UploadFilesButton } from '@/components/upload/drop-zone';
 import { WorkStatusBadge } from '@/components/song/status-badge';
@@ -96,17 +97,24 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
                   ? 'This project has no songs yet.'
                   : 'Choose a song to open it.'}
               </p>
-              {workspace.canEdit ? (
-                <div className="flex flex-col items-start gap-2">
-                  <h2 className="text-caption text-muted-foreground font-sans font-medium tracking-wide uppercase">
-                    Project Files
-                  </h2>
+              <section aria-labelledby="project-files-heading" className="flex flex-col gap-2">
+                <h2 id="project-files-heading" className="text-heading text-foreground font-serif">
+                  Project Files
+                </h2>
+                {workspace.canEdit ? (
                   <div className="flex flex-wrap gap-2">
                     <UploadFilesButton surface={surface} />
                     <FolderUpload projectId={project.id} />
                   </div>
+                ) : null}
+                <div className="border-border bg-card rounded-md border">
+                  <ProjectFiles
+                    files={workspace.files.projectFiles}
+                    canEdit={workspace.canEdit}
+                    knownTags={workspace.knownTags}
+                  />
                 </div>
-              ) : null}
+              </section>
             </div>
           </MaybeDropZone>
         }

@@ -102,7 +102,11 @@ export function SongWorkspaceView({
                         <UploadFilesButton surface={surface} />
                       </div>
                     ) : null}
-                    <FileGroups files={workspace.files} />
+                    <FileGroups
+                      files={workspace.files}
+                      canEdit={workspace.capabilities.edit}
+                      knownTags={workspace.knownTags}
+                    />
                   </div>
                 ),
                 activity: (

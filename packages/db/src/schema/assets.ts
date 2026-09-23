@@ -57,6 +57,9 @@ export const assets = pgTable(
     index('assets_workspace_song_idx').on(table.workspaceId, table.songId),
     index('assets_workspace_project_idx').on(table.workspaceId, table.projectId),
     index('assets_workspace_kind_idx').on(table.workspaceId, table.kind),
+    // Filtering Project Files by tag (task `057`). GIN over the array alone: the workspace filter
+    // is already selective through the indexes above, and a composite GIN would need `btree_gin`.
+    index('assets_tags_idx').using('gin', table.tags),
     index('assets_workspace_live_idx')
       .on(table.workspaceId, table.songId)
       .where(sql`deleted_at is null`),

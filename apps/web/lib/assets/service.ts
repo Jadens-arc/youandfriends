@@ -1,4 +1,9 @@
-import { canInWorkspace, loadLibraryAccess } from '@youandfriends/authz';
+import {
+  canInWorkspace,
+  deleteEntity,
+  loadLibraryAccess,
+  withAuditedTransaction,
+} from '@youandfriends/authz';
 import {
   createAssetSchema,
   fieldErrorsFromZod,
@@ -6,19 +11,24 @@ import {
   isUlid,
   newUlid,
   roleAtLeast,
+  normalizeTags,
   toFolderPath,
+  updateAssetSchema,
   validationFailed,
   type CreateAssetRequest,
+  type UpdateAssetRequest,
   type UploadableKind,
 } from '@youandfriends/contracts';
 import {
   assets,
+  getLiveAsset,
   listWorkspaceProjects,
   listWorkspaceSongs,
   projects,
   songs,
   storageUsage,
   uploadSessions,
+  workspaceTags,
 } from '@youandfriends/db';
 import { and, eq, isNull } from 'drizzle-orm';
 
@@ -82,9 +92,124 @@ export async function createAsset(
     kind: request.kind,
     name: request.name,
     folderPath: request.kind === 'project_file' ? (toFolderPath(request.folder ?? '') ?? '') : '',
-    tags: request.tags ?? [],
+    tags: normalizeTags(request.tags ?? []),
   });
   return { assetId };
+}
+
+/** An asset from a request, confirmed live in this workspace and editable by this subject. */
+async function loadEditableAsset(context: LibraryContext, assetId: string) {
+  if (!isUlid(assetId)) refuse('asset id is not a ULID');
+  const asset = await getLiveAsset(context.db, context.workspaceId, assetId);
+  if (asset === null) refuse(`asset ${assetId} is not live`);
+  await context.authz.assertCan(context.subject, 'edit', {
+    workspaceId: context.workspaceId,
+    scopeType: asset.songId === null ? 'project' : 'song',
+    scopeId: (asset.songId ?? asset.projectId) as string,
+  });
+  return asset;
+}
+
+/**
+ * Rename, move within Project Files, or re-tag a file (task `057`). Audited with what changed,
+ * before and after — names and folders are the person's own words, and the redaction deny-list
+ * still applies on the way into the log.
+ */
+export async function updateAsset(
+  context: LibraryContext,
+  assetId: string,
+  input: UpdateAssetRequest,
+): Promise<void> {
+  const parsed = updateAssetSchema.safeParse(input);
+  if (!parsed.success) throw validationFailed(fieldErrorsFromZod(parsed.error));
+  const request = parsed.data;
+  const asset = await loadEditableAsset(context, assetId);
+
+  const changes: Partial<typeof assets.$inferInsert> = {};
+  const before: Record<string, unknown> = {};
+  const after: Record<string, unknown> = {};
+  if (request.name !== undefined && request.name !== asset.name) {
+    changes.name = request.name;
+    before.name = asset.name;
+    after.name = request.name;
+  }
+  if (request.folder !== undefined) {
+    // Folders are Project Files structure; a mix, a stem, or artwork is not filed in one.
+    if (asset.kind !== 'project_file') {
+      throw validationFailed([{ path: 'folder', message: 'Only project files go in folders.' }]);
+    }
+    const folderPath = toFolderPath(request.folder) ?? '';
+    if (folderPath !== asset.folderPath) {
+      changes.folderPath = folderPath;
+      before.folderPath = asset.folderPath;
+      after.folderPath = folderPath;
+    }
+  }
+  if (request.tags !== undefined) {
+    const tags = normalizeTags(request.tags);
+    if (JSON.stringify(tags) !== JSON.stringify(asset.tags)) {
+      changes.tags = tags;
+      before.tags = asset.tags;
+      after.tags = tags;
+    }
+  }
+  if (Object.keys(changes).length === 0) return;
+
+  await withAuditedTransaction(
+    context.db,
+    {
+      workspaceId: context.workspaceId,
+      actor: context.subject,
+      correlationId: context.correlationId,
+      now: context.now ?? (() => new Date()),
+      newId: context.newId ?? newUlid,
+    },
+    async ({ tx, audit }) => {
+      await tx
+        .update(assets)
+        .set(changes)
+        .where(and(eq(assets.id, asset.id), eq(assets.workspaceId, context.workspaceId)));
+      await audit({
+        action: 'asset.updated',
+        targetType: 'asset',
+        targetId: asset.id,
+        metadata: { before, after },
+      });
+    },
+  );
+}
+
+/**
+ * Move a file to the trash — soft, recoverable for the workspace's recovery window
+ * (task `025`), with one audit event per row the cascade touches.
+ */
+export async function trashAsset(
+  context: LibraryContext,
+  assetId: string,
+  recoveryWindowDays: number,
+): Promise<void> {
+  const asset = await loadEditableAsset(context, assetId);
+  await deleteEntity(
+    context.db,
+    {
+      workspaceId: context.workspaceId,
+      actor: context.subject,
+      correlationId: context.correlationId,
+      recoveryWindowDays,
+      ...(context.now === undefined ? {} : { now: context.now }),
+      newId: context.newId ?? newUlid,
+    },
+    'asset',
+    asset.id,
+  );
+}
+
+/** The workspace's tag vocabulary, for anyone who may see anything in it. */
+export async function listTags(context: LibraryContext): Promise<string[]> {
+  // The membership check `loadLibraryAccess` makes is the tenant boundary here: a person with no
+  // membership row is refused before the vocabulary is read.
+  await loadLibraryAccess(context.db, context.subject, context.workspaceId, context.now);
+  return workspaceTags(context.db, context.workspaceId);
 }
 
 /** Record a finished upload as a version of the asset named in the path — and only that one. */

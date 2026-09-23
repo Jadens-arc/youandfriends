@@ -5,6 +5,7 @@ import { formatBytes } from '@/lib/songs/format';
 import type { FileGroup, SongFile, SongFileGroups } from '@/lib/songs/workspace';
 import { FILE_GROUPS } from '@/lib/songs/workspace';
 
+import { ProjectFiles } from './files/project-files';
 import { ProcessingBadge } from './status-badge';
 
 export const FILE_GROUP_LABELS: Readonly<Record<FileGroup, string>> = {
@@ -63,39 +64,16 @@ function FileRow({ file, group }: { readonly file: SongFile; readonly group: Fil
   );
 }
 
-/**
- * Project Files, organized by the user's own subfolders (`assets.folder_path`). One area, never
- * a Logic section and an MPC section (`docs/DESIGN.md` §2).
- */
-function ProjectFilesTree({ files }: { readonly files: readonly SongFile[] }) {
-  const byFolder = new Map<string, SongFile[]>();
-  for (const file of files) {
-    const list = byFolder.get(file.folderPath) ?? [];
-    list.push(file);
-    byFolder.set(file.folderPath, list);
-  }
-  const folders = [...byFolder.keys()].sort();
-
-  return (
-    <div className="flex flex-col gap-3">
-      {folders.map((folder) => (
-        <div key={folder || 'root'}>
-          {folder === '' ? null : (
-            <h4 className="text-caption text-muted-foreground px-3 pb-1 font-mono">{folder}</h4>
-          )}
-          <ul className="divide-border-subtle divide-y">
-            {(byFolder.get(folder) ?? []).map((file) => (
-              <FileRow key={file.id} file={file} group="project_files" />
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /** The four fixed groups, always in this order, each with its own heading. */
-export function FileGroups({ files }: { readonly files: SongFileGroups }) {
+export function FileGroups({
+  files,
+  canEdit = false,
+  knownTags = [],
+}: {
+  readonly files: SongFileGroups;
+  readonly canEdit?: boolean;
+  readonly knownTags?: readonly string[];
+}) {
   return (
     <div className="flex flex-col gap-6">
       {FILE_GROUPS.map((group) => {
@@ -123,7 +101,7 @@ export function FileGroups({ files }: { readonly files: SongFileGroups }) {
                   {EMPTY[group]}
                 </p>
               ) : group === 'project_files' ? (
-                <ProjectFilesTree files={items} />
+                <ProjectFiles files={items} canEdit={canEdit} knownTags={knownTags} />
               ) : (
                 <ul className="divide-border-subtle divide-y">
                   {items.map((file) => (

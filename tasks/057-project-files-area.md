@@ -52,13 +52,15 @@ File names and tags are user input rendered to other users; rely on React escapi
 
 ## Acceptance criteria
 
-- [ ] There is exactly one Project Files area with user-created nested subfolders.
-- [ ] Tags can be created, assigned, filtered, and are workspace-scoped.
-- [ ] The listing shows type, size, time, uploader, and version count.
-- [ ] Move, rename, and delete work; delete is soft and recoverable.
-- [ ] Snapshot uploads appear as versions of one entry, not as new entries each time.
-- [ ] No Logic-specific or MPC-specific section exists anywhere in the code or UI.
-- [ ] All operations are authorized and audited.
+- [x] There is exactly one Project Files area with user-created nested subfolders. (`components/song/files/project-files.tsx` on the song's Files tab and the project page; folders are the person's own `assets.folder_path`, created by filing something in them — "Move to folder…" or the upload dialog — and shown nested.)
+- [x] Tags can be created, assigned, filtered, and are workspace-scoped. (Typed on a file, normalized case-insensitively, suggested from the workspace vocabulary (`GET /api/tags`); `lib/assets/__tests__/project-files.test.ts` shows one vocabulary per workspace with a populated foreign tenant whose tag never appears. Tags stay on `assets.tags` with a new GIN index rather than a second table that could disagree with it.)
+- [x] The listing shows type, size, time, uploader, and version count. (Type from the name, presentational only.)
+- [x] Move, rename, and delete work; delete is soft and recoverable. (`PATCH`/`DELETE /api/assets/:assetId`; the trash goes through task `025`'s lifecycle and the test restores it.)
+- [x] Snapshot uploads appear as versions of one entry, not as new entries each time. (A folder uploaded again reuses its `snapshot`-tagged ZIP entry; the test uploads twice and finds versions 1 and 2 of one asset.)
+- [x] No Logic-specific or MPC-specific section exists anywhere in the code or UI. (The task's `grep` finds nothing; filters are by tag and by generic file type.)
+- [x] All operations are authorized and audited. (`edit` on the owning song or project, 404-shaped otherwise; new `asset.updated` action with before/after, migration `0012`; trash writes `asset.deleted`.)
+
+The actions menu itself (Radix `DropdownMenu`) hangs under jsdom when clicked, so the dialog behind each action is tested directly and the menu's interaction is left to task `016`'s real-browser coverage.
 
 ## Tests and validation commands
 
@@ -80,7 +82,7 @@ Additive. Reverting loses Project Files organization; assets remain.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

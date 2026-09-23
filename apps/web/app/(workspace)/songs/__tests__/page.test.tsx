@@ -95,6 +95,8 @@ describe('project page', () => {
       cover: null,
       folder: null,
       canEdit: false,
+      files: { projectFiles: [], artwork: [] },
+      knownTags: [],
       songs: songWorkspace().siblings,
     });
     render(await ProjectPage({ params: Promise.resolve({ projectId: 'P1' }) }));
