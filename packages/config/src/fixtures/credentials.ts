@@ -31,6 +31,14 @@ export const syncToken = [
   'aB3dE5gH7jK9mN1pQ3sT5vX7z',
 ].join('_');
 
+/** A You & Friends invitation token in the task `032` format. */
+export const inviteToken = [
+  'yaf',
+  'invite',
+  '01J8XKQ2M3N4P5R6S7T8V9W0XZ',
+  'nQ8vB2xR6tK4wL9pE1sD7fH3z',
+].join('_');
+
 /** A provider secret key shape, e.g. Stripe. */
 export const providerSecretKey = ['sk', 'live', 'EXAMPLENOTAREALKEY000000'].join('_');
 

@@ -14,6 +14,7 @@ import {
   type WorkspaceId,
 } from '@youandfriends/contracts';
 import {
+  grantCountsByMember,
   membersOf,
   renameWorkspace,
   storageUsage,
@@ -139,17 +140,27 @@ export async function readWorkspaceSettings(
 }
 
 /**
+ * A member as the management surface shows them: with the scope-grant count a scope-limited
+ * collaborator (`role: null`) has no workspace-wide role to display in its place (task `032`).
+ */
+export type ManagedMember = WorkspaceMember & { readonly grantCount: number };
+
+/**
  * The member list, for the owner-only management surface.
  *
  * A separate entry point from {@link readWorkspaceSettings}, with a stricter check, because the
- * management surface is where adding and removing people will live (task `032`). Its route
- * existing is what makes "only owners reach member management" something a test can hold.
+ * management surface is where adding and removing people live (task `032`). Its route existing
+ * is what makes "only owners reach member management" something a test can hold.
  */
 export async function readMemberManagement(
   request: WorkspaceRequest,
-): Promise<readonly WorkspaceMember[]> {
+): Promise<readonly ManagedMember[]> {
   await requireInWorkspace(request, 'manage_members');
-  return membersOf(request.db, request.workspaceId);
+  const [members, counts] = await Promise.all([
+    membersOf(request.db, request.workspaceId),
+    grantCountsByMember(request.db, request.workspaceId),
+  ]);
+  return members.map((member) => ({ ...member, grantCount: counts.get(member.userId) ?? 0 }));
 }
 
 /**

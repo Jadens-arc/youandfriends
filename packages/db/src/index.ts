@@ -71,13 +71,19 @@ export {
 } from './soft-delete';
 export { TransactionError, withTransaction, type Transaction } from './transaction';
 export {
+  countOwners,
+  lockWorkspaceForMembershipWrite,
+  membershipRoleOf,
+  ensureScopeLimitedMembership,
   markStorageUsageStale,
   membersOf,
   membershipsOf,
   provisionWorkspace,
   refreshStorageUsage,
+  removeMembership,
   renameWorkspace,
   storageUsage,
+  updateMembershipRole,
   workspaceName,
   STORAGE_USAGE_TTL_MS,
   type MembershipSummary,
@@ -86,3 +92,23 @@ export {
   type StorageUsage,
   type WorkspaceMember,
 } from './queries/workspace';
+export {
+  acceptInvitation,
+  createInvitation,
+  findInvitationById,
+  listPendingInvitations,
+  revokeInvitation,
+  type CreateInvitationInput,
+  type InvitationRow,
+} from './queries/invitations';
+export {
+  deleteAllGrantsForMember,
+  deleteGrant,
+  findGrant,
+  grantCountsByMember,
+  grantsForMember,
+  upsertGrant,
+  type GrantRow,
+  type UpsertGrantInput,
+  type UpsertGrantResult,
+} from './queries/permissions';

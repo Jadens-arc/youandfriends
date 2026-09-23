@@ -1,14 +1,18 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  countOwners,
+  ensureScopeLimitedMembership,
   markStorageUsageStale,
   membersOf,
   membershipsOf,
   provisionWorkspace,
+  removeMembership,
   renameWorkspace,
   storageUsage,
+  updateMembershipRole,
   STORAGE_USAGE_TTL_MS,
 } from '../queries/workspace';
 import { workspaceMemberships, workspaces } from '../schema/index';
@@ -312,6 +316,189 @@ describeWithDatabase('the workspace itself', () => {
         .from(workspaceMemberships)
         .where(eq(workspaceMemberships.workspaceId, outcome?.workspaceId ?? ''));
       expect(membership).toMatchObject({ role: 'owner', canDownload: true, canInvite: true });
+    });
+  });
+
+  describe('scope-limited membership, role changes, and removal', () => {
+    it('gives a scope-limited collaborator a membership row with no baseline role', async () => {
+      const { workspace } = await makeTenant(db);
+      const collaborator = await makeUser(db);
+
+      const result = await withTransaction(db, (tx) =>
+        ensureScopeLimitedMembership(tx, workspace.id, collaborator.id, testId()),
+      );
+      expect(result).toEqual({ created: true });
+
+      const [row] = await db
+        .select()
+        .from(workspaceMemberships)
+        .where(eq(workspaceMemberships.userId, collaborator.id));
+      expect(row).toMatchObject({ role: null, canDownload: false, canInvite: false });
+    });
+
+    it('does nothing to an existing row — a full member stays full — and says so', async () => {
+      const { workspace } = await makeTenant(db);
+      const member = await addMember(db, workspace.id, (await makeUser(db)).id, 'editor');
+
+      const result = await withTransaction(db, (tx) =>
+        ensureScopeLimitedMembership(tx, workspace.id, member.userId, testId()),
+      );
+      expect(result).toEqual({ created: false });
+
+      const [row] = await db
+        .select()
+        .from(workspaceMemberships)
+        .where(eq(workspaceMemberships.userId, member.userId));
+      expect(row?.role).toBe('editor');
+    });
+
+    it('is idempotent across repeated acceptances', async () => {
+      const { workspace } = await makeTenant(db);
+      const collaborator = await makeUser(db);
+
+      const first = await withTransaction(db, (tx) =>
+        ensureScopeLimitedMembership(tx, workspace.id, collaborator.id, testId()),
+      );
+      const second = await withTransaction(db, (tx) =>
+        ensureScopeLimitedMembership(tx, workspace.id, collaborator.id, testId()),
+      );
+      expect(first).toEqual({ created: true });
+      expect(second).toEqual({ created: false });
+
+      const rows = await db
+        .select()
+        .from(workspaceMemberships)
+        .where(eq(workspaceMemberships.userId, collaborator.id));
+      expect(rows).toHaveLength(1);
+    });
+
+    it('counts owners, and only in the workspace asked about', async () => {
+      const { workspace } = await makeTenant(db);
+      await addMember(db, workspace.id, (await makeUser(db)).id, 'owner');
+      await addMember(db, workspace.id, (await makeUser(db)).id, 'editor');
+      // A second workspace's owner must not inflate this count — its existence in the database
+      // is the point; nothing about it is read directly.
+      await makeTenant(db);
+
+      expect(await countOwners(db, workspace.id)).toBe(2);
+    });
+
+    it('does not count a scope-limited collaborator as an owner', async () => {
+      const { workspace } = await makeTenant(db);
+      const collaborator = await makeUser(db);
+      await withTransaction(db, (tx) =>
+        ensureScopeLimitedMembership(tx, workspace.id, collaborator.id, testId()),
+      );
+
+      expect(await countOwners(db, workspace.id)).toBe(1); // the tenant's own owner
+    });
+
+    it('changes a full member’s role, returning what it replaced', async () => {
+      const { workspace } = await makeTenant(db);
+      const member = await addMember(db, workspace.id, (await makeUser(db)).id, 'viewer');
+
+      const result = await withTransaction(db, (tx) =>
+        updateMembershipRole(tx, workspace.id, member.userId, 'editor'),
+      );
+      expect(result).toEqual({ previousRole: 'viewer' });
+
+      const [row] = await db
+        .select()
+        .from(workspaceMemberships)
+        .where(eq(workspaceMemberships.userId, member.userId));
+      expect(row?.role).toBe('editor');
+    });
+
+    it('returns null for someone with no membership row in this workspace', async () => {
+      const { workspace } = await makeTenant(db);
+      const result = await withTransaction(db, (tx) =>
+        updateMembershipRole(tx, workspace.id, testId(), 'editor'),
+      );
+      expect(result).toBeNull();
+    });
+
+    it('reads the previous role from the right workspace when the same person holds two', async () => {
+      // The row that makes a dropped workspace filter on the *read* visible: the write is
+      // still correctly scoped, so only the reported `previousRole` would be wrong — an
+      // audit event claiming the wrong "before" value, which no assertion on the row itself
+      // would catch.
+      const theirs = await makeTenant(db);
+      const mine = await makeTenant(db);
+      const person = await makeUser(db);
+      // `theirs` inserted first, so a query scoped only by userId is more likely to hand back
+      // its row first — the direction a coincidental table-scan order would hide the bug in.
+      await addMember(db, theirs.workspace.id, person.id, 'owner');
+      await addMember(db, mine.workspace.id, person.id, 'viewer');
+
+      const result = await withTransaction(db, (tx) =>
+        updateMembershipRole(tx, mine.workspace.id, person.id, 'editor'),
+      );
+      expect(result).toEqual({ previousRole: 'viewer' });
+    });
+
+    it('does not change a role in a different workspace, even for the same user', async () => {
+      const mine = await makeTenant(db);
+      const theirs = await makeTenant(db);
+      const person = await makeUser(db);
+      await addMember(db, mine.workspace.id, person.id, 'viewer');
+      await addMember(db, theirs.workspace.id, person.id, 'viewer');
+
+      await withTransaction(db, (tx) =>
+        updateMembershipRole(tx, mine.workspace.id, person.id, 'editor'),
+      );
+
+      const [inTheirs] = await db
+        .select()
+        .from(workspaceMemberships)
+        .where(
+          and(
+            eq(workspaceMemberships.workspaceId, theirs.workspace.id),
+            eq(workspaceMemberships.userId, person.id),
+          ),
+        );
+      expect(inTheirs?.role).toBe('viewer');
+    });
+
+    it('removes a membership, and reports whether there was one', async () => {
+      const { workspace } = await makeTenant(db);
+      const member = await addMember(db, workspace.id, (await makeUser(db)).id, 'viewer');
+
+      const removed = await withTransaction(db, (tx) =>
+        removeMembership(tx, workspace.id, member.userId),
+      );
+      expect(removed).toBe(true);
+
+      const rows = await db
+        .select()
+        .from(workspaceMemberships)
+        .where(eq(workspaceMemberships.userId, member.userId));
+      expect(rows).toHaveLength(0);
+
+      const again = await withTransaction(db, (tx) =>
+        removeMembership(tx, workspace.id, member.userId),
+      );
+      expect(again).toBe(false);
+    });
+
+    it('does not remove a membership from a different workspace', async () => {
+      const mine = await makeTenant(db);
+      const theirs = await makeTenant(db);
+      const person = await makeUser(db);
+      await addMember(db, mine.workspace.id, person.id, 'viewer');
+      await addMember(db, theirs.workspace.id, person.id, 'viewer');
+
+      await withTransaction(db, (tx) => removeMembership(tx, mine.workspace.id, person.id));
+
+      const rows = await db
+        .select()
+        .from(workspaceMemberships)
+        .where(
+          and(
+            eq(workspaceMemberships.workspaceId, theirs.workspace.id),
+            eq(workspaceMemberships.userId, person.id),
+          ),
+        );
+      expect(rows).toHaveLength(1);
     });
   });
 });

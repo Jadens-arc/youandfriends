@@ -9,10 +9,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * how the route responds, not what the database says.
  */
 
+/**
+ * `MembersPage` and its actions have grown their own dependency graph (invitations, member
+ * management) and their own tests — `members/__tests__/page.test.tsx` and
+ * `members/__tests__/actions.test.tsx`. This file stays with the settings overview.
+ */
+
 const current = vi.hoisted(() => ({ currentWorkspace: vi.fn(), workspaceRequest: vi.fn() }));
 const useCases = vi.hoisted(() => ({
   readWorkspaceSettings: vi.fn(),
-  readMemberManagement: vi.fn(),
   renameCurrentWorkspace: vi.fn(),
 }));
 const navigation = vi.hoisted(() => ({
@@ -28,7 +33,6 @@ vi.mock('next/navigation', () => navigation);
 vi.mock('next/cache', () => cache);
 
 const { default: SettingsPage } = await import('../page');
-const { default: MembersPage } = await import('../members/page');
 const { renameWorkspaceAction } = await import('../actions');
 
 const CONTEXT = {
@@ -83,40 +87,6 @@ describe('the settings page', () => {
   it('lets anything else surface as the error it is', async () => {
     useCases.readWorkspaceSettings.mockRejectedValue(new Error('database down'));
     await expect(SettingsPage()).rejects.toThrow('database down');
-  });
-});
-
-describe('the member management page', () => {
-  it('lists members for someone the use case lets in', async () => {
-    useCases.readMemberManagement.mockResolvedValue([
-      {
-        userId: 'u1',
-        displayName: 'Avery',
-        email: 'a@example.test',
-        role: 'owner',
-        canDownload: true,
-        canInvite: true,
-        joinedAt: new Date(),
-      },
-    ]);
-    render(await MembersPage());
-    expect(screen.getByRole('heading', { level: 1, name: 'Members' })).toBeInTheDocument();
-    expect(screen.getByText('Avery')).toBeInTheDocument();
-  });
-
-  it('is not found for someone refused', async () => {
-    useCases.readMemberManagement.mockRejectedValue(forbidden());
-    await expect(MembersPage()).rejects.toThrow('NEXT_NOT_FOUND');
-  });
-
-  it('is not found without a workspace', async () => {
-    current.currentWorkspace.mockResolvedValue(null);
-    await expect(MembersPage()).rejects.toThrow('NEXT_NOT_FOUND');
-  });
-
-  it('lets anything else surface', async () => {
-    useCases.readMemberManagement.mockRejectedValue(new Error('boom'));
-    await expect(MembersPage()).rejects.toThrow('boom');
   });
 });
 

@@ -4,13 +4,25 @@ import type { VisibleMember } from '@/lib/workspace/settings';
 
 /** A label and a badge tone per role. Display only — nothing here decides access. */
 const ROLE_DISPLAY: Readonly<
-  Record<VisibleMember['role'], { label: string; tone: 'current' | 'neutral' }>
+  Record<Exclude<VisibleMember['role'], null>, { label: string; tone: 'current' | 'neutral' }>
 > = {
   owner: { label: 'Owner', tone: 'current' },
   editor: { label: 'Editor', tone: 'neutral' },
   commenter: { label: 'Commenter', tone: 'neutral' },
   viewer: { label: 'Viewer', tone: 'neutral' },
 };
+
+/**
+ * A `null` role is a scope-limited collaborator (task `032`): someone invited to a specific
+ * folder, project, or song rather than the whole workspace, so there is no workspace-wide role
+ * to name. `roleDisplayOf` is where that distinction becomes a word instead of a lookup crash.
+ */
+function roleDisplayOf(role: VisibleMember['role']): {
+  label: string;
+  tone: 'current' | 'neutral';
+} {
+  return role === null ? { label: 'Collaborator', tone: 'neutral' } : ROLE_DISPLAY[role];
+}
 
 /**
  * Who is in the workspace, and as what.
@@ -36,7 +48,9 @@ export function MemberList({ members }: { members: readonly VisibleMember[] }) {
               </p>
             )}
           </div>
-          <Badge variant={ROLE_DISPLAY[member.role].tone}>{ROLE_DISPLAY[member.role].label}</Badge>
+          <Badge variant={roleDisplayOf(member.role).tone}>
+            {roleDisplayOf(member.role).label}
+          </Badge>
         </li>
       ))}
     </ul>

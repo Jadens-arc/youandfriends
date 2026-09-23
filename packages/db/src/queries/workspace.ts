@@ -1,4 +1,4 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 import type { Database, DirectDatabase } from '../client';
 import { storageObjects, users, workspaceMemberships, workspaces } from '../schema/index';
@@ -242,6 +242,179 @@ export async function membersOf(db: Database, workspaceId: string): Promise<Work
     .innerJoin(users, eq(users.id, workspaceMemberships.userId))
     .where(eq(workspaceMemberships.workspaceId, workspaceId))
     .orderBy(asc(workspaceMemberships.createdAt), asc(workspaceMemberships.id));
+}
+
+/**
+ * Give a person a membership row in a workspace with no baseline role, if they do not already
+ * have one there.
+ *
+ * This is what an invitation acceptance calls before writing the grant it was for (task `032`,
+ * ADR 0010). `role: null` is the point: `resolveWorkspace` (task `031`) needs the row to route
+ * them to the right workspace, but a scope-limited collaborator's access must come entirely
+ * from their `permission_grants` row — a non-null role here would leak that role to every
+ * target in the workspace, not only the one they were invited to.
+ *
+ * `ON CONFLICT DO NOTHING`: idempotent across repeat acceptances (a second invitation, a
+ * different scope), and it never touches an existing row — someone already a full member who
+ * is also invited to a specific song keeps their real role.
+ */
+export async function ensureScopeLimitedMembership(
+  tx: Transaction,
+  workspaceId: string,
+  userId: string,
+  membershipId: string,
+): Promise<{ created: boolean }> {
+  const [row] = await tx
+    .insert(workspaceMemberships)
+    .values({
+      id: membershipId,
+      workspaceId,
+      userId,
+      role: null,
+      canDownload: false,
+      canInvite: false,
+    })
+    .onConflictDoNothing({
+      target: [workspaceMemberships.workspaceId, workspaceMemberships.userId],
+    })
+    .returning({ id: workspaceMemberships.id });
+  return { created: row !== undefined };
+}
+
+/**
+ * The workspace-wide role a person currently holds, or `null` for a scope-limited collaborator
+ * or someone with no membership row at all — the two are the same fact for every caller of
+ * this function, which only ever asks "is this person an owner right now".
+ *
+ * Takes `Database | Transaction` for the same reason as {@link countOwners}: the callers that
+ * matter run this as part of deciding whether a write they are about to make would leave the
+ * workspace ownerless, and that decision has to see the same transaction the write is in.
+ */
+export async function membershipRoleOf(
+  db: Database | Transaction,
+  workspaceId: string,
+  userId: string,
+): Promise<(typeof workspaceMemberships.$inferSelect)['role']> {
+  const [row] = await db
+    .select({ role: workspaceMemberships.role })
+    .from(workspaceMemberships)
+    .where(
+      and(
+        eq(workspaceMemberships.workspaceId, workspaceId),
+        eq(workspaceMemberships.userId, userId),
+      ),
+    );
+  return row?.role ?? null;
+}
+
+/**
+ * Lock the workspace row for the rest of this transaction, serializing every membership write
+ * against it.
+ *
+ * `countOwners` below is a plain, unlocked read. That is safe against a second write to the
+ * *same* membership row — `updateMembershipRole` and the caller's own `FOR UPDATE` reads
+ * already serialize those — but not against two owners acting on *different* rows at once: two
+ * concurrent transactions demoting or removing two different owners each take their own
+ * snapshot under Postgres's default READ COMMITTED isolation, each see the *other* owner still
+ * as `owner` because neither write has committed yet, and each concludes "at least one other
+ * owner remains" — so both proceed, and both commit, leaving zero (found in security review,
+ * task `032`; write skew is exactly this shape). Locking the one `workspaces` row first closes
+ * it: a second transaction's lock acquisition blocks until the first commits, and every
+ * statement after that block sees the committed result, `countOwners` included. One lock on one
+ * row, not a lock per owner — the write this protects only ever affects the workspace as a
+ * whole, so any two membership writes for the same workspace serialize against each other,
+ * which is more than the property needs but cheaper to reason about than locking exactly the
+ * owner rows.
+ */
+export async function lockWorkspaceForMembershipWrite(
+  tx: Transaction,
+  workspaceId: string,
+): Promise<void> {
+  await tx
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .for('update');
+}
+
+/**
+ * How many members hold the `owner` role in a workspace.
+ *
+ * Takes `Database | Transaction` because the caller that matters most runs it *inside* the same
+ * transaction as a role change or a removal — checking "would this leave zero owners" against
+ * anything less than the write's own transaction would be a check a concurrent second change
+ * could race past. **Also requires {@link lockWorkspaceForMembershipWrite} to have run first in
+ * that same transaction** — without it, this function's own unlocked read is exactly the race
+ * its doc comment describes.
+ */
+export async function countOwners(
+  db: Database | Transaction,
+  workspaceId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(workspaceMemberships)
+    .where(
+      sql`${workspaceMemberships.workspaceId} = ${workspaceId} and ${workspaceMemberships.role} = 'owner'`,
+    );
+  return row?.count ?? 0;
+}
+
+/**
+ * Change a member's workspace-wide role. `null` if they hold no membership row in this
+ * workspace. Returns the role they held before.
+ *
+ * Not for a scope-limited collaborator's grant-derived access — that goes through
+ * `upsertGrant` (`packages/db/src/queries/permissions.ts`) instead. Whether the caller is
+ * changing the right kind of access is decided one level up, where the current role is read
+ * first.
+ */
+export async function updateMembershipRole(
+  tx: Transaction,
+  workspaceId: string,
+  userId: string,
+  role: (typeof workspaceMemberships.$inferSelect)['role'],
+): Promise<{ previousRole: (typeof workspaceMemberships.$inferSelect)['role'] } | null> {
+  const [current] = await tx
+    .select({ role: workspaceMemberships.role })
+    .from(workspaceMemberships)
+    .where(
+      and(
+        eq(workspaceMemberships.workspaceId, workspaceId),
+        eq(workspaceMemberships.userId, userId),
+      ),
+    )
+    .for('update');
+  if (current === undefined) return null;
+
+  await tx
+    .update(workspaceMemberships)
+    .set({ role })
+    .where(
+      and(
+        eq(workspaceMemberships.workspaceId, workspaceId),
+        eq(workspaceMemberships.userId, userId),
+      ),
+    );
+  return { previousRole: current.role };
+}
+
+/** Remove someone from a workspace. Returns `false` if they held no membership there. */
+export async function removeMembership(
+  tx: Transaction,
+  workspaceId: string,
+  userId: string,
+): Promise<boolean> {
+  const rows = await tx
+    .delete(workspaceMemberships)
+    .where(
+      and(
+        eq(workspaceMemberships.workspaceId, workspaceId),
+        eq(workspaceMemberships.userId, userId),
+      ),
+    )
+    .returning({ id: workspaceMemberships.id });
+  return rows.length > 0;
 }
 
 /** A workspace's name, or `null` when there is no such workspace. */

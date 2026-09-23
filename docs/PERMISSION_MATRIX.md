@@ -36,23 +36,26 @@ every shared song into an invitation (`docs/THREAT_MODEL.md` T5).
 
 ## 2. Worked cases
 
-| Case                                                     | Subject    | Granted                                             | Denied at | Workspace role | → Role    | → Download |
-| -------------------------------------------------------- | ---------- | --------------------------------------------------- | --------- | -------------- | --------- | ---------- |
-| folder access reaches the song inside it                 | Member     | commenter on the folder                             | —         | —              | commenter | no         |
-| a distant ancestor still grants                          | Member     | viewer on a folder two levels up                    | —         | —              | viewer    | no         |
-| the nearer grant wins, even granting less                | Member     | editor on the folder, viewer on the song            | —         | —              | viewer    | no         |
-| a deny on the song beats an allow on the folder          | Member     | editor on the folder, denied on the song            | Song      | —              | **none**  | no         |
-| a grant on the song beats a deny on the folder           | Member     | denied on the folder, editor on the song            | Folder    | —              | editor    | no         |
-| a deny overrides workspace membership                    | Member     | workspace owner, denied on the song                 | Song      | owner          | **none**  | no         |
-| membership is the baseline when nothing else speaks      | Member     | workspace editor, no grants                         | —         | editor         | editor    | yes        |
-| a viewer may be permitted to download                    | Member     | viewer on the song, download allowed                | —         | —              | viewer    | yes        |
-| an editor may be refused download                        | Member     | editor on the song, download refused                | —         | —              | editor    | no         |
-| a nearer role grant leaves an inherited capability alone | Member     | viewer + download on the folder, editor on the song | —         | —              | editor    | yes        |
-| a share-link bearer gets no membership baseline          | Share link | workspace owner elsewhere, arriving by share link   | —         | owner          | **none**  | no         |
-| a sync token gets no membership baseline either          | Sync token | a Mac agent token, no explicit grant                | —         | editor         | **none**  | no         |
-| a sync token honours an explicit grant                   | Sync token | a Mac agent token, editor on the folder it syncs    | —         | —              | editor    | no         |
-| nobody gets nothing                                      | Anonymous  | not signed in                                       | —         | —              | **none**  | no         |
-| a stranger gets nothing                                  | Member     | signed in, no membership, no grant                  | —         | —              | **none**  | no         |
+| Case                                                                | Subject    | Granted                                             | Denied at | Workspace role | → Role    | → Download |
+| ------------------------------------------------------------------- | ---------- | --------------------------------------------------- | --------- | -------------- | --------- | ---------- |
+| folder access reaches the song inside it                            | Member     | commenter on the folder                             | —         | —              | commenter | no         |
+| a distant ancestor still grants                                     | Member     | viewer on a folder two levels up                    | —         | —              | viewer    | no         |
+| the nearer grant wins, even granting less                           | Member     | editor on the folder, viewer on the song            | —         | —              | viewer    | no         |
+| a deny on the song beats an allow on the folder                     | Member     | editor on the folder, denied on the song            | Song      | —              | **none**  | no         |
+| a grant on the song beats a deny on the folder                      | Member     | denied on the folder, editor on the song            | Folder    | —              | editor    | no         |
+| a deny overrides workspace membership                               | Member     | workspace owner, denied on the song                 | Song      | owner          | **none**  | no         |
+| membership is the baseline when nothing else speaks                 | Member     | workspace editor, no grants                         | —         | editor         | editor    | yes        |
+| a viewer may be permitted to download                               | Member     | viewer on the song, download allowed                | —         | —              | viewer    | yes        |
+| an editor may be refused download                                   | Member     | editor on the song, download refused                | —         | —              | editor    | no         |
+| a nearer role grant leaves an inherited capability alone            | Member     | viewer + download on the folder, editor on the song | —         | —              | editor    | yes        |
+| a share-link bearer gets no membership baseline                     | Share link | workspace owner elsewhere, arriving by share link   | —         | owner          | **none**  | no         |
+| a sync token gets no membership baseline either                     | Sync token | a Mac agent token, no explicit grant                | —         | editor         | **none**  | no         |
+| a sync token honours an explicit grant                              | Sync token | a Mac agent token, editor on the folder it syncs    | —         | —              | editor    | no         |
+| nobody gets nothing                                                 | Anonymous  | not signed in                                       | —         | —              | **none**  | no         |
+| a stranger gets nothing                                             | Member     | signed in, no membership, no grant                  | —         | —              | **none**  | no         |
+| an invited collaborator’s grant is a folder, and nothing beyond it  | Member     | invited to one folder, no workspace membership      | —         | —              | editor    | no         |
+| an invited collaborator’s grant is a project, and nothing beyond it | Member     | invited to one project, no workspace membership     | —         | —              | commenter | no         |
+| an invited collaborator’s grant is one song, and nothing beyond it  | Member     | invited to one song, no workspace membership        | —         | —              | viewer    | no         |
 
 ### Why each case exists
 
@@ -71,6 +74,9 @@ every shared song into an invitation (`docs/THREAT_MODEL.md` T5).
 - **a sync token honours an explicit grant** — Explicit grants are how a non-member subject gets anything at all.
 - **nobody gets nothing** — Deny by default. An unwired resource class is unreachable, not public — ADR 0006.
 - **a stranger gets nothing** — Being signed in is not access.
+- **an invited collaborator’s grant is a folder, and nothing beyond it** — A scope-limited invitation (task 032) leaves the membership role null, so it contributes no workspace-wide baseline — only the grant it created speaks.
+- **an invited collaborator’s grant is a project, and nothing beyond it** — The same rule at the project level — task 032 accepts invitations at any scope.
+- **an invited collaborator’s grant is one song, and nothing beyond it** — The narrowest case: someone invited to a single song sees exactly that song, never the workspace it lives in — the escalation this whole design exists to prevent (docs/THREAT_MODEL.md T2).
 
 ## 3. The full sweep
 
@@ -116,6 +122,7 @@ which requires workspace ownership, so an unguarded read of it is not one call a
 | `snapshot_entries`      | covered    | The file listing inside a snapshot. Reveals structure and naming even without bytes.                                             |
 | `upload_sessions`       | covered    | An in-flight session is a writable handle to storage.                                                                            |
 | `upload_parts`          | covered    | Each row names a part already in the bucket, with its ETag. Reading another workspace’s parts is half of hijacking their upload. |
+| `invitations`           | covered    | An email address plus a role plus a scope — exactly who is being brought in, and to what.                                        |
 | `lyrics_documents`      | task `081` | Unpublished words, which are as sensitive as unreleased audio.                                                                   |
 | `lyrics_revisions`      | task `083` | Every earlier draft of the same.                                                                                                 |
 | `comment_threads`       | task `090` | Private discussion between collaborators.                                                                                        |

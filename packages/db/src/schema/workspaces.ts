@@ -57,6 +57,17 @@ export const workspaces = pgTable(
  * `docs/DESIGN.md` §3 makes them independent: a viewer may be permitted to download and an
  * editor may not. This row is the workspace-level baseline; anything more specific is a
  * `permission_grant` (task `022`), and resolution happens only in `packages/authz`.
+ *
+ * **`role` is nullable, and a null role carries no baseline** (task `032`). `resolve()`
+ * (`packages/authz`) applies a member's `role` to *every* target in the workspace when nothing
+ * more specific speaks — which is exactly right for a full member, and exactly wrong for
+ * someone invited to one song: DESIGN.md's "exactly the folder, project, or song intended — and
+ * no further" cannot hold if merely existing as a member leaks viewer access to the rest of the
+ * library. A scope-limited collaborator still needs a row here — it is what
+ * `resolveWorkspace` (task `031`) uses to route them to the right workspace — but its `role` is
+ * `null`, so `loadMembership` in `packages/authz/src/authorizer.ts` treats it as no baseline at
+ * all, and their access comes entirely from their `permission_grants` row(s). `canDownload` and
+ * `canInvite` on such a row are meaningless for the same reason and are written `false`.
  */
 export const workspaceMemberships = pgTable(
   'workspace_memberships',
@@ -66,7 +77,7 @@ export const workspaceMemberships = pgTable(
     userId: reference('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    role: roleEnum('role').notNull(),
+    role: roleEnum('role'),
     canDownload: boolean('can_download').notNull().default(true),
     canInvite: boolean('can_invite').notNull().default(false),
     createdAt: createdAt(),

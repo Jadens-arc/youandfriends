@@ -394,6 +394,37 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     why: 'Each row names a part already in the bucket, with its ETag. Reading another workspace\u2019s parts is half of hijacking their upload.',
   },
   {
+    status: 'live',
+    name: 'invitations',
+    // Deliberately not readable through a scoped handle: `scopedQuery` only bounds *which
+    // tenant*, and any member can open one — including a scope-limited collaborator, whose
+    // membership row exists for exactly that (task `032`). Who is being invited to what, at
+    // which address, is workspace membership and access structure itself (asset 3), and its
+    // own read paths (`listPendingInvitations`, gated by `assertCan(subject, 'invite', …)`;
+    // `findInvitationById`, gated by the token hash and email binding at accept) are narrower
+    // than a blanket scoped read would be. Its cross-workspace isolation is proved directly in
+    // `packages/db/src/__tests__/invitations.test.ts`, the same pattern `audit_events` uses.
+    table: null,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { invitations } = await import('@youandfriends/db');
+      const [owner] = await db.select().from(workspaceMemberships).limit(1);
+      const { song } = await seedTree(db, workspaceId);
+      await db.insert(invitations).values({
+        id: testId(),
+        workspaceId,
+        email: `${testId().toLowerCase()}@example.test`,
+        scopeType: 'song',
+        scopeId: song.id,
+        role: 'viewer',
+        tokenHash: 'seed-placeholder-hash',
+        invitedByUserId: owner?.userId ?? testId(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+    },
+    why: 'An email address plus a role plus a scope — exactly who is being brought in, and to what.',
+  },
+  {
     status: 'pending',
     name: 'share_links',
     tableName: 'share_links',

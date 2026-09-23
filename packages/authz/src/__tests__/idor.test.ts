@@ -1,11 +1,16 @@
 import { type WorkspaceId } from '@youandfriends/contracts';
-import { type DirectDatabase } from '@youandfriends/db';
+import {
+  ensureScopeLimitedMembership,
+  withTransaction,
+  type DirectDatabase,
+} from '@youandfriends/db';
 import {
   createTestDatabase,
   makeFolder,
   makeProject,
   makeSong,
   makeTenant,
+  makeUser,
   testId,
   unavailableReason,
   type TestDatabase,
@@ -190,6 +195,27 @@ describeWithDatabase('cross-workspace access', () => {
       const where = sql`${resource.table}.workspace_id = ${theirs.workspace.id}`;
       expect(await scoped.count(resource.table, where)).toBe(0);
       expect(await scoped.one(resource.table, where)).toBeNull();
+    });
+
+    it('a scope-limited collaborator cannot open one at all, even holding a real membership row', async () => {
+      // The row that makes this bite: `ensureScopeLimitedMembership` (task `032`) really does
+      // insert a `workspace_memberships` row — before `scoped-query.ts` filtered on
+      // `role IS NOT NULL`, "a membership row exists" and "may hold a workspace-wide handle"
+      // were the same fact, and this task's own nullable-role column made them different
+      // without this file ever being told (found in security review). A workspace-wide handle
+      // (every table filtered by `workspace_id` alone) is exactly the access a scope-limited
+      // invitation exists to withhold.
+      const { workspace } = await makeTenant(db);
+      const collaborator = await makeUser(db);
+      await withTransaction(db, (tx) =>
+        ensureScopeLimitedMembership(tx, workspace.id, collaborator.id, testId()),
+      );
+
+      expectNotFoundShape(
+        await caught(
+          scopedQuery(db, memberSubject(collaborator.id as never), workspace.id as WorkspaceId),
+        ),
+      );
     });
   });
 

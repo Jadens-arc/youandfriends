@@ -77,6 +77,9 @@ export const AUDIT_ACTIONS = [
   'snapshot.restored',
   'lyrics.revision_restored',
 
+  'invitation.created',
+  'invitation.accepted',
+  'invitation.revoked',
   'member.added',
   'member.removed',
   'member.role_changed',
@@ -113,9 +116,17 @@ export const AUDIT_ACTION_INFO: Readonly<
   'share.link_revoked': { class: 'sharing', emittedBy: '200' },
   'share.link_accessed': { class: 'sharing', emittedBy: '200' },
 
-  'permission.granted': { class: 'permission', emittedBy: '024' },
-  'permission.revoked': { class: 'permission', emittedBy: '024' },
-  'permission.changed': { class: 'permission', emittedBy: '024' },
+  // `024` built the log and `auditDecisions` (access.granted/denied only); nothing wrote a
+  // `permission_grants` row until `032`'s invitation acceptance, role change, and removal did.
+  'permission.granted': { class: 'permission', emittedBy: '032' },
+  'permission.revoked': { class: 'permission', emittedBy: '032' },
+  'permission.changed': { class: 'permission', emittedBy: '032' },
+
+  // An invitation is pending access, not yet a grant — its own class and its own target, so
+  // "who was invited and by whom" survives independently of whether it was ever accepted.
+  'invitation.created': { class: 'permission', emittedBy: '032' },
+  'invitation.accepted': { class: 'permission', emittedBy: '032' },
+  'invitation.revoked': { class: 'permission', emittedBy: '032' },
 
   'upload.started': { class: 'upload', emittedBy: '051' },
   'upload.completed': { class: 'upload', emittedBy: '051' },
@@ -168,6 +179,7 @@ export const AUDIT_TARGET_TYPES = [
   'comment',
   'member',
   'permission_grant',
+  'invitation',
   'share_link',
   'sync_token',
   'session',

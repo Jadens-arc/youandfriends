@@ -1,4 +1,5 @@
 import { redact } from '@youandfriends/config';
+import { AppError } from '@youandfriends/contracts';
 
 import type { DirectDatabase } from './client';
 
@@ -45,6 +46,14 @@ export async function withTransaction<T>(
   try {
     return await db.transaction((tx) => run(tx));
   } catch (cause) {
+    // An `AppError` thrown by the callback already decided its own public shape — `notFound`,
+    // `conflict`, and the rest carry a code, an HTTP status, and a message safe to show a
+    // client. Wrapping it here would erase all of that behind `TransactionError`'s generic
+    // message, and every caller checking `error.publicCode` or `error.code` would see neither:
+    // a deliberate 409 would reach a route handler looking exactly like an unexplained 500.
+    // What `TransactionError` exists to redact is a *driver* error — a raw `pg` message that
+    // can contain a connection string — and an `AppError` is never that.
+    if (cause instanceof AppError) throw cause;
     throw new TransactionError(cause);
   }
 }
