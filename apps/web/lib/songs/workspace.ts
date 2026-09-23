@@ -302,6 +302,7 @@ export interface ProjectWorkspace {
     readonly artwork: readonly SongFile[];
   };
   readonly knownTags: readonly string[];
+  readonly isFavorite: boolean;
 }
 
 function projectAssetToFile(row: ProjectAssetRow): SongFile {
@@ -338,11 +339,12 @@ export async function readProjectWorkspace(
   if (header === null) refuse(`project ${projectId} is not live`);
 
   const now = context.now ?? (() => new Date());
-  const [library, songRows, assetRows, knownTags] = await Promise.all([
+  const [library, songRows, assetRows, knownTags, favorites] = await Promise.all([
     loadLibraryAccess(context.db, context.subject, context.workspaceId, now),
     listProjectSongs(context.db, context.workspaceId, projectId),
     listProjectAssets(context.db, context.workspaceId, projectId),
     workspaceTags(context.db, context.workspaceId),
+    favoritedTargets(context.db, context.workspaceId, context.userId, [projectId]),
   ]);
   const projectFiles = assetRows.map(projectAssetToFile);
 
@@ -366,6 +368,7 @@ export async function readProjectWorkspace(
       artwork: projectFiles.filter((file) => file.kind === 'artwork'),
     },
     knownTags,
+    isFavorite: favorites.has(projectId),
     songs: songRows
       .filter((row) => library.song(row.id, projectId, header.folderPath) !== null)
       .map((row) => ({

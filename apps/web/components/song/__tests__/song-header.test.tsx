@@ -25,10 +25,11 @@ describe('SongHeader', () => {
     expect(screen.getByText('3 minutes 7 seconds')).toBeInTheDocument();
     expect(screen.getByText('Mixing')).toBeInTheDocument();
     expect(screen.getByText('Shared with Avery Stone and Sam Reed')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Favorite' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Remove Headlights on the Long Road Home Through the Valley from favorites',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
   });

@@ -1,13 +1,33 @@
+import { parseServerEnv } from '@youandfriends/config';
+import { AppError } from '@youandfriends/contracts';
+import { notFound } from 'next/navigation';
+
+import { SharedWithMe } from '@/components/library/modules/shared-with-me';
+import { libraryContext } from '@/lib/library/context';
+import { readProjectLibrary } from '@/lib/library/projects';
+import { currentWorkspace } from '@/lib/workspace/current';
+
 export const metadata = { title: 'Shared · You & Friends' };
 
-/** Placeholder destination, so the shell's navigation can be exercised end to end. */
-export default function SharedPage() {
+/**
+ * Shared (tasks `041`/`044`): what someone explicitly opened up to this person — a grant, not
+ * just membership — through the same filtered reads as the library's module.
+ */
+export default async function SharedPage() {
+  const context = await currentWorkspace();
+  if (context === null) notFound();
+  const library = await readProjectLibrary(libraryContext(context), {
+    folderId: null,
+    quotaBytes: parseServerEnv().YOUANDFRIENDS_WORKSPACE_QUOTA_BYTES,
+  }).catch((error: unknown) => {
+    if (error instanceof AppError && error.publicCode === 'not_found') notFound();
+    throw error;
+  });
+
   return (
-    <div className="p-6">
+    <div className="flex flex-col gap-6 p-4 md:p-6">
       <h1 className="text-title text-foreground font-serif">Shared</h1>
-      <p className="text-body text-muted-foreground mt-2 font-sans">
-        Work shared with you arrives in task 041.
-      </p>
+      <SharedWithMe shared={library.modules.sharedWithMe} />
     </div>
   );
 }

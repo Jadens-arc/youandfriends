@@ -13,6 +13,7 @@ import { songWorkspace } from '@/components/song/__tests__/fixtures';
 const current = vi.hoisted(() => ({ currentWorkspace: vi.fn() }));
 const libraryCtx = vi.hoisted(() => ({ libraryContext: vi.fn(() => ({})) }));
 const useCases = vi.hoisted(() => ({ readSongWorkspace: vi.fn(), readProjectWorkspace: vi.fn() }));
+const personal = vi.hoisted(() => ({ readActivity: vi.fn(async () => []) }));
 const navigation = vi.hoisted(() => ({
   notFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
@@ -25,6 +26,7 @@ const navigation = vi.hoisted(() => ({
 vi.mock('@/lib/workspace/current', () => current);
 vi.mock('@/lib/library/context', () => libraryCtx);
 vi.mock('@/lib/songs/workspace', () => useCases);
+vi.mock('@/lib/library/personal', () => personal);
 vi.mock('next/navigation', () => navigation);
 
 const { default: SongPage } = await import('../[songId]/page');
@@ -97,6 +99,7 @@ describe('project page', () => {
       canEdit: false,
       files: { projectFiles: [], artwork: [] },
       knownTags: [],
+      isFavorite: false,
       songs: songWorkspace().siblings,
     });
     render(await ProjectPage({ params: Promise.resolve({ projectId: 'P1' }) }));

@@ -5,6 +5,7 @@ import {
   folderIdSchema,
   projectIdSchema,
   songIdSchema,
+  ulidSchema,
   uploadSessionIdSchema,
 } from './ids';
 import { workStatusSchema } from './work-status';
@@ -218,3 +219,19 @@ export const METADATA_FIELD_SCHEMAS = {
   notes: optionalText(SONG_NOTES_MAX, 'notes'),
 } as const;
 export type MetadataField = keyof typeof METADATA_FIELD_SCHEMAS;
+
+/** Favouriting and un-favouriting (task `044`). */
+export const favoriteRequestSchema = z.object({
+  targetType: z.enum(['folder', 'project', 'song']),
+  targetId: ulidSchema,
+  favorite: z.boolean(),
+});
+export type FavoriteRequest = z.infer<typeof favoriteRequestSchema>;
+
+/** Recording that someone opened or played something (task `044`). */
+export const recentRequestSchema = z.object({
+  kind: z.enum(['viewed', 'played']),
+  targetType: z.enum(['project', 'song']),
+  targetId: ulidSchema,
+});
+export type RecentRequest = z.infer<typeof recentRequestSchema>;

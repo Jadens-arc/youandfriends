@@ -1,7 +1,9 @@
 import { cn } from '@youandfriends/ui';
 
+import type { ActivityItem } from '@/lib/library/projects';
 import type { SongWorkspace as SongWorkspaceData } from '@/lib/songs/workspace';
 
+import { ActivityFeed } from '@/components/library/activity-feed';
 import { InlineField } from '@/components/metadata/inline-field';
 import { DropZone, UploadFilesButton } from '@/components/upload/drop-zone';
 
@@ -60,10 +62,13 @@ export function SplitLayout({
 
 export function SongWorkspaceView({
   workspace,
+  activity = [],
   linkedVersionId,
   now,
 }: {
   readonly workspace: SongWorkspaceData;
+  /** This song's activity, already filtered for the viewer (task `044`). */
+  readonly activity?: readonly ActivityItem[];
   readonly linkedVersionId: string | null;
   readonly now: Date;
 }) {
@@ -133,9 +138,20 @@ export function SongWorkspaceView({
                   </div>
                 ),
                 activity: (
-                  <p className="text-body text-muted-foreground font-sans italic">
-                    No comments yet.
-                  </p>
+                  <section aria-labelledby="song-activity-heading" className="flex flex-col gap-2">
+                    <h2
+                      id="song-activity-heading"
+                      className="text-caption text-muted-foreground font-sans font-medium tracking-wide uppercase"
+                    >
+                      Activity
+                    </h2>
+                    <ActivityFeed
+                      items={activity}
+                      now={now}
+                      showTarget={false}
+                      empty="Nothing has happened here yet."
+                    />
+                  </section>
                 ),
               }}
             />

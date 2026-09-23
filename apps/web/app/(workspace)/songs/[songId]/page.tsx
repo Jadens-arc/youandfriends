@@ -1,10 +1,12 @@
 import { AppError } from '@youandfriends/contracts';
 import { notFound } from 'next/navigation';
 
+import { RecordView } from '@/components/library/personal';
 import { MobileBackTarget } from '@/components/shell/mobile/back-target';
 import { SongWorkspaceView } from '@/components/song/song-workspace';
 import { libraryContext } from '@/lib/library/context';
 import { projectHref } from '@/lib/songs/routes';
+import { readActivity } from '@/lib/library/personal';
 import { readSongWorkspace } from '@/lib/songs/workspace';
 import { currentWorkspace } from '@/lib/workspace/current';
 
@@ -35,6 +37,8 @@ export default async function SongPage({
     throw error;
   });
 
+  // After the refusal check above: activity about a song is read only once the song is readable.
+  const activity = await readActivity(library, { songId: workspace.song.id });
   const linked = Array.isArray(query.version)
     ? (query.version[0] ?? null)
     : (query.version ?? null);
@@ -44,7 +48,13 @@ export default async function SongPage({
       {workspace.project === null ? null : (
         <MobileBackTarget href={projectHref(workspace.project.id)} label={workspace.project.name} />
       )}
-      <SongWorkspaceView workspace={workspace} linkedVersionId={linked} now={new Date()} />
+      <RecordView targetType="song" targetId={workspace.song.id} />
+      <SongWorkspaceView
+        workspace={workspace}
+        activity={activity}
+        linkedVersionId={linked}
+        now={new Date()}
+      />
     </>
   );
 }

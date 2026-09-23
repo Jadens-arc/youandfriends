@@ -97,6 +97,8 @@ export function SongHeader({ workspace }: { readonly workspace: SongWorkspace })
         </div>
       </div>
       <SongActions
+        songId={song.id}
+        songTitle={song.title}
         isFavorite={workspace.isFavorite}
         projectHref={project === null ? null : projectHref(project.id)}
       />

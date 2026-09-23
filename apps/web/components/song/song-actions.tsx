@@ -7,34 +7,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@youandfriends/ui';
-import { Link2, MoreHorizontal, Share2, Star } from 'lucide-react';
+import { Link2, MoreHorizontal, Share2 } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
+import { FavoriteToggle } from '@/components/library/personal';
+
 /**
  * The song header's actions: favourite, share, and the overflow menu (`docs/DESIGN.md` §4).
- *
- * `onToggleFavorite` is optional because the toggle's behaviour — optimistic, audited — belongs
- * to task `044`; until a caller supplies it the button reports the state and is inert, and says
- * so rather than looking broken.
  *
  * Share is present and honest about not being available: external share links are deferred
  * work (task `200`), and a button that opened an empty dialog would be the lie.
  */
 export function SongActions({
+  songId,
+  songTitle,
   isFavorite,
-  onToggleFavorite,
   projectHref,
 }: {
+  readonly songId: string;
+  readonly songTitle: string;
   readonly isFavorite: boolean;
-  readonly onToggleFavorite?: (() => void) | undefined;
   /** The project's page, when this viewer can open it. */
   readonly projectHref: Route | null;
 }) {
   const router = useRouter();
   const shareHint = React.useId();
-  const favoriteHint = React.useId();
   const [announcement, setAnnouncement] = React.useState('');
 
   async function copyLink() {
@@ -50,23 +49,7 @@ export function SongActions({
 
   return (
     <div className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-pressed={isFavorite}
-        aria-label={isFavorite ? 'Favorite' : 'Add to favorites'}
-        aria-describedby={onToggleFavorite === undefined ? favoriteHint : undefined}
-        disabled={onToggleFavorite === undefined}
-        onClick={onToggleFavorite}
-        className="size-11"
-      >
-        <Star aria-hidden className={isFavorite ? 'fill-current' : undefined} />
-      </Button>
-      {onToggleFavorite === undefined ? (
-        <span id={favoriteHint} className="sr-only">
-          {isFavorite ? 'This song is one of your favorites.' : 'Not one of your favorites.'}
-        </span>
-      ) : null}
+      <FavoriteToggle targetType="song" targetId={songId} initial={isFavorite} name={songTitle} />
       <Button
         variant="ghost"
         size="icon"

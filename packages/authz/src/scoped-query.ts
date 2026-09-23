@@ -6,6 +6,7 @@ import {
   excludeDeleted,
   favorites,
   folders,
+  recents,
   hasSoftDelete,
   mixVersions,
   permissionGrants,
@@ -48,6 +49,8 @@ export const SCOPED_TABLES = {
   projects,
   songs,
   favorites,
+  // Added in task `044`: one person's history, tenant-owned like `favorites`.
+  recents,
   workspaceMemberships,
   permissionGrants,
   assets,

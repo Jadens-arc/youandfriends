@@ -23,6 +23,7 @@ import { folders } from './folders';
 import { invitations } from './invitations';
 import { permissionGrants } from './permissions';
 import { projects } from './projects';
+import { recents } from './recents';
 import { songs } from './songs';
 import { users } from './users';
 import { workspaceMemberships, workspaces } from './workspaces';
@@ -36,6 +37,7 @@ export * from './folders';
 export * from './invitations';
 export * from './permissions';
 export * from './projects';
+export * from './recents';
 export * from './snapshots';
 export * from './songs';
 export * from './storage-objects';
@@ -78,6 +80,7 @@ export const schema = {
   invitations,
   songs,
   favorites,
+  recents,
 };
 
 export type Schema = typeof schema;

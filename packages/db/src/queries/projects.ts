@@ -411,9 +411,11 @@ export interface ActivityRow {
 export async function listContentActivityPage(
   db: Database,
   workspaceId: string,
-  excludeActorId: string,
+  excludeActorId: string | null,
   pageSize: number,
   after: RecencyCursor | null,
+  /** Only events about this one target — a song's own activity (task `044`). */
+  target?: { readonly type: 'folder' | 'project' | 'song'; readonly id: string },
 ): Promise<RecencyPage<ActivityRow>> {
   const targetFolder = alias(folders, 'target_folder');
   const targetProject = alias(projects, 'target_project');
@@ -496,7 +498,10 @@ export async function listContentActivityPage(
       and(
         eq(auditEvents.workspaceId, workspaceId),
         eq(auditEvents.actorKind, 'member'),
-        sql`${auditEvents.actorId} <> ${excludeActorId}`,
+        excludeActorId === null ? undefined : sql`${auditEvents.actorId} <> ${excludeActorId}`,
+        target === undefined
+          ? undefined
+          : and(eq(auditEvents.targetType, target.type), eq(auditEvents.targetId, target.id)),
         inArray(auditEvents.action, [...CONTENT_ACTIVITY_ACTIONS]),
         inArray(auditEvents.targetType, ['folder', 'project', 'song']),
         after === null

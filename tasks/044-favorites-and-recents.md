@@ -50,11 +50,13 @@ The activity feed is a high-risk aggregation surface (T1, T2). Every event must 
 
 ## Acceptance criteria
 
-- [ ] Favoriting works on songs and projects and is per user.
-- [ ] The Favorites destination lists favorited items.
-- [ ] Recents track views and plays without a write amplification problem.
-- [ ] The activity feed filters per event target, proven by a test with a narrowly scoped collaborator.
-- [ ] Recents are capped and pruned.
+- [x] Favoriting works on songs and projects and is per user. (`PUT /api/favorites`, optimistic `FavoriteToggle` in the song header and on the project page, rolling back with a sentence on failure; `lib/library/__tests__/personal.test.ts` shows two people's favourites staying apart, idempotence, and refusal for an unseen or foreign target.)
+- [x] The Favorites destination lists favorited items. (`/favorites`, grouped by songs, projects, folders; only targets the person can still open.)
+- [x] Recents track views and plays without a write amplification problem. (New `recents` table, migration `0014`: one row per person, kind, and target, moved forward by an upsert that does nothing inside a five-minute window — the test revisits within a minute and nothing is written. Views are recorded by a beacon after render; `recordPlay` is exported for the player, task `070`.)
+- [x] The activity feed filters per event target, proven by a test with a narrowly scoped collaborator. (A collaborator granted one song of three, with edits on all three and on the project by two people, sees only their song's events; the editor sees all four targets. `/recent` shows the workspace feed; a song's "Comments & activity" tab shows its own.)
+- [x] Recents are capped and pruned. (Fifty per person and kind; the test records fifty-five plays and fifty remain, newest first.)
+
+`recents` is registered with the IDOR suite and `scopedQuery` like `favorites`. The Shared destination now renders the library's filtered "Shared with me" list rather than a placeholder.
 
 ## Tests and validation commands
 
@@ -75,7 +77,7 @@ Additive. Reverting loses convenience features; no core data impact.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

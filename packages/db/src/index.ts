@@ -119,6 +119,14 @@ export {
   type SongListRow,
 } from './queries/projects';
 export {
+  listRecents,
+  recordRecent,
+  RECENT_DEBOUNCE_SECONDS,
+  RECENTS_CAP,
+  setFavorite,
+  type RecentRow,
+} from './queries/personal';
+export {
   getLiveAsset,
   listProjectAssets,
   workspaceTags,

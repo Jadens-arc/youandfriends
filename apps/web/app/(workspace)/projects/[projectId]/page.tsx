@@ -3,6 +3,7 @@ import type { Route } from 'next';
 import { notFound } from 'next/navigation';
 
 import { NewSongButton } from '@/components/library/create-dialogs';
+import { FavoriteToggle, RecordView } from '@/components/library/personal';
 import { CoverUpload } from '@/components/metadata/cover-upload';
 import { InlineField, InlineStatus } from '@/components/metadata/inline-field';
 import { CoverArt } from '@/components/library/cover-art';
@@ -89,6 +90,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
           >
             <WorkStatusBadge status={project.status} />
           </InlineStatus>
+          <FavoriteToggle
+            targetType="project"
+            targetId={project.id}
+            initial={workspace.isFavorite}
+            name={project.name}
+          />
           {workspace.canEdit ? (
             <CoverUpload projectId={project.id} projectName={project.name} />
           ) : null}
@@ -99,6 +106,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
   return (
     <>
+      <RecordView targetType="project" targetId={project.id} />
       <MobileBackTarget
         href={workspace.folder === null ? LIBRARY : folderHref(workspace.folder.id)}
         label={workspace.folder?.name ?? 'Library'}

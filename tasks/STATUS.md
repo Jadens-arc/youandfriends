@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `044` is next. `016`, `029` are passed over until their dependencies are `complete`. 43 of 95 iteration-one tasks are `complete`.
+Task `061` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 44 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -57,8 +57,8 @@ Task `044` is next. `016`, `029` are passed over until their dependencies are `c
 | `040` | Folder tree and library navigation                                     | Library navigation                   | `032`, `013`, `014`                       | `complete` | `e884a5b` | —       |
 | `041` | Project library view                                                   | Library navigation                   | `040`                                     | `complete` | `0b4de9f` | —       |
 | `042` | Song workspace and tabs                                                | Library navigation                   | `041`, `026`                              | `complete` | `564a54c` | —       |
-| `043` | Song and project metadata editing                                      | Library navigation                   | `042`, `024`                              | `complete` | —         | —       |
-| `044` | Favorites, recents, and activity                                       | Library navigation                   | `042`, `024`                              | `pending`  | —         | —       |
+| `043` | Song and project metadata editing                                      | Library navigation                   | `042`, `024`                              | `complete` | `315d389` | —       |
+| `044` | Favorites, recents, and activity                                       | Library navigation                   | `042`, `024`                              | `complete` | —         | —       |
 | `045` | Command palette and search                                             | Library navigation                   | `041`, `080`                              | `pending`  | —         | —       |
 | `046` | Create projects and songs                                              | Library navigation                   | `041`, `042`, `024`                       | `complete` | `1e5bfe5` | —       |
 | `050` | Storage package and R2 driver                                          | Upload, storage, versions            | `002`, `003`                              | `complete` | `683c0ca` | —       |
