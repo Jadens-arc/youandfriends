@@ -26,6 +26,7 @@ export {
   type PresignTtls,
   type SignDownloadInput,
   type SignPartInput,
+  type SignStreamInput,
   type StorageDriver,
   type UploadedPart,
 } from './driver';
@@ -44,6 +45,7 @@ export {
   assertBucketPrivate,
   contentDisposition,
   createR2Driver,
+  readOverrides,
   r2ConfigFrom,
   StorageNotConfiguredError,
   type R2Config,

@@ -13,7 +13,13 @@
  * (`062`) and waveforms (`063`) build on the probe and dispatcher here.
  */
 
-export { hintDisagrees, sniffContentType, SNIFF_PREFIX_BYTES, UNKNOWN_CONTENT_TYPE } from './sniff';
+export {
+  hintDisagrees,
+  sniffableContentTypes,
+  sniffContentType,
+  SNIFF_PREFIX_BYTES,
+  UNKNOWN_CONTENT_TYPE,
+} from './sniff';
 
 export {
   assertCapabilities,

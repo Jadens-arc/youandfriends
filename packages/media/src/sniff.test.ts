@@ -1,7 +1,9 @@
+import { SERVABLE_CONTENT_TYPES } from '@youandfriends/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
   hintDisagrees,
+  sniffableContentTypes,
   sniffContentType,
   SNIFF_PREFIX_BYTES,
   UNKNOWN_CONTENT_TYPE,
@@ -125,5 +127,13 @@ describe('noticing that the client was wrong', () => {
   it('is not a disagreement when the client claimed nothing', () => {
     expect(hintDisagrees(null, UNKNOWN_CONTENT_TYPE)).toBe(false);
     expect(hintDisagrees('', UNKNOWN_CONTENT_TYPE)).toBe(false);
+  });
+});
+
+describe('the sniffer and the serving allowlist (task `067`)', () => {
+  it('can serve every audio type it can recognise', () => {
+    const audio = sniffableContentTypes().filter((type) => type.startsWith('audio/'));
+    expect(audio.length).toBeGreaterThan(0);
+    for (const type of audio) expect(SERVABLE_CONTENT_TYPES).toContain(type);
   });
 });

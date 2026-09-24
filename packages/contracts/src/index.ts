@@ -25,5 +25,6 @@ export * from './notifications';
 export * from './waveform';
 export * from './pagination';
 export * from './result';
+export * from './serving';
 export * from './roles';
 export * from './work-status';

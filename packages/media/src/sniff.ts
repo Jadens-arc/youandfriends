@@ -28,6 +28,15 @@ interface Signature {
 }
 
 /**
+ * Every type the sniffer can name. Its audio types must all be servable
+ * (`SERVABLE_CONTENT_TYPES` in `@youandfriends/contracts`, task `067`) — a test holds the two
+ * lists together so a newly recognised format cannot silently download instead of playing.
+ */
+export function sniffableContentTypes(): readonly string[] {
+  return [...new Set([...SIGNATURES.map((signature) => signature.contentType), 'audio/mpeg'])];
+}
+
+/**
  * Signatures in specificity order: RIFF alone is ambiguous (WAV, AVI, WebP all open `RIFF`), so
  * the form tag at offset 8 is part of the match rather than a detail checked afterwards.
  */

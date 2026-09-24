@@ -49,12 +49,24 @@ export interface SignPartInput {
 export interface SignDownloadInput {
   readonly key: string;
   /**
+   * `storage_objects.content_type`: what the bytes were sniffed as (task `051`). The response is
+   * served with this type only when it is on the allowlist in `@youandfriends/contracts`
+   * (`servableContentType`); otherwise `application/octet-stream` (task `067`).
+   */
+  readonly contentType: string | null;
+  /**
    * The filename the browser should save it as.
    *
    * Set as a `Content-Disposition` response header on the signed URL rather than baked into the
    * key — which is the whole reason a user's filename never has to become a key.
    */
   readonly filename?: string | undefined;
+}
+
+export interface SignStreamInput {
+  readonly key: string;
+  /** `storage_objects.content_type`, as for {@link SignDownloadInput.contentType}. */
+  readonly contentType: string | null;
 }
 
 /**
@@ -71,8 +83,13 @@ export interface StorageDriver {
   abortMultipart(key: string, uploadId: string): Promise<void>;
   /** A URL a browser can download from, with the shortest life that works. */
   signDownload(input: SignDownloadInput): Promise<PresignedUrl>;
-  /** A URL an `<audio>` element can stream from. Longer than a download, for a long track. */
-  signStream(key: string): Promise<PresignedUrl>;
+  /**
+   * A URL an `<audio>` element can stream from. Longer than a download, for a long track.
+   *
+   * Served `inline` only for a derivative of an allowlisted audio type; an original, or anything
+   * else, is served as an attachment (task `067`).
+   */
+  signStream(input: SignStreamInput): Promise<PresignedUrl>;
   /** Metadata, or `null` when the object is not there. Used by reconciliation. */
   head(key: string): Promise<ObjectHead | null>;
   /**

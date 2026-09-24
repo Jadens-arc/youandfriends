@@ -12,6 +12,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { ServerEnv } from '@youandfriends/config';
+import { OPAQUE_CONTENT_TYPE, servableContentType } from '@youandfriends/contracts';
 
 import {
   DEFAULT_TTLS,
@@ -21,9 +22,11 @@ import {
   type PresignTtls,
   type SignDownloadInput,
   type SignPartInput,
+  type SignStreamInput,
   type StorageDriver,
   type UploadedPart,
 } from './driver';
+import { parseObjectKey } from './keys';
 
 /**
  * Cloudflare R2, over the S3 API (ADR 0001).
@@ -204,24 +207,29 @@ export function createR2Driver(config: R2Config): StorageDriver {
       );
     },
 
-    async signDownload({ key, filename }: SignDownloadInput) {
+    async signDownload({ key, filename, contentType }: SignDownloadInput) {
+      // Always an attachment, whatever the type: a download is a file handed to someone, never a
+      // page rendered at a bucket URL. The filename rides on the response header rather than in
+      // the key, which is what lets keys stay opaque.
       return sign(
         new GetObjectCommand({
           Bucket: config.bucket,
           Key: key,
-          // The filename rides on the response header rather than in the key, which is what
-          // lets keys stay opaque. Quoted and stripped of quotes so a name cannot break out of
-          // the header value.
-          ...(filename === undefined
-            ? {}
-            : { ResponseContentDisposition: contentDisposition(filename) }),
+          ...readOverrides(key, contentType, 'attachment', filename),
         }),
         ttls.downloadSeconds,
       );
     },
 
-    async signStream(key) {
-      return sign(new GetObjectCommand({ Bucket: config.bucket, Key: key }), ttls.streamSeconds);
+    async signStream({ key, contentType }: SignStreamInput) {
+      return sign(
+        new GetObjectCommand({
+          Bucket: config.bucket,
+          Key: key,
+          ...readOverrides(key, contentType, 'inline', undefined),
+        }),
+        ttls.streamSeconds,
+      );
     },
 
     async head(key) {
@@ -291,6 +299,37 @@ export function createR2Driver(config: R2Config): StorageDriver {
         );
       }
     },
+  };
+}
+
+/**
+ * The response headers a presigned read overrides (task `067`).
+ *
+ * The object's own `Content-Type` is whatever it was minted with — `application/octet-stream`
+ * since task `051` — and is not trusted either way: the type served is the recorded one only when
+ * it is on the allowlist, and opaque otherwise. `inline` is granted only when asked for, for a
+ * derivative (never an original — `parseObjectKey` says which), and for an allowlisted type.
+ *
+ * `X-Content-Type-Options: nosniff` cannot be set through a presigned GET — S3's response
+ * overrides cover a fixed set of headers, and it is not one. `docs/OPERATIONS.md` §1 covers
+ * adding it at the bucket's domain; `attachment` plus an opaque type is what holds without it.
+ */
+export function readOverrides(
+  key: string,
+  contentType: string | null,
+  wanted: 'inline' | 'attachment',
+  filename: string | undefined,
+): { ResponseContentType: string; ResponseContentDisposition: string } {
+  const type = servableContentType(contentType);
+  const isDerivative = parseObjectKey(key)?.objectClass === 'derivative';
+  const inline = wanted === 'inline' && isDerivative && type !== OPAQUE_CONTENT_TYPE;
+  return {
+    ResponseContentType: type,
+    ResponseContentDisposition: inline
+      ? 'inline'
+      : filename === undefined
+        ? 'attachment'
+        : contentDisposition(filename),
   };
 }
 

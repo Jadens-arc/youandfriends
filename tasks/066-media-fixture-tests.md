@@ -97,4 +97,4 @@ Test-only. Reverting removes the pipeline's regression guard.
 
 ## Commit
 
-_(not yet)_
+`24b9a4d`

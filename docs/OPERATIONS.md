@@ -73,6 +73,24 @@ Without `ExposeHeaders: ["ETag"]` every upload fails at its first part with "Sto
 return an ETag", and the uploader does not retry it — it is configuration, not a network blip.
 Add each preview deployment's origin as needed; never `*`.
 
+The derivatives bucket needs the same rule with `GET` and `HEAD` only: the player fetches
+waveform peaks cross-origin (task `072`).
+
+### What a presigned read serves (task `067`)
+
+Every signed read sets `response-content-type` and `response-content-disposition` itself: the
+recorded type when it is on the allowlist in `packages/contracts/src/serving.ts`, otherwise
+`application/octet-stream`; `inline` only for a streamed audio derivative, `attachment` for
+everything else, every original included. The object's own metadata is not trusted.
+
+`X-Content-Type-Options: nosniff` **cannot** be set through a presigned URL — S3's response
+overrides are a fixed list without it. If the buckets are ever served from a custom domain (and
+especially a `youandfriends.org` subdomain, which would be same-site with the app), add it there
+with a Cloudflare Transform Rule (_Rules → Transform Rules → Modify Response Header_, set
+`X-Content-Type-Options: nosniff` for the bucket's hostname). The `r2.cloudflarestorage.com`
+presigned host is a different site from the app, and the opaque type plus `attachment` is what
+holds there.
+
 ## 2. Stuck uploads
 
 **Symptom:** an upload shows progress but never finalizes, or `upload_sessions` rows sit in

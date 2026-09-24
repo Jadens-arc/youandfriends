@@ -357,6 +357,7 @@ async function loadMixVersion(context: LibraryContext, songId: string, versionId
       uploadedBy: mixVersions.uploadedBy,
       note: mixVersions.note,
       key: storageObjects.key,
+      contentType: storageObjects.contentType,
       fileName: sql<string>`coalesce(${assetVersions.originalFilename}, ${assets.name})`,
     })
     .from(mixVersions)
@@ -489,6 +490,7 @@ export async function versionDownloadUrl(
   const signed = await context.driver.signDownload({
     key: version.key,
     filename: version.fileName,
+    contentType: version.contentType,
   });
   return signed.url;
 }
