@@ -121,6 +121,17 @@ describe('Checkbox and Switch', () => {
 });
 
 describe('Slider — the accessible alternative to the waveform', () => {
+  it('names and describes the thumb, which is what receives focus (task `071`)', () => {
+    render(<Slider thumbLabel="Seek" valueText="1:23 of 4:56" defaultValue={[83]} max={296} />);
+    const slider = screen.getByRole('slider', { name: 'Seek' });
+    expect(slider).toHaveAttribute('aria-valuetext', '1:23 of 4:56');
+  });
+
+  it('uses the espresso focus ring on the player bar', () => {
+    render(<Slider tone="espresso" thumbLabel="Volume" defaultValue={[50]} />);
+    expect(screen.getByRole('slider').className).toMatch(/ring-on-espresso/);
+  });
+
   it('exposes a slider role with an announced value', () => {
     render(<Slider aria-label="Seek" defaultValue={[30]} max={100} />);
     const slider = screen.getByRole('slider');

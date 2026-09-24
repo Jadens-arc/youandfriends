@@ -26,6 +26,7 @@ export interface MediaAdapter {
   play(): Promise<void>;
   pause(): void;
   seek(seconds: number): void;
+  setVolume(volume: number, muted: boolean): void;
   readonly currentTime: number;
   readonly paused: boolean;
   /** `MediaError.code` of the last error, or `null`. */
@@ -84,6 +85,10 @@ export function createAudioElementAdapter(element: HTMLAudioElement): MediaAdapt
     pause: () => element.pause(),
     seek(seconds) {
       element.currentTime = seconds;
+    },
+    setVolume(volume, muted) {
+      element.volume = volume;
+      element.muted = muted;
     },
     get currentTime() {
       return element.currentTime;

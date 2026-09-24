@@ -117,6 +117,8 @@ export function SongWorkspaceView({
                       songTitle={workspace.song.title}
                       songId={workspace.song.id}
                       capabilities={workspace.capabilities}
+                      artist={workspace.artist}
+                      cover={workspace.cover}
                     />
                   </div>
                 ),

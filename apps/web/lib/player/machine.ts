@@ -41,6 +41,8 @@ export interface Track {
   readonly artist: string | null;
   /** "Version 3", shown beside the title. */
   readonly versionLabel: string;
+  /** The project's cover renditions (task `069`), or `null` for the placeholder. */
+  readonly cover?: { readonly src: string; readonly srcSet: string } | null;
 }
 
 export interface PlayerState {
@@ -53,6 +55,9 @@ export interface PlayerState {
   readonly error: { readonly kind: PlayerErrorKind } | null;
   /** True while a fresh URL is being fetched and swapped in. Not a status: playback may continue. */
   readonly refreshing: boolean;
+  /** 0–1. Survives loads and stops: it is the listener's setting, not the track's. */
+  readonly volume: number;
+  readonly muted: boolean;
 }
 
 export type MediaEventName =
@@ -83,7 +88,8 @@ export type PlayerEvent =
   | { readonly type: 'recovering' }
   /** The browser refused to start playback (autoplay policy): ready, but not playing. */
   | { readonly type: 'blocked' }
-  | { readonly type: 'refresh'; readonly phase: 'start' | 'done' };
+  | { readonly type: 'refresh'; readonly phase: 'start' | 'done' }
+  | { readonly type: 'volume'; readonly volume: number; readonly muted: boolean };
 
 export const INITIAL_STATE: PlayerState = {
   status: 'idle',
@@ -93,6 +99,8 @@ export const INITIAL_STATE: PlayerState = {
   durationSeconds: null,
   error: null,
   refreshing: false,
+  volume: 1,
+  muted: false,
 };
 
 /** Errors after which trying again with the same track is pointless or not allowed. */
@@ -107,12 +115,16 @@ export function transition(state: PlayerState, event: PlayerEvent): PlayerState 
     case 'load':
       return {
         ...INITIAL_STATE,
+        volume: state.volume,
+        muted: state.muted,
         status: 'loading',
         track: event.track,
         wantsToPlay: event.autoplay,
       };
     case 'stop':
-      return INITIAL_STATE;
+      return { ...INITIAL_STATE, volume: state.volume, muted: state.muted };
+    case 'volume':
+      return { ...state, volume: Math.min(1, Math.max(0, event.volume)), muted: event.muted };
     case 'play':
       if (state.track === null) return state;
       return {

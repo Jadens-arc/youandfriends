@@ -13,6 +13,8 @@ import {
   formatSampleRate,
   formatTruePeak,
 } from '@/lib/songs/format';
+import { PlayVersionButton } from '@/components/player/play-version-button';
+import type { CoverSource } from '@/lib/library/covers';
 import type { SongCapabilities, SongVersion } from '@/lib/songs/workspace';
 
 import { ProcessingPoller, ProcessingStatus } from './processing-status';
@@ -175,16 +177,37 @@ export function VersionDetails({
   version,
   songId,
   canRetry,
+  playback,
 }: {
   readonly version: SongVersion;
   readonly songId: string;
   /** Editors may send a failed version back for processing (task `065`). */
   readonly canRetry: boolean;
+  /** What the player shows for this song (task `071`). Absent, no play button is offered. */
+  readonly playback?:
+    | {
+        readonly songTitle: string;
+        readonly artist: string | null;
+        readonly cover: CoverSource | null;
+      }
+    | undefined;
 }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2">
-        <h3 className="text-heading text-foreground font-serif">{versionName(version)}</h3>
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-heading text-foreground font-serif">{versionName(version)}</h3>
+          {playback !== undefined && version.processingState === 'complete' ? (
+            <PlayVersionButton
+              songId={songId}
+              songTitle={playback.songTitle}
+              artist={playback.artist}
+              cover={playback.cover}
+              versionId={version.id}
+              versionNumber={version.number}
+            />
+          ) : null}
+        </div>
         <ProcessingStatus songId={songId} version={version} canRetry={canRetry} />
       </div>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -234,6 +257,8 @@ export function VersionPanel({
   songTitle,
   songId,
   capabilities,
+  artist = null,
+  cover = null,
 }: {
   readonly versions: readonly SongVersion[];
   readonly linkedVersionId: string | null;
@@ -242,6 +267,9 @@ export function VersionPanel({
   readonly songTitle: string;
   readonly songId: string;
   readonly capabilities: SongCapabilities;
+  /** For the player's track display (task `071`). */
+  readonly artist?: string | null;
+  readonly cover?: CoverSource | null;
 }) {
   const [selectedId, setSelectedId] = React.useState(() =>
     initialVersionId(versions, linkedVersionId),
@@ -314,7 +342,12 @@ export function VersionPanel({
         </div>
         {selected === null ? null : (
           <div className="flex flex-col gap-4">
-            <VersionDetails version={selected} songId={songId} canRetry={capabilities.edit} />
+            <VersionDetails
+              version={selected}
+              songId={songId}
+              canRetry={capabilities.edit}
+              playback={{ songTitle, artist, cover }}
+            />
             <VersionActions
               key={selected.id}
               songId={songId}

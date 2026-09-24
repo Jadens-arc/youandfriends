@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 import { createAudioElementAdapter } from '@/lib/player/audio-element';
+import { handlePlayerKey } from '@/lib/player/shortcuts';
 import { getPlayer } from '@/lib/player/store';
 
 /**
@@ -19,6 +20,16 @@ export function AudioHost() {
     const element = ref.current;
     if (element === null) return;
     return getPlayer().attach(createAudioElementAdapter(element));
+  }, []);
+
+  // The player's keyboard shortcuts, workspace-wide — except where the key belongs to whatever
+  // has focus: a field, the lyrics editor, a slider, a button (`lib/player/shortcuts.ts`).
+  React.useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (handlePlayerKey(event, getPlayer())) event.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
   // Music, not speech: there is no caption track to offer.
   return <audio ref={ref} data-player-audio hidden />;

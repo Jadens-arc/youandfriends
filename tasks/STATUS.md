@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `071` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 54 of 95 iteration-one tasks are `complete`.
+Task `072` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 55 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -81,8 +81,8 @@ Task `071` is next. `016`, `029`, `045` are passed over until their dependencies
 | `067` | Serve stored bytes as the type we recorded                             | Media pipeline                       | `051`, `062`                              | `complete` | `2c19915` | —       |
 | `068` | Threat model the media pipeline                                        | Media pipeline                       | `060`                                     | `complete` | `1562f13` | —       |
 | `069` | Cover art renditions and delivery                                      | Media pipeline                       | `064`, `067`, `058`                       | `complete` | `bb44d54` | —       |
-| `070` | Player state machine and audio element                                 | Persistent player                    | `062`, `013`, `067`                       | `complete` | —         | —       |
-| `071` | Persistent player interface                                            | Persistent player                    | `070`, `012`                              | `pending`  | —         | —       |
+| `070` | Player state machine and audio element                                 | Persistent player                    | `062`, `013`, `067`                       | `complete` | `607486d` | —       |
+| `071` | Persistent player interface                                            | Persistent player                    | `070`, `012`                              | `complete` | —         | —       |
 | `072` | Waveform rendering and seeking                                         | Persistent player                    | `063`, `071`                              | `pending`  | —         | —       |
 | `073` | Playback queue and best-effort gapless                                 | Persistent player                    | `070`, `071`                              | `pending`  | —         | —       |
 | `074` | Loop regions and playback speed                                        | Persistent player                    | `072`, `073`                              | `pending`  | —         | —       |

@@ -43,7 +43,20 @@ export interface PlayerDependencies {
   readonly onPlayStarted?: (track: Track) => void;
   /** Subscribes to the browser coming back online. */
   readonly onOnline?: (callback: () => void) => () => void;
+  /**
+   * Where the listener's volume is remembered between sessions (task `071`). A per-viewer
+   * convenience — never the stream URL, which is never stored anywhere.
+   */
+  readonly volumeStorage?: VolumeStorage | undefined;
 }
+
+export interface VolumeStorage {
+  read(): { volume: number; muted: boolean } | null;
+  write(value: { volume: number; muted: boolean }): void;
+}
+
+/** Previous restarts the track when more than this far in, like every player people know. */
+export const RESTART_THRESHOLD_SECONDS = 3;
 
 export interface PlayerController {
   getState(): PlayerState;
@@ -55,6 +68,13 @@ export interface PlayerController {
   toggle(): void;
   seek(seconds: number): void;
   stop(): void;
+  setVolume(volume: number): void;
+  toggleMute(): void;
+  /** Restart, or — with a queue (task `073`) — go back a track. */
+  previous(): void;
+  /** The next queued track; nothing without a queue (task `073`). */
+  next(): void;
+  readonly hasNext: () => boolean;
 }
 
 export function createPlayer(dependencies: PlayerDependencies = {}): PlayerController {
@@ -224,8 +244,26 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
     adapter?.pause();
   }
 
+  function applyVolume(volume: number, muted: boolean) {
+    dispatch({ type: 'volume', volume, muted });
+    adapter?.setVolume(state.volume, state.muted);
+    try {
+      dependencies.volumeStorage?.write({ volume: state.volume, muted: state.muted });
+    } catch {
+      // Private mode or blocked storage: the setting holds for this session and that is fine.
+    }
+  }
+
+  try {
+    const saved = dependencies.volumeStorage?.read() ?? null;
+    if (saved !== null) dispatch({ type: 'volume', volume: saved.volume, muted: saved.muted });
+  } catch {
+    // Unreadable storage is the same as nothing saved.
+  }
+
   function attach(next: MediaAdapter) {
     adapter = next;
+    next.setVolume(state.volume, state.muted);
     const unsubscribe = next.subscribe((event, snapshot) => {
       if (event === 'error') {
         onMediaError();
@@ -283,8 +321,38 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
       adapter?.clearSource();
       dispatch({ type: 'stop' });
     },
+    setVolume(volume) {
+      applyVolume(volume, volume === 0 ? state.muted : false);
+    },
+    toggleMute() {
+      applyVolume(state.volume, !state.muted);
+    },
+    previous() {
+      if (state.track === null) return;
+      dispatch({ type: 'seek', seconds: 0 });
+      adapter?.seek(0);
+    },
+    next() {
+      // No queue yet (task `073`): there is nothing after this track.
+    },
+    hasNext: () => false,
   };
 }
+
+const VOLUME_KEY = 'youandfriends.player.volume';
+
+const localVolumeStorage: VolumeStorage = {
+  read() {
+    const raw = window.localStorage.getItem(VOLUME_KEY);
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw) as { volume?: unknown; muted?: unknown };
+    if (typeof parsed.volume !== 'number' || typeof parsed.muted !== 'boolean') return null;
+    return { volume: parsed.volume, muted: parsed.muted };
+  },
+  write(value) {
+    window.localStorage.setItem(VOLUME_KEY, JSON.stringify(value));
+  },
+};
 
 let singleton: PlayerController | null = null;
 
@@ -297,6 +365,7 @@ export function getPlayer(): PlayerController {
         window.addEventListener('online', callback);
         return () => window.removeEventListener('online', callback);
       },
+      volumeStorage: localVolumeStorage,
     });
   }
   return singleton;

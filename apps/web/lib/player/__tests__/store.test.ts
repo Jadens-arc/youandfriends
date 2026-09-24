@@ -60,6 +60,12 @@ class FakeMedia implements MediaAdapter {
   seek(seconds: number) {
     this.currentTime = seconds;
   }
+  volume = 1;
+  muted = false;
+  setVolume(volume: number, muted: boolean) {
+    this.volume = volume;
+    this.muted = muted;
+  }
   subscribe(listener: (event: MediaEventName | 'error', snapshot: MediaSnapshot) => void) {
     this.listener = listener;
     return () => {
@@ -314,5 +320,48 @@ describe('the player controller (task 070)', () => {
     expect(setItem).not.toHaveBeenCalled();
     expect(JSON.stringify(controller.getState())).not.toContain('secret-url');
     setItem.mockRestore();
+  });
+
+  it('remembers volume and mute across sessions, and applies them to the element', () => {
+    const stored: { volume: number; muted: boolean }[] = [];
+    const storage = {
+      read: () => ({ volume: 0.4, muted: true }),
+      write: (value: { volume: number; muted: boolean }) => stored.push(value),
+    };
+    const controller = createPlayer({ volumeStorage: storage });
+    controller.attach(media);
+    expect(controller.getState()).toMatchObject({ volume: 0.4, muted: true });
+    expect(media).toMatchObject({ volume: 0.4, muted: true });
+
+    controller.setVolume(0.7);
+    expect(controller.getState()).toMatchObject({ volume: 0.7, muted: false });
+    controller.toggleMute();
+    expect(stored.at(-1)).toEqual({ volume: 0.7, muted: true });
+    expect(media).toMatchObject({ volume: 0.7, muted: true });
+  });
+
+  it('survives storage that throws, as in a private window', () => {
+    const controller = createPlayer({
+      volumeStorage: {
+        read: () => {
+          throw new Error('SecurityError');
+        },
+        write: () => {
+          throw new Error('QuotaExceededError');
+        },
+      },
+    });
+    controller.setVolume(0.2);
+    expect(controller.getState().volume).toBe(0.2);
+  });
+
+  it('restarts the track on previous, and has nothing next without a queue', async () => {
+    grants.push(grant('https://r2.example/one'));
+    const controller = player();
+    await controller.load(TRACK);
+    media.currentTime = 90;
+    controller.previous();
+    expect(media.currentTime).toBe(0);
+    expect(controller.hasNext()).toBe(false);
   });
 });
