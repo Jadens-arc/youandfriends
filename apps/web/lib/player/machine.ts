@@ -73,7 +73,13 @@ export type MediaEventName =
   | 'durationchange';
 
 export type PlayerEvent =
-  | { readonly type: 'load'; readonly track: Track; readonly autoplay: boolean }
+  | {
+      readonly type: 'load';
+      readonly track: Track;
+      readonly autoplay: boolean;
+      /** Where to start, for a load that begins from a click on the waveform (task `072`). */
+      readonly startAt?: number;
+    }
   | { readonly type: 'play' }
   | { readonly type: 'pause' }
   | { readonly type: 'stop' }
@@ -120,6 +126,7 @@ export function transition(state: PlayerState, event: PlayerEvent): PlayerState 
         status: 'loading',
         track: event.track,
         wantsToPlay: event.autoplay,
+        positionSeconds: Math.max(0, event.startAt ?? 0),
       };
     case 'stop':
       return { ...INITIAL_STATE, volume: state.volume, muted: state.muted };

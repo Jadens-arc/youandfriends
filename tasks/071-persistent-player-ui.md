@@ -88,4 +88,4 @@ UI only. Reverting loses the interface; the state machine remains.
 
 ## Commit
 
-_(not yet)_
+`6132517`

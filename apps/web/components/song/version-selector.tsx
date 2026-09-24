@@ -14,6 +14,7 @@ import {
   formatTruePeak,
 } from '@/lib/songs/format';
 import { PlayVersionButton } from '@/components/player/play-version-button';
+import { Waveform } from '@/components/player/waveform/waveform';
 import type { CoverSource } from '@/lib/library/covers';
 import type { SongCapabilities, SongVersion } from '@/lib/songs/workspace';
 
@@ -316,7 +317,22 @@ export function VersionPanel({
             : `Waveform for ${songTitle}, ${versionName(selected)}`
         }
       >
-        <WaveformStatus version={selected} />
+        {selected !== null && selected.processingState === 'complete' ? (
+          <Waveform
+            key={selected.id}
+            track={{
+              versionId: selected.id,
+              songId,
+              title: songTitle,
+              artist,
+              versionLabel: versionName(selected),
+              cover,
+            }}
+            label={`Seek in ${songTitle}, ${versionName(selected)}`}
+          />
+        ) : (
+          <WaveformStatus version={selected} />
+        )}
       </WaveformRegion>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
         <div className="flex flex-col gap-2">

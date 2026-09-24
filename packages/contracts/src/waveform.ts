@@ -142,3 +142,76 @@ export function tierFor(peaks: WaveformPeaks, framesPerPixel: number): WaveformT
         : best,
   );
 }
+
+/**
+ * Decode only the tier a view of this many frames per pixel should draw (task `072`) — the
+ * header and table are read, one tier's bytes are copied, and the rest are never touched. A
+ * compact 300-pixel view of a long track does not materialise its 200-per-second tier.
+ */
+export function decodeWaveformTierFor(
+  input: ArrayBuffer | Uint8Array,
+  framesPerPixel: number,
+): {
+  readonly channels: number;
+  readonly sampleRateHz: number;
+  readonly frameCount: number;
+  readonly tier: WaveformTier;
+} {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  // Validation of the whole file first: a tier cut from a malformed file is not trustworthy.
+  const header = decodeWaveformHeader(bytes);
+  const pick =
+    [...header.table]
+      .filter((entry) => entry.framesPerBucket <= framesPerPixel)
+      .sort((a, b) => b.framesPerBucket - a.framesPerBucket)[0] ??
+    [...header.table].sort((a, b) => a.framesPerBucket - b.framesPerBucket)[0];
+  if (pick === undefined) throw new WaveformFormatError('no tiers');
+  return {
+    channels: header.channels,
+    sampleRateHz: header.sampleRateHz,
+    frameCount: header.frameCount,
+    tier: {
+      framesPerBucket: pick.framesPerBucket,
+      peaks: new Int8Array(
+        bytes.buffer.slice(
+          bytes.byteOffset + pick.offset,
+          bytes.byteOffset + pick.offset + pick.count * 2,
+        ),
+      ),
+    },
+  };
+}
+
+function decodeWaveformHeader(bytes: Uint8Array) {
+  if (bytes.byteLength < WAVEFORM_HEADER_BYTES) throw new WaveformFormatError('too short');
+  const magic = String.fromCharCode(...bytes.subarray(0, 4));
+  if (magic !== WAVEFORM_MAGIC) throw new WaveformFormatError('not a waveform file');
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const version = view.getUint8(4);
+  if (version !== WAVEFORM_VERSION) throw new WaveformFormatError(`unsupported version ${version}`);
+  const tierCount = view.getUint16(6, true);
+  let offset = WAVEFORM_HEADER_BYTES;
+  if (offset + tierCount * 8 > bytes.byteLength) throw new WaveformFormatError('truncated table');
+  const entries: { framesPerBucket: number; count: number }[] = [];
+  for (let index = 0; index < tierCount; index += 1) {
+    entries.push({
+      framesPerBucket: view.getUint32(offset, true),
+      count: view.getUint32(offset + 4, true),
+    });
+    offset += 8;
+  }
+  const table: { framesPerBucket: number; count: number; offset: number }[] = [];
+  for (const entry of entries) {
+    if (offset + entry.count * 2 > bytes.byteLength)
+      throw new WaveformFormatError('truncated data');
+    table.push({ ...entry, offset });
+    offset += entry.count * 2;
+  }
+  if (offset !== bytes.byteLength) throw new WaveformFormatError('trailing bytes');
+  return {
+    channels: view.getUint8(5),
+    sampleRateHz: view.getUint32(8, true),
+    frameCount: view.getUint32(12, true) * 2 ** 32 + view.getUint32(16, true),
+    table,
+  };
+}

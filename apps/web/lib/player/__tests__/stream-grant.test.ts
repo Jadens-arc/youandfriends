@@ -3,6 +3,7 @@ import { newUlid, type AppError, type UserId, type WorkspaceId } from '@youandfr
 import {
   derivatives,
   ensureScopeLimitedMembership,
+  mixVersions,
   permissionGrants,
   upsertGrant,
   withTransaction,
@@ -28,7 +29,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { stubDriver, type StubDriver } from '@/lib/uploads/__tests__/stub-driver';
 
-import { streamUrlFor } from '../stream-grant';
+import { peaksFor, streamUrlFor } from '../stream-grant';
 
 const reason = unavailableReason();
 const describeWithDatabase = reason === null ? describe : describe.skip;
@@ -175,6 +176,40 @@ describeWithDatabase('stream grants', () => {
       const error = await refusal(streamUrlFor(contextFor(userId, workspace), id));
       expect(error.publicCode).toBe('not_found');
     }
+  });
+
+  it('reads a version’s waveform through the same authorization, and refuses a short object', async () => {
+    const [ready] = await db
+      .select({ assetVersionId: mixVersions.assetVersionId })
+      .from(mixVersions)
+      .where(eq(mixVersions.id, versions.ready));
+    const key = derivativeObjectKey(workspaceId, newUlid());
+    const object = await makeStorageObject(db, workspaceId, { key, sizeBytes: 16 });
+    await db.insert(derivatives).values({
+      id: testId(),
+      workspaceId,
+      assetVersionId: ready?.assetVersionId as string,
+      kind: 'waveform_peaks',
+      variant: 'yfwp-v1',
+      storageObjectId: object.id,
+      processingState: 'complete',
+    });
+    driver.prefix_ = Uint8Array.from({ length: 16 }, (_, index) => index);
+    const bytes = await peaksFor(contextFor(owner), versions.ready);
+    expect([...bytes]).toEqual([...driver.prefix_]);
+    expect(driver.prefixReads.at(-1)).toEqual({ key, length: 16 });
+
+    driver.prefix_ = new Uint8Array(3);
+    expect((await refusal(peaksFor(contextFor(owner), versions.ready))).publicCode).toBe(
+      'conflict',
+    );
+    expect((await refusal(peaksFor(contextFor(stranger), versions.ready))).publicCode).toBe(
+      'not_found',
+    );
+    // A version with no peaks yet is "not ready", like its stream.
+    expect((await refusal(peaksFor(contextFor(owner), versions.processing))).publicCode).toBe(
+      'conflict',
+    );
   });
 
   it('re-checks authorization on every call, so revoked access stops the next refresh', async () => {

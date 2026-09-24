@@ -1,5 +1,5 @@
 import { conflict, forbidden, isUlid } from '@youandfriends/contracts';
-import { assetVersions, derivatives, mixVersions, songs, storageObjects } from '@youandfriends/db';
+import { derivatives, mixVersions, songs, storageObjects } from '@youandfriends/db';
 import type { StorageDriver } from '@youandfriends/storage';
 import { and, eq, isNull } from 'drizzle-orm';
 
@@ -26,10 +26,15 @@ function refuse(detail: string): never {
   throw forbidden({ detail });
 }
 
-export async function streamUrlFor(
-  context: LibraryContext & { readonly derivativesDriver: () => StorageDriver },
+/**
+ * The finished derivative of one kind for a mix version, after `view` on its song — the check
+ * both the stream URL and the waveform read go through.
+ */
+async function authorizedDerivative(
+  context: LibraryContext,
   versionId: string,
-): Promise<StreamGrant> {
+  kind: 'streaming_audio' | 'waveform_peaks',
+): Promise<{ key: string; contentType: string; sizeBytes: number; songId: string }> {
   if (!isUlid(versionId)) refuse('version id is not a ULID');
   const [version] = await context.db
     .select({ songId: mixVersions.songId, assetVersionId: mixVersions.assetVersionId })
@@ -52,16 +57,13 @@ export async function streamUrlFor(
     scopeId: version.songId,
   });
 
-  const [stream] = await context.db
-    .select({ key: storageObjects.key, contentType: storageObjects.contentType })
+  const [derivative] = await context.db
+    .select({
+      key: storageObjects.key,
+      contentType: storageObjects.contentType,
+      sizeBytes: storageObjects.sizeBytes,
+    })
     .from(derivatives)
-    .innerJoin(
-      assetVersions,
-      and(
-        eq(assetVersions.id, derivatives.assetVersionId),
-        eq(assetVersions.workspaceId, derivatives.workspaceId),
-      ),
-    )
     .innerJoin(
       storageObjects,
       and(
@@ -73,15 +75,45 @@ export async function streamUrlFor(
       and(
         eq(derivatives.assetVersionId, version.assetVersionId),
         eq(derivatives.workspaceId, context.workspaceId),
-        eq(derivatives.kind, 'streaming_audio'),
+        eq(derivatives.kind, kind),
         eq(derivatives.processingState, 'complete'),
       ),
     )
     .limit(1);
   // Not processed yet, or processing failed. Said as such: the player shows "processing", not an
   // error, and never falls back to streaming a 2 GB original.
-  if (stream === undefined) throw conflict({ detail: `version ${versionId} has no stream yet` });
+  if (derivative === undefined) {
+    throw conflict({ detail: `version ${versionId} has no ${kind} yet` });
+  }
+  return { ...derivative, songId: version.songId };
+}
 
-  const signed = await context.derivativesDriver().signStream(stream);
-  return { url: signed.url, expiresAt: signed.expiresAt.toISOString(), songId: version.songId };
+export async function streamUrlFor(
+  context: LibraryContext & { readonly derivativesDriver: () => StorageDriver },
+  versionId: string,
+): Promise<StreamGrant> {
+  const stream = await authorizedDerivative(context, versionId, 'streaming_audio');
+  const signed = await context
+    .derivativesDriver()
+    .signStream({ key: stream.key, contentType: stream.contentType });
+  return { url: signed.url, expiresAt: signed.expiresAt.toISOString(), songId: stream.songId };
+}
+
+/**
+ * The waveform peaks for a mix version (task `072`), read through the app rather than handed
+ * out as a URL: the file is small (tens of kilobytes for a song), each read is authorized like
+ * the stream, and no bearer credential for it ever reaches the browser.
+ */
+export async function peaksFor(
+  context: LibraryContext & { readonly derivativesDriver: () => StorageDriver },
+  versionId: string,
+): Promise<Uint8Array> {
+  const peaks = await authorizedDerivative(context, versionId, 'waveform_peaks');
+  const bytes = await context.derivativesDriver().readPrefix(peaks.key, peaks.sizeBytes);
+  // A row whose object is missing or short is not a waveform; say "not ready" rather than
+  // hand the decoder half a file.
+  if (bytes.byteLength !== peaks.sizeBytes) {
+    throw conflict({ detail: `waveform for ${versionId} is not readable` });
+  }
+  return bytes;
 }

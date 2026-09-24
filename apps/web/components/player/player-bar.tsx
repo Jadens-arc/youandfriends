@@ -29,10 +29,12 @@ import * as React from 'react';
 
 import { CoverArt } from '@/components/library/cover-art';
 import type { PlayerState } from '@/lib/player/machine';
+import { formatClock, spokenPosition } from '@/lib/player/format';
 import { PLAYER_SHORTCUTS } from '@/lib/player/shortcuts';
 import { getPlayer, usePlayerState } from '@/lib/player/store';
 
 import { describePlayer } from './now-playing';
+import { Waveform } from './waveform/waveform';
 
 /**
  * The espresso player bar (task `071`, `docs/DESIGN.md` §4): what is playing, transport, compact
@@ -43,30 +45,6 @@ import { describePlayer } from './now-playing';
  * by keyboard, and every focus ring is the on-espresso treatment (task `012`) — the ink ring is
  * invisible on this bar.
  */
-
-/** `m:ss`, or `h:mm:ss`; whole seconds rounded down, so the display never runs ahead. */
-export function formatClock(seconds: number | null): string {
-  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return '–:––';
-  const total = Math.floor(seconds);
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const rest = String(total % 60).padStart(2, '0');
-  return hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}:${rest}` : `${minutes}:${rest}`;
-}
-
-/** "1 minute 23 seconds of 4 minutes 56 seconds", for the seek slider's spoken value. */
-export function spokenPosition(position: number, duration: number | null): string {
-  const say = (value: number) => {
-    const total = Math.floor(value);
-    const minutes = Math.floor(total / 60);
-    const seconds = total % 60;
-    const parts = [];
-    if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`);
-    parts.push(`${seconds} ${seconds === 1 ? 'second' : 'seconds'}`);
-    return parts.join(' ');
-  };
-  return duration === null ? say(position) : `${say(position)} of ${say(duration)}`;
-}
 
 function TrackInfo({
   state,
@@ -266,6 +244,15 @@ export function ExpandedPlayer({ state }: { readonly state: PlayerState }) {
         {detail}
       </p>
       <div className="flex w-full max-w-xl flex-col items-center gap-4">
+        {state.track === null ? null : (
+          <div className="h-12 w-full">
+            <Waveform
+              track={state.track}
+              variant="compact"
+              label={`Seek in ${state.track.title}, ${state.track.versionLabel}`}
+            />
+          </div>
+        )}
         <Progress state={state} />
         <Transport state={state} large />
       </div>
@@ -322,3 +309,5 @@ export function PlayerBar() {
     </div>
   );
 }
+
+export { formatClock, spokenPosition };

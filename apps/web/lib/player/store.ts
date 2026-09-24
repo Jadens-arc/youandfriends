@@ -62,7 +62,15 @@ export interface PlayerController {
   getState(): PlayerState;
   subscribe(listener: () => void): () => void;
   attach(adapter: MediaAdapter): () => void;
-  load(track: Track, options?: { readonly autoplay?: boolean }): Promise<void>;
+  load(
+    track: Track,
+    options?: { readonly autoplay?: boolean; readonly startAt?: number },
+  ): Promise<void>;
+  /**
+   * The element's own playhead, read now — for a playhead drawn every frame (task `072`). The
+   * store's `positionSeconds` updates a few times a second, which is too coarse to draw from.
+   */
+  currentTime(): number;
   play(): void;
   pause(): void;
   toggle(): void;
@@ -201,17 +209,21 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
     fail('decode');
   }
 
-  async function load(track: Track, options: { readonly autoplay?: boolean } = {}) {
+  async function load(
+    track: Track,
+    options: { readonly autoplay?: boolean; readonly startAt?: number } = {},
+  ) {
     loadToken += 1;
     const token = loadToken;
     clearTimers();
     grant = null;
     playReported = false;
-    dispatch({ type: 'load', track, autoplay: options.autoplay ?? true });
+    const startAt = Math.max(0, options.startAt ?? 0);
+    dispatch({ type: 'load', track, autoplay: options.autoplay ?? true, startAt });
     const fresh = await acquire(token);
     if (fresh === null || adapter === null || token !== loadToken) return;
     adapter.setSource(fresh.url, {
-      startAt: 0,
+      startAt,
       play: state.wantsToPlay,
       onPlayRejected: blocked,
     });
@@ -298,6 +310,7 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
 
   return {
     getState: () => state,
+    currentTime: () => adapter?.currentTime ?? state.positionSeconds,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
