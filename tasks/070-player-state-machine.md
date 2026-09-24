@@ -51,13 +51,17 @@ Stream URLs are issued only after `assertCan(subject, 'stream', version)` and ar
 
 ## Acceptance criteria
 
-- [ ] A single audio element survives every route change.
-- [ ] The state machine models all listed states explicitly.
-- [ ] Stream URLs are authorized, short-TTL, and refreshed transparently before expiry.
-- [ ] Playhead and playing state are preserved across a URL refresh.
-- [ ] Authorization is re-checked on refresh; revoked access stops playback.
-- [ ] Network loss, expired URL, and decode failure each have a distinct recovery path.
-- [ ] Stream URLs never appear in logs or persistent client storage.
+- [x] A single audio element survives every route change. (`AudioHost` renders the one `<audio>` in the workspace layout, outside the route segment beside the player region; every control reaches it through the store. The structural guarantee is task `013`'s; that audio really continues across navigation in a browser is task `120`'s Playwright suite.)
+- [x] The state machine models all listed states explicitly. (`lib/player/machine.ts`: idle, loading, ready, playing, paused, seeking, stalled, ended, error — pure, and tested to reach every one. `stalled` is only reachable from playing; before playback starts, a wait is still `loading`.)
+- [x] Stream URLs are authorized, short-TTL, and refreshed transparently before expiry. (`GET /api/stream/:versionId` → `streamUrlFor`: `assertCan(view)` on the version's song, the streaming derivative only — never the original — and a 15-minute presigned URL. The controller refreshes one minute before expiry.)
+- [x] Playhead and playing state are preserved across a URL refresh. (The playhead is read after the new URL arrives and restored once the element has metadata; paused stays paused. Tested in the controller and against a DOM `<audio>` element.)
+- [x] Authorization is re-checked on refresh; revoked access stops playback. (Each refresh calls the endpoint again. Tested end to end against a real database — a grant deleted between two calls is refused — and in the controller, where the refusal stops playback, drops the URL and schedules nothing further.)
+- [x] Network loss, expired URL, and decode failure each have a distinct recovery path. (Expired: a fresh URL at the same place, silently. Network: an error the listener sees, retried with backoff from 1 s to 30 s and at once when the browser comes back online. Decode: stop — the same bytes will not decode twice. Also: still processing (`409`), storage not configured (`503`), and a refused autoplay, which is `ready`, not stuck `loading`.)
+- [x] Stream URLs never appear in logs or persistent client storage. (Held in the controller's memory only, never in the store's state; tested that nothing is written to Web Storage and the URL is absent from the state. The route responds `no-store` and logs nothing on success.)
+
+**Not verified here.** The adapter is tested against jsdom's `<audio>`, which has the element and its events but no media pipeline (`play` and `load` are stubbed). Audio actually playing, a refresh swapping sources without an audible gap, and playback surviving navigation in a real browser belong to task `120`'s Playwright suite; Manual QA 1–3 need a deployed R2 bucket and were not run.
+
+**Scope note.** The player bar and mini-player now show what is playing and its state in words (`NowPlaying`); transport controls are task `071`.
 
 ## Tests and validation commands
 
@@ -78,7 +82,7 @@ Central to phase 7. Reverting breaks all playback.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

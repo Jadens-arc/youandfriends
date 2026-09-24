@@ -3,6 +3,8 @@
 import { cn } from '@youandfriends/ui';
 import * as React from 'react';
 
+import { NowPlaying } from '@/components/player/now-playing';
+
 /** Reserved height of the player bar. Also used to pad scroll containers above it. */
 export const PLAYER_HEIGHT = '4.5rem';
 
@@ -30,11 +32,7 @@ export function PlayerRegion({ children }: { children?: React.ReactNode }) {
         'bg-espresso text-on-espresso px-4',
       )}
     >
-      {children ?? (
-        <p className="text-caption text-secondary-on-espresso font-sans">
-          Nothing playing. The player arrives in task 070.
-        </p>
-      )}
+      {children ?? <NowPlaying className="min-w-0 flex-1" />}
     </div>
   );
 }

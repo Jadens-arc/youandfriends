@@ -115,4 +115,4 @@ Additive. Reverting returns every card to its placeholder. No data is lost.
 
 ## Commit
 
-_(not yet)_
+`bb44d54`

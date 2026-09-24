@@ -1,3 +1,4 @@
+import { AudioHost } from '@/components/player/audio-host';
 import { CommandEntry } from '@/components/shell/command-entry';
 import { BottomNavigation } from '@/components/shell/mobile/bottom-navigation';
 import { MobileHeader } from '@/components/shell/mobile/mobile-header';
@@ -55,6 +56,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           <MiniPlayer />
           <BottomNavigation />
         </div>
+
+        {/* The one audio element (task `070`): outside the route segment, never remounted. */}
+        <AudioHost />
 
         {/* Uploads, like playback, outlive the page that started them (task `055`). */}
         <UploadTray />

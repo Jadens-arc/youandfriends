@@ -4,6 +4,8 @@ import { BottomSheetContent, Button, cn, Sheet, SheetTitle, transition } from '@
 import { ChevronUp, Play } from 'lucide-react';
 import * as React from 'react';
 
+import { NowPlaying } from '@/components/player/now-playing';
+
 /**
  * Height of the mini-player.
  *
@@ -39,12 +41,7 @@ export function MiniPlayer() {
       >
         <div className="bg-on-espresso/10 size-9 shrink-0 rounded-sm" aria-hidden />
 
-        <div className="min-w-0 flex-1">
-          <p className="text-caption text-on-espresso truncate font-sans">Nothing playing</p>
-          <p className="text-secondary-on-espresso truncate font-sans text-[0.6875rem]">
-            The player arrives in task 070
-          </p>
-        </div>
+        <NowPlaying className="min-w-0 flex-1" />
 
         <Button
           variant="onEspresso"
