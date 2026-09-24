@@ -132,19 +132,24 @@ export class PeakAccumulator {
       1,
       Math.round(FINE_BUCKETS_PER_SECOND / MEDIUM_BUCKETS_PER_SECOND),
     );
-    const overviewFactor = Math.max(1, Math.ceil(this.bucketCount / OVERVIEW_BUCKETS));
+    // Never finer than the medium tier: for a file under ~20 s, "about 1,000 buckets" is finer
+    // than 50 per second, and an overview listed first but finer than the tier after it breaks
+    // the format's coarsest-first order. Found by task `066`'s golden file. When it would equal
+    // the medium tier it is left out rather than stored twice.
+    const overviewFactor = Math.max(mediumFactor, Math.ceil(this.bucketCount / OVERVIEW_BUCKETS));
     const medium = mergeBuckets(mins, maxs, mediumFactor);
-    const overview = mergeBuckets(mins, maxs, overviewFactor);
+    const tiers = [];
+    if (overviewFactor > mediumFactor) {
+      const overview = mergeBuckets(mins, maxs, overviewFactor);
+      tiers.push(toTier(fine * overviewFactor, overview.mins, overview.maxs));
+    }
+    tiers.push(toTier(fine * mediumFactor, medium.mins, medium.maxs), toTier(fine, mins, maxs));
 
     return {
       channels: this.channels,
       sampleRateHz: this.sampleRateHz,
       frameCount: this.frameCount,
-      tiers: [
-        toTier(fine * overviewFactor, overview.mins, overview.maxs),
-        toTier(fine * mediumFactor, medium.mins, medium.maxs),
-        toTier(fine, mins, maxs),
-      ],
+      tiers,
     };
   }
 }

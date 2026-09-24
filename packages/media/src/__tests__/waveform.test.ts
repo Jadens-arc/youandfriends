@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { probeAudio } from '../probe';
 import {
   FINE_BUCKETS_PER_SECOND,
+  MEDIUM_BUCKETS_PER_SECOND,
   generateWaveformPeaks,
   mergeBuckets,
   OVERVIEW_BUCKETS,
@@ -131,19 +132,22 @@ describeWithFfmpeg('generating peaks with ffmpeg', () => {
 
   const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
-  it('produces three tiers matching the tone, deterministically', async () => {
-    const path = await files.wav('mix.wav', { ...MIXDOWN, seconds: 10 });
+  it('produces three tiers, coarsest first, matching the tone, deterministically', async () => {
+    const path = await files.wav('mix.wav', { ...MIXDOWN, seconds: 30 });
     const probe = await probeAudio(path);
     const first = await generateWaveformPeaks(path, probe);
     const second = await generateWaveformPeaks(path, probe);
     expect(hash(first.bytes)).toBe(hash(second.bytes));
 
     const peaks = decodeWaveform(first.bytes);
-    expect(peaks.frameCount).toBe(441_000);
+    expect(peaks.frameCount).toBe(1_323_000);
     expect(peaks.tiers).toHaveLength(3);
+    const sizes = peaks.tiers.map((tier) => tier.framesPerBucket);
+    expect(sizes).toEqual([...sizes].sort((a, b) => b - a));
+    expect(new Set(sizes).size).toBe(3);
     const fine = peaks.tiers[2];
     expect(fine?.framesPerBucket).toBe(Math.round(44_100 / FINE_BUCKETS_PER_SECOND));
-    expect(fine?.peaks.length).toBe(2 * Math.ceil(441_000 / (fine?.framesPerBucket ?? 1)));
+    expect(fine?.peaks.length).toBe(2 * Math.ceil(1_323_000 / (fine?.framesPerBucket ?? 1)));
     expect(peaks.tiers[0]?.peaks.length).toBeLessThanOrEqual(2 * OVERVIEW_BUCKETS);
     // A half-scale sine: every bucket spans about ±64 (a 440 Hz cycle fits in a 5 ms bucket).
     const values = [...(fine?.peaks ?? [])];
@@ -156,6 +160,17 @@ describeWithFfmpeg('generating peaks with ffmpeg', () => {
     expect(first.bytes.byteLength * 2).toBeLessThan(JSON.stringify(allTiers).length);
     const asFloats = JSON.stringify(allTiers.map((tier) => tier.map((value) => value / 127)));
     expect(first.bytes.byteLength * 10).toBeLessThan(asFloats.length);
+  });
+
+  it('leaves out an overview that would be no coarser than the medium tier (a short file)', async () => {
+    const path = await files.wav('short.wav', { ...MIXDOWN, seconds: 10 });
+    const peaks = decodeWaveform((await generateWaveformPeaks(path, await probeAudio(path))).bytes);
+    const fine = Math.round(44_100 / FINE_BUCKETS_PER_SECOND);
+    // The medium tier is whole fine buckets merged, so its width is a multiple of the fine one.
+    expect(peaks.tiers.map((tier) => tier.framesPerBucket)).toEqual([
+      fine * (FINE_BUCKETS_PER_SECOND / MEDIUM_BUCKETS_PER_SECOND),
+      fine,
+    ]);
   });
 
   it('handles mono and multichannel sources with one envelope', async () => {

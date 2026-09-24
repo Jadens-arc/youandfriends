@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "fixtures:generate": "tsx src/fixtures/generate.mjs"
   },
   "dependencies": {
     "@youandfriends/config": "workspace:*",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "typescript": "~5.9.3",
     "vitest": "^3.2.7",
-    "@youandfriends/config": "workspace:*"
+    "@youandfriends/config": "workspace:*",
+    "tsx": "^4.23.13"
   }
 }

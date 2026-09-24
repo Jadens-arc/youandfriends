@@ -84,4 +84,4 @@ UI only. Reverting hides status; processing continues.
 
 ## Commit
 
-_(not yet)_
+`5f26333`

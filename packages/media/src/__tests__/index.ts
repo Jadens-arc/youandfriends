@@ -4,3 +4,10 @@
  */
 export { generateWav, type ToneSpec } from '../fixtures/tone';
 export { announceSkip, unavailableReason } from './prerequisite';
+export {
+  expectedLufs,
+  MEDIA_FIXTURES,
+  writeFixture,
+  type FixtureContainer,
+  type MediaFixture,
+} from '../fixtures/catalog';

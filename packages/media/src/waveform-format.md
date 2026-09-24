@@ -28,8 +28,11 @@ the end of the buffer, and trailing bytes.
 
 ## Semantics
 
-- Tiers are ordered **coarsest first**: an overview of about 1,000 buckets for the whole track,
-  a medium tier at 50 buckets per second, and a fine tier at 200 buckets per second.
+- Tiers are ordered **coarsest first**, each strictly coarser than the next: an overview of about
+  1,000 buckets for the whole track, a medium tier at 50 buckets per second, and a fine tier at
+  200 buckets per second. A track under about 20 seconds has no overview — 1,000 buckets would be
+  finer than the medium tier — so it carries two tiers. Readers must use the tier table, never
+  assume three.
 - A bucket's min and max are the extreme samples across **every channel** in its frames, so a
   mono, stereo, or multichannel source all produce one envelope.
 - Samples in [-1, 1] are scaled to [-127, 127]: minimums round down, maximums round up, so a
