@@ -13,6 +13,7 @@ import {
   formatSampleRate,
   formatTruePeak,
 } from '@/lib/songs/format';
+import { LoopControls } from '@/components/player/loop-controls';
 import { PlayVersionButton } from '@/components/player/play-version-button';
 import { QueueSourceButtons } from '@/components/player/queue-actions';
 import { Waveform } from '@/components/player/waveform/waveform';
@@ -342,6 +343,7 @@ export function VersionPanel({
           <WaveformStatus version={selected} />
         )}
       </WaveformRegion>
+      <LoopControls songId={songId} />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">

@@ -8,6 +8,7 @@ import {
   folders,
   recents,
   hasSoftDelete,
+  loopRegions,
   mediaJobs,
   mixVersions,
   permissionGrants,
@@ -60,6 +61,8 @@ export const SCOPED_TABLES = {
   derivatives,
   // Added in task `064`: the processing status a version view shows (task `065`).
   mediaJobs,
+  // Added in task `074`: one person's loop region on a song, tenant-owned like `recents`.
+  loopRegions,
   storageObjects,
   snapshots,
   snapshotEntries,

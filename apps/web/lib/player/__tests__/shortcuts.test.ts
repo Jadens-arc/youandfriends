@@ -16,7 +16,13 @@ function controller(state: Partial<PlayerState> = {}) {
     toggle: vi.fn(),
     seek: vi.fn(),
     toggleMute: vi.fn(),
+    setLoopIn: vi.fn(),
+    setLoopOut: vi.fn(),
+    clearLoopRegion: vi.fn(),
   } as unknown as PlayerController & {
+    setLoopIn: ReturnType<typeof vi.fn>;
+    setLoopOut: ReturnType<typeof vi.fn>;
+    clearLoopRegion: ReturnType<typeof vi.fn>;
     toggle: ReturnType<typeof vi.fn>;
     seek: ReturnType<typeof vi.fn>;
     toggleMute: ReturnType<typeof vi.fn>;
@@ -47,6 +53,13 @@ describe('player keyboard shortcuts (task 071)', () => {
     expect(player.seek.mock.calls.map(([seconds]) => seconds)).toEqual([65, 55, 70, 50, 0]);
     handlePlayerKey(press('m'), player);
     expect(player.toggleMute).toHaveBeenCalledTimes(1);
+    // Loop in, out, and clear (task `074`).
+    handlePlayerKey(press('i'), player);
+    handlePlayerKey(press('o'), player);
+    handlePlayerKey(press('u'), player);
+    expect(player.setLoopIn).toHaveBeenCalledTimes(1);
+    expect(player.setLoopOut).toHaveBeenCalledTimes(1);
+    expect(player.clearLoopRegion).toHaveBeenCalledTimes(1);
   });
 
   it('never takes Space from a field, the lyrics editor, a slider, or a button', () => {

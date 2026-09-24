@@ -10,6 +10,9 @@ export const PLAYER_SHORTCUTS = [
   { keys: 'J / L', action: 'Back or forward 10 seconds' },
   { keys: 'M', action: 'Mute or unmute' },
   { keys: '0', action: 'Back to the start' },
+  { keys: 'I', action: 'Start a loop here' },
+  { keys: 'O', action: 'End the loop here' },
+  { keys: 'U', action: 'Clear the loop' },
 ] as const;
 
 /**
@@ -80,6 +83,18 @@ export function handlePlayerKey(event: KeyboardEvent, player: PlayerController):
       return true;
     case '0':
       player.seek(0);
+      return true;
+    case 'i':
+    case 'I':
+      player.setLoopIn();
+      return true;
+    case 'o':
+    case 'O':
+      player.setLoopOut();
+      return true;
+    case 'u':
+    case 'U':
+      player.clearLoopRegion();
       return true;
     default:
       return false;

@@ -19,6 +19,7 @@ import {
   favorites,
   recents,
   folders,
+  loopRegions,
   mediaJobs,
   mixVersions,
   permissionGrants,
@@ -305,6 +306,25 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
       });
     },
     why: 'Streaming audio and waveforms. Regenerable, but a leaked one is still the music.',
+  },
+  {
+    status: 'live',
+    name: 'loop_regions',
+    table: loopRegions,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      const [owner] = await db.select().from(workspaceMemberships).limit(1);
+      await db.insert(loopRegions).values({
+        id: testId(),
+        workspaceId,
+        userId: owner?.userId ?? testId(),
+        songId: song.id,
+        startMs: 12_000,
+        endMs: 16_000,
+      });
+    },
+    why: 'Which bars of an unreleased song someone is working on, and when.',
   },
   {
     status: 'live',

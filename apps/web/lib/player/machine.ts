@@ -58,6 +58,12 @@ export interface PlayerState {
   /** 0–1. Survives loads and stops: it is the listener's setting, not the track's. */
   readonly volume: number;
   readonly muted: boolean;
+  /** Loop the whole track (task `074`). */
+  readonly loopTrack: boolean;
+  /** This listener's loop on this song, in seconds, or `null`. Cleared by a new load. */
+  readonly loopRegion: { readonly start: number; readonly end: number } | null;
+  /** Playback rate, 0.5–2. Survives loads, like volume. */
+  readonly rate: number;
 }
 
 export type MediaEventName =
@@ -95,7 +101,13 @@ export type PlayerEvent =
   /** The browser refused to start playback (autoplay policy): ready, but not playing. */
   | { readonly type: 'blocked' }
   | { readonly type: 'refresh'; readonly phase: 'start' | 'done' }
-  | { readonly type: 'volume'; readonly volume: number; readonly muted: boolean };
+  | { readonly type: 'volume'; readonly volume: number; readonly muted: boolean }
+  | { readonly type: 'loop-track'; readonly on: boolean }
+  | {
+      readonly type: 'loop-region';
+      readonly region: { readonly start: number; readonly end: number } | null;
+    }
+  | { readonly type: 'rate'; readonly rate: number };
 
 export const INITIAL_STATE: PlayerState = {
   status: 'idle',
@@ -107,6 +119,9 @@ export const INITIAL_STATE: PlayerState = {
   refreshing: false,
   volume: 1,
   muted: false,
+  loopTrack: false,
+  loopRegion: null,
+  rate: 1,
 };
 
 /** Errors after which trying again with the same track is pointless or not allowed. */
@@ -123,13 +138,21 @@ export function transition(state: PlayerState, event: PlayerEvent): PlayerState 
         ...INITIAL_STATE,
         volume: state.volume,
         muted: state.muted,
+        rate: state.rate,
+        loopTrack: state.loopTrack,
         status: 'loading',
         track: event.track,
         wantsToPlay: event.autoplay,
         positionSeconds: Math.max(0, event.startAt ?? 0),
       };
     case 'stop':
-      return { ...INITIAL_STATE, volume: state.volume, muted: state.muted };
+      return { ...INITIAL_STATE, volume: state.volume, muted: state.muted, rate: state.rate };
+    case 'loop-track':
+      return { ...state, loopTrack: event.on };
+    case 'loop-region':
+      return state.track === null ? state : { ...state, loopRegion: event.region };
+    case 'rate':
+      return { ...state, rate: Math.min(2, Math.max(0.5, event.rate)) };
     case 'volume':
       return { ...state, volume: Math.min(1, Math.max(0, event.volume)), muted: event.muted };
     case 'play':

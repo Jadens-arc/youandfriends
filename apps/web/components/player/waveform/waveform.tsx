@@ -8,6 +8,8 @@ import type { Track } from '@/lib/player/machine';
 import { getPlayer, usePlayerState } from '@/lib/player/store';
 import { loadWaveform, type DecodedTier } from '@/lib/waveform/decode';
 
+import { LoopRegionOverlay } from './loop-region';
+
 /**
  * The waveform (task `072`, `docs/DESIGN.md` §4 and §11–12).
  *
@@ -300,6 +302,13 @@ export function Waveform({
         </p>
       ) : null}
       <canvas ref={canvasRef} aria-hidden className="block h-full w-full" />
+      {isLoaded && player.loopRegion !== null && duration !== null ? (
+        <LoopRegionOverlay
+          region={player.loopRegion}
+          duration={duration}
+          onChange={(start, end) => getPlayer().setLoopRegion(start, end)}
+        />
+      ) : null}
       {hover === null ? null : (
         <span
           aria-hidden

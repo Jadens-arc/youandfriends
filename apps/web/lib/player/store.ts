@@ -13,6 +13,7 @@ import {
   type PlayerState,
   type Track,
 } from './machine';
+import { normalizeRegion, pastLoopEnd, withIn, withOut, type LoopRegionSeconds } from './loop';
 import {
   addNext,
   addToEnd,
@@ -77,6 +78,16 @@ export interface PlayerDependencies {
   readonly authorizeVersions?:
     ((versionIds: readonly string[]) => Promise<Track[] | null>) | undefined;
   readonly random?: () => number;
+  /** This listener's loop region per song, on the server (task `074`). */
+  readonly loopStorage?: LoopStorage | undefined;
+  /** `requestAnimationFrame`, injectable so the loop boundary can be tested frame by frame. */
+  readonly requestFrame?: (callback: () => void) => unknown;
+  readonly cancelFrame?: (handle: unknown) => void;
+}
+
+export interface LoopStorage {
+  read(songId: string): Promise<LoopRegionSeconds | null>;
+  write(songId: string, region: LoopRegionSeconds | null): Promise<void>;
 }
 
 export interface QueueStorage {
@@ -133,6 +144,16 @@ export interface PlayerController {
   clearQueue(): void;
   /** Bring back last session's queue, re-authorized. Plays nothing by itself. */
   restoreQueue(): Promise<void>;
+  toggleLoopTrack(): void;
+  /** Loop from the playhead. */
+  setLoopIn(): void;
+  /** Loop up to the playhead. */
+  setLoopOut(): void;
+  setLoopRegion(start: number, end: number): void;
+  clearLoopRegion(): void;
+  setRate(rate: number): void;
+  /** Whether speed changes keep pitch in this browser (task `074`). */
+  preservesPitch(): boolean;
 }
 
 export function createPlayer(dependencies: PlayerDependencies = {}): PlayerController {
@@ -163,6 +184,40 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
     if (next === state) return;
     state = next;
     for (const listener of listeners) listener();
+    syncLoopWatcher();
+  }
+
+  const requestFrame =
+    dependencies.requestFrame ??
+    ((callback: () => void) =>
+      typeof requestAnimationFrame === 'undefined' ? null : requestAnimationFrame(callback));
+  const cancelFrame =
+    dependencies.cancelFrame ??
+    ((handle: unknown) => {
+      if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(handle as number);
+    });
+  let loopFrame: unknown = null;
+
+  /**
+   * While a region loops and the track plays, check the boundary every animation frame — not on
+   * `timeupdate`, which fires about four times a second and makes an audibly sloppy loop.
+   */
+  function syncLoopWatcher() {
+    const active = state.loopRegion !== null && state.status === 'playing' && adapter !== null;
+    if (!active) {
+      if (loopFrame !== null) cancelFrame(loopFrame);
+      loopFrame = null;
+      return;
+    }
+    if (loopFrame !== null) return;
+    const tick = () => {
+      loopFrame = null;
+      const region = state.loopRegion;
+      if (region === null || state.status !== 'playing' || adapter === null) return;
+      if (pastLoopEnd(adapter.currentTime, region)) adapter.seek(region.start);
+      loopFrame = requestFrame(tick);
+    };
+    loopFrame = requestFrame(tick);
   }
 
   function clearTimers() {
@@ -285,6 +340,7 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
     playReported = false;
     const startAt = Math.max(0, options.startAt ?? 0);
     dispatch({ type: 'load', track, autoplay: options.autoplay ?? true, startAt });
+    void restoreLoop(track, token);
     // A URL fetched ahead of time for exactly this track is used as long as it has a while left;
     // it was authorized when it was fetched, moments ago.
     const ahead = preloaded;
@@ -309,6 +365,28 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
     });
   }
 
+  async function restoreLoop(track: Track, token: number) {
+    let region: LoopRegionSeconds | null = null;
+    try {
+      region = (await dependencies.loopStorage?.read(track.songId)) ?? null;
+    } catch {
+      return; // A loop that could not be fetched is simply not restored.
+    }
+    if (token !== loadToken || region === null) return;
+    dispatch({ type: 'loop-region', region });
+  }
+
+  function persistLoop(region: LoopRegionSeconds | null) {
+    const track = state.track;
+    if (track === null) return;
+    void dependencies.loopStorage?.write(track.songId, region).catch(() => undefined);
+  }
+
+  function applyRegion(region: LoopRegionSeconds | null) {
+    dispatch({ type: 'loop-region', region });
+    persistLoop(region);
+  }
+
   /** Play one track on its own: the queue becomes just this track. */
   async function load(
     track: Track,
@@ -327,6 +405,14 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
   }
 
   function onEnded() {
+    // A whole-track loop, or a loop region reaching the very end of the file, starts again.
+    const again = state.loopTrack ? 0 : state.loopRegion?.start;
+    if (again !== undefined) {
+      dispatch({ type: 'seek', seconds: again });
+      adapter?.seek(again);
+      play();
+      return;
+    }
     const next = advance(queue, 'auto');
     if (next === null) return;
     if (next.position === queue.position) {
@@ -409,6 +495,7 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
   function attach(next: MediaAdapter) {
     adapter = next;
     next.setVolume(state.volume, state.muted);
+    next.setRate(state.rate);
     const unsubscribe = next.subscribe((event, snapshot) => {
       if (event === 'error') {
         onMediaError();
@@ -545,6 +632,42 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
           : buildQueue({ ...queue, shuffle: false }, [track]),
       );
     },
+    toggleLoopTrack() {
+      dispatch({ type: 'loop-track', on: !state.loopTrack });
+    },
+    setLoopIn() {
+      if (state.track === null) return;
+      applyRegion(
+        withIn(
+          state.loopRegion,
+          adapter?.currentTime ?? state.positionSeconds,
+          state.durationSeconds,
+        ),
+      );
+    },
+    setLoopOut() {
+      if (state.track === null) return;
+      applyRegion(
+        withOut(
+          state.loopRegion,
+          adapter?.currentTime ?? state.positionSeconds,
+          state.durationSeconds,
+        ),
+      );
+    },
+    setLoopRegion(start, end) {
+      if (state.track === null) return;
+      applyRegion(normalizeRegion(start, end, state.durationSeconds));
+    },
+    clearLoopRegion() {
+      if (state.loopRegion === null) return;
+      applyRegion(null);
+    },
+    setRate(rate) {
+      dispatch({ type: 'rate', rate });
+      adapter?.setRate(state.rate);
+    },
+    preservesPitch: () => adapter?.preservesPitch ?? true,
     async restoreQueue() {
       let stored: PersistedQueue | null = null;
       try {
@@ -604,6 +727,35 @@ async function authorizeVersions(versionIds: readonly string[]): Promise<Track[]
   }
 }
 
+/** Loop regions live on the server, per user per song (task `074`), in whole milliseconds. */
+const serverLoopStorage: LoopStorage = {
+  async read(songId) {
+    const response = await fetch(`/api/songs/${encodeURIComponent(songId)}/loop`, {
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { region?: { startMs: number; endMs: number } | null };
+    return body.region === null || body.region === undefined
+      ? null
+      : { start: body.region.startMs / 1000, end: body.region.endMs / 1000 };
+  },
+  async write(songId, region) {
+    const path = `/api/songs/${encodeURIComponent(songId)}/loop`;
+    await fetch(path, {
+      method: region === null ? 'DELETE' : 'PUT',
+      headers: { 'content-type': 'application/json' },
+      ...(region === null
+        ? {}
+        : {
+            body: JSON.stringify({
+              startMs: Math.round(region.start * 1000),
+              endMs: Math.round(region.end * 1000),
+            }),
+          }),
+    });
+  },
+};
+
 let singleton: PlayerController | null = null;
 
 /** The app's one player. Created on first use in the browser; the shell attaches the element. */
@@ -618,6 +770,7 @@ export function getPlayer(): PlayerController {
       volumeStorage: localVolumeStorage,
       queueStorage: localQueueStorage,
       authorizeVersions,
+      loopStorage: serverLoopStorage,
     });
   }
   return singleton;

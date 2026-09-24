@@ -85,4 +85,4 @@ Additive. Reverting loses the queue; single-track playback remains.
 
 ## Commit
 
-_(not yet)_
+`8e74a44`

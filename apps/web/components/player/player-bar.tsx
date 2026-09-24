@@ -33,6 +33,7 @@ import { formatClock, spokenPosition } from '@/lib/player/format';
 import { PLAYER_SHORTCUTS } from '@/lib/player/shortcuts';
 import { getPlayer, usePlayerState, useQueueState } from '@/lib/player/store';
 
+import { LoopControls } from './loop-controls';
 import { describePlayer } from './now-playing';
 import { QueuePanel } from './queue-panel';
 import { Waveform } from './waveform/waveform';
@@ -256,6 +257,7 @@ export function ExpandedPlayer({ state }: { readonly state: PlayerState }) {
         )}
         <Progress state={state} />
         <Transport state={state} large />
+        <LoopControls tone="espresso" />
       </div>
     </div>
   );

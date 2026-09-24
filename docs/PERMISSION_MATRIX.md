@@ -119,6 +119,7 @@ which requires workspace ownership, so an unguarded read of it is not one call a
 | `mix_versions`          | covered    | The version stack behind every song, including unreleased mixes.                                                                 |
 | `storage_objects`       | covered    | Bucket keys. A leaked key is a leaked file for the life of a presigned URL.                                                      |
 | `derivatives`           | covered    | Streaming audio and waveforms. Regenerable, but a leaked one is still the music.                                                 |
+| `loop_regions`          | covered    | Which bars of an unreleased song someone is working on, and when.                                                                |
 | `media_jobs`            | covered    | Names every version being processed and why one failed — upload activity, by the minute.                                         |
 | `snapshots`             | covered    | A captured project folder: what someone’s working directory looked like.                                                         |
 | `snapshot_entries`      | covered    | The file listing inside a snapshot. Reveals structure and naming even without bytes.                                             |

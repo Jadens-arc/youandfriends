@@ -18,3 +18,20 @@ export const queueSelectionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('folder'), folderId: ulidSchema }),
 ]);
 export type QueueSelection = z.infer<typeof queueSelectionSchema>;
+
+/**
+ * A loop region (task `074`), in whole milliseconds. Bounded by the longest audio the pipeline
+ * accepts (six hours), so a stored region can never be absurd.
+ */
+export const LOOP_MAX_MS = 6 * 60 * 60 * 1000;
+
+export const loopRegionSchema = z
+  .object({
+    startMs: z.number().int().min(0).max(LOOP_MAX_MS),
+    endMs: z.number().int().min(1).max(LOOP_MAX_MS),
+  })
+  .refine((region) => region.endMs > region.startMs, {
+    message: 'The loop must end after it starts.',
+    path: ['endMs'],
+  });
+export type LoopRegion = z.infer<typeof loopRegionSchema>;

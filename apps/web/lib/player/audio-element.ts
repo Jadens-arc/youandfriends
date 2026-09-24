@@ -27,6 +27,10 @@ export interface MediaAdapter {
   pause(): void;
   seek(seconds: number): void;
   setVolume(volume: number, muted: boolean): void;
+  /** Speed, with pitch preserved where the browser can (task `074`). */
+  setRate(rate: number): void;
+  /** Whether this browser keeps pitch when speed changes. Said, not assumed. */
+  readonly preservesPitch: boolean;
   /**
    * Warm the next track's bytes (task `073`) in a detached element that is never played, so it
    * never takes audio focus — the one element that plays stays the only one.
@@ -71,9 +75,12 @@ export function createAudioElementAdapter(element: HTMLAudioElement): MediaAdapt
   return {
     setSource(url, { startAt, play, onPlayRejected }) {
       if (pendingRestore !== null) element.removeEventListener('loadedmetadata', pendingRestore);
+      const rate = element.playbackRate;
       const restore = () => {
         element.removeEventListener('loadedmetadata', restore);
         pendingRestore = null;
+        // A new source resets the rate on some engines; the listener's speed carries over.
+        element.playbackRate = rate;
         if (startAt > 0) element.currentTime = startAt;
         if (play) void element.play().catch(() => onPlayRejected?.());
       };
@@ -95,6 +102,24 @@ export function createAudioElementAdapter(element: HTMLAudioElement): MediaAdapt
     setVolume(volume, muted) {
       element.volume = volume;
       element.muted = muted;
+    },
+    setRate(rate) {
+      const pitched = element as HTMLAudioElement & {
+        preservesPitch?: boolean;
+        webkitPreservesPitch?: boolean;
+        mozPreservesPitch?: boolean;
+      };
+      pitched.preservesPitch = true;
+      pitched.webkitPreservesPitch = true;
+      pitched.mozPreservesPitch = true;
+      element.playbackRate = rate;
+    },
+    get preservesPitch() {
+      return (
+        'preservesPitch' in element ||
+        'webkitPreservesPitch' in element ||
+        'mozPreservesPitch' in element
+      );
     },
     preload(url) {
       warm ??= new Audio();

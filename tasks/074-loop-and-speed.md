@@ -52,13 +52,17 @@ Loop and speed are local playback state with no authorization implications. Pers
 
 ## Acceptance criteria
 
-- [ ] Whole-track loop works.
-- [ ] In/out loop regions can be set by drag and from the playhead, and cleared.
-- [ ] Loop boundaries are tight, not audibly sloppy.
-- [ ] Loop regions persist per song per user and do not leak between collaborators.
-- [ ] Speed from 0.5× to 2× works with pitch preserved where supported, and degrades honestly where not.
-- [ ] Keyboard shortcuts exist for loop in, loop out, and clear.
-- [ ] The active loop region is clearly visible without obscuring the waveform.
+- [x] Whole-track loop works. ("Loop track" restarts at the end, before the queue advances.)
+- [x] In/out loop regions can be set by drag and from the playhead, and cleared. ("Loop from here" / "Loop to here" / "Clear loop", the I / O / U shortcuts, and two handles on the waveform that drag and — as named sliders — move by arrow keys, 0.5 s or 0.1 s with Shift.)
+- [x] Loop boundaries are tight, not audibly sloppy. (The controller checks the boundary every animation frame while a region plays — not on `timeupdate` — and seeks back to the start on the frame playback reaches the end. Tested frame by frame with an injected `requestAnimationFrame`. How tight it _sounds_ is Manual QA 1, for a real browser.)
+- [x] Loop regions persist per song per user and do not leak between collaborators. (New `loop_regions` table, unique per workspace, user and song, with a composite same-workspace song reference; `/api/songs/:songId/loop` reads and writes only the signed-in user's, after `view` on the song. Tested with two collaborators on one song, a stranger, and a foreign workspace. Registered in the scoped tables and the IDOR registry.)
+- [x] Speed from 0.5× to 2× works with pitch preserved where supported, and degrades honestly where not. (`playbackRate` with `preservesPitch` — and the WebKit and Gecko prefixes — on the one native element, no Web Audio pitch shifter; carried across a source change and across tracks. Where the element has no pitch-preservation property, the controls say "This browser changes pitch with speed.")
+- [x] Keyboard shortcuts exist for loop in, loop out, and clear. (I, O, U — listed in the shortcuts dialog, and never taken from fields or the lyrics editor.)
+- [x] The active loop region is clearly visible without obscuring the waveform. (A translucent ochre band with solid edges and handles; the controls also say "Looping 0:10–0:12" in words.)
+
+**Where.** Loop and speed controls sit under the waveform on a song's page while that song is the one loaded — never acting on some other song that happens to be playing — and in the expanded player.
+
+**Not verified here.** Loop tightness by ear and pitch at 0.5× (Manual QA 1–2) need real audio in a browser — task `120`.
 
 ## Tests and validation commands
 
@@ -78,7 +82,7 @@ Additive. Reverting loses loop and speed; core playback is unaffected.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

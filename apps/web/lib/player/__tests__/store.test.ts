@@ -63,6 +63,11 @@ class FakeMedia implements MediaAdapter {
   volume = 1;
   muted = false;
   preload?: (url: string) => void;
+  rate = 1;
+  preservesPitch = true;
+  setRate(rate: number) {
+    this.rate = rate;
+  }
   setVolume(volume: number, muted: boolean) {
     this.volume = volume;
     this.muted = muted;
