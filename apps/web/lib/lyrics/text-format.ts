@@ -1,6 +1,6 @@
 import {
   lineText,
-  sectionHeading,
+  sectionHeadings,
   SECTION_KINDS,
   SECTION_LABELS,
   type LyricsDocument,
@@ -10,29 +10,34 @@ import {
 
 /**
  * Lyrics as plain text with bracketed headings — `[Chorus]`, `[Verse 2]` — and back (task `080`).
- * The interim editing surface until the structured editor (task `081`); it round-trips the
- * section structure so nothing written here is lost when that editor arrives.
+ * The structured editor (task `081`) uses it to infer structure from pasted text, and to show a
+ * writer their own words beside a newer version after a conflict.
  */
 
 const HEADING = /^\s*\[(.{1,80})\]\s*$/;
 
-/** "Verse 2" → verse, labelled; "Chorus" → chorus; "Hook" → a freeform section called Hook. */
+/**
+ * "Verse 2" → verse (the number is derived from order, so it is not kept); "Chorus" → chorus;
+ * "Verse — alt" → a verse named that; "Hook" → a freeform section called Hook.
+ */
 export function kindOf(heading: string): { kind: SectionKind; label: string | null } {
   const clean = heading.trim();
   const lower = clean.toLowerCase().replace(/[\s_-]+/g, ' ');
   for (const kind of SECTION_KINDS) {
     if (kind === 'freeform') continue;
     const name = SECTION_LABELS[kind].toLowerCase().replace(/[\s_-]+/g, ' ');
-    if (lower === name) return { kind, label: null };
+    if (lower === name || new RegExp(`^${name} \\d{1,3}$`).test(lower))
+      return { kind, label: null };
     if (lower.startsWith(`${name} `)) return { kind, label: clean };
   }
   return { kind: 'freeform', label: clean };
 }
 
 export function lyricsToText(document: LyricsDocument): string {
+  const headings = sectionHeadings(document.content);
   return document.content
-    .map((section) =>
-      [`[${sectionHeading(section)}]`, ...section.content.map((line) => lineText(line))].join('\n'),
+    .map((section, index) =>
+      [`[${headings[index] ?? ''}]`, ...section.content.map((line) => lineText(line))].join('\n'),
     )
     .join('\n\n');
 }

@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `045` is next. `016`, `029` are passed over until their dependencies are `complete`. 62 of 95 iteration-one tasks are `complete`.
+Task `045` is next. `016`, `029` are passed over until their dependencies are `complete`. 63 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -89,8 +89,8 @@ Task `045` is next. `016`, `029` are passed over until their dependencies are `c
 | `075` | A/B version switching                                                  | Persistent player                    | `070`, `056`, `061`                       | `complete` | `41af46e` | —       |
 | `076` | Media Session and background playback                                  | Persistent player                    | `070`, `073`                              | `complete` | `0e3e2dd` | —       |
 | `077` | Mobile mini-player and expanded player                                 | Persistent player                    | `071`, `072`, `074`, `075`, `014`         | `complete` | `a6bbeaa` | —       |
-| `080` | Lyrics schema, plain-text projection, and autosave                     | Collaborative lyrics                 | `026`, `042`                              | `complete` | —         | —       |
-| `081` | Tiptap structured lyrics editor                                        | Collaborative lyrics                 | `080`, `011`                              | `pending`  | —         | —       |
+| `080` | Lyrics schema, plain-text projection, and autosave                     | Collaborative lyrics                 | `026`, `042`                              | `complete` | `68e9988` | —       |
+| `081` | Tiptap structured lyrics editor                                        | Collaborative lyrics                 | `080`, `011`                              | `complete` | —         | —       |
 | `082` | Real-time collaboration, presence, and cursors                         | Collaborative lyrics                 | `081`, `080`, `023`                       | `pending`  | —         | —       |
 | `083` | Lyric timestamp anchors                                                | Collaborative lyrics                 | `081`, `072`                              | `pending`  | —         | —       |
 | `084` | Revision snapshots and restoration                                     | Collaborative lyrics                 | `080`, `082`                              | `pending`  | —         | —       |

@@ -1,3 +1,4 @@
+import type { Editor } from '@tiptap/core';
 import type { LyricsDocument } from '@youandfriends/contracts';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -43,12 +44,31 @@ function stubFetch(
   return calls;
 }
 
-async function mountLoaded() {
-  render(<LyricsPanel songId="S1" songTitle="Headlights" />);
+async function mountLoaded(audio: React.ReactNode = null) {
+  render(<LyricsPanel songId="S1" songTitle="Headlights" audio={audio} />);
   await act(async () => {
     await vi.runAllTimersAsync();
   });
 }
+
+/** The editing surface, and the Tiptap editor Tiptap hangs on it. */
+function surface() {
+  const element = screen.getByRole('textbox', { name: 'Lyrics for Headlights' });
+  return { element, editor: (element as unknown as { editor: Editor }).editor };
+}
+
+function type(words: string) {
+  act(() => {
+    surface().editor.chain().focus('end').insertContent(words).run();
+  });
+}
+
+// jsdom has no layout: ProseMirror's scroll-into-view asks ranges for rectangles that do not
+// exist. Empty ones are the honest answer from a page that is never drawn.
+const emptyRect = { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 };
+Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
+Range.prototype.getBoundingClientRect ??= () =>
+  ({ ...emptyRect, toJSON: () => emptyRect }) as DOMRect;
 
 describe('LyricsPanel', () => {
   afterEach(() => {
@@ -62,10 +82,9 @@ describe('LyricsPanel', () => {
       json({ version: 4 }),
     );
     await mountLoaded();
-    const editor = screen.getByLabelText('Lyrics for Headlights');
-    expect(editor).toHaveValue('[Chorus]\nStay, stay');
+    expect(surface().element).toHaveTextContent('ChorusStay, stay');
 
-    fireEvent.change(editor, { target: { value: '[Chorus]\nStay, stay\nHeadlights on' } });
+    type(' — headlights on');
     expect(screen.getByRole('status')).toHaveTextContent('Unsaved changes');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS);
@@ -73,7 +92,7 @@ describe('LyricsPanel', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Saved');
     const saved = calls.find((call) => call.method === 'PUT');
     expect(saved?.body).toMatchObject({ baseVersion: 3 });
-    expect(JSON.stringify(saved?.body)).toContain('Headlights on');
+    expect(JSON.stringify(saved?.body)).toContain('Stay, stay — headlights on');
   });
 
   it('on a conflict overwrites nothing and offers the newer version, keeping the user’s text', async () => {
@@ -96,8 +115,7 @@ describe('LyricsPanel', () => {
       () => json({ error: { code: 'conflict' } }, 409),
     );
     await mountLoaded();
-    const editor = screen.getByLabelText('Lyrics for Headlights');
-    fireEvent.change(editor, { target: { value: '[Chorus]\nMy line' } });
+    type(' — my line');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS);
     });
@@ -107,9 +125,9 @@ describe('LyricsPanel', () => {
     await act(async () => {
       await vi.runAllTimersAsync();
     });
-    expect(editor).toHaveValue('[Bridge]\nTheir line');
+    expect(surface().element).toHaveTextContent('BridgeTheir line');
     expect(screen.getByLabelText('Your text before loading the newer version')).toHaveValue(
-      '[Chorus]\nMy line',
+      '[Chorus]\nStay, stay — my line',
     );
     expect(screen.getByRole('status')).toHaveTextContent('Saved');
   });
@@ -118,14 +136,16 @@ describe('LyricsPanel', () => {
     vi.useFakeTimers();
     stubFetch([{ document: CHORUS, version: 3, canEdit: true }], () => json({}, 404));
     await mountLoaded();
-    const editor = screen.getByLabelText('Lyrics for Headlights');
-    fireEvent.change(editor, { target: { value: '[Chorus]\nlate' } });
-    fireEvent.blur(editor);
+    type(' late');
+    act(() => {
+      surface().editor.commands.blur();
+    });
     await act(async () => {
       await vi.runAllTimersAsync();
     });
     expect(screen.getByRole('status')).toHaveTextContent('were not saved');
-    expect(editor).toHaveAttribute('readonly');
+    expect(surface().element).toHaveAttribute('contenteditable', 'false');
+    expect(screen.queryByRole('toolbar', { name: 'Section' })).toBeNull();
   });
 
   it('is read-only for someone who may only view', async () => {
@@ -134,8 +154,59 @@ describe('LyricsPanel', () => {
       json({ version: 99 }),
     );
     await mountLoaded();
-    expect(screen.getByLabelText('Lyrics for Headlights')).toHaveAttribute('readonly');
+    expect(surface().element).toHaveAttribute('contenteditable', 'false');
+    expect(screen.queryByRole('toolbar', { name: 'Section' })).toBeNull();
     expect(screen.getByText('View only')).toBeInTheDocument();
     expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+
+  it('restructures from the section toolbar, which acts on the section with the cursor', async () => {
+    vi.useFakeTimers();
+    const calls = stubFetch([{ document: CHORUS, version: 3, canEdit: true }], () =>
+      json({ version: 4 }),
+    );
+    await mountLoaded();
+    act(() => {
+      surface().editor.commands.focus('start');
+    });
+    const toolbar = screen.getByRole('toolbar', { name: 'Section' });
+    expect(toolbar).toHaveTextContent('In Chorus');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate Chorus' }));
+    expect(toolbar).toHaveTextContent('In Chorus 2');
+    fireEvent.change(screen.getByLabelText('Type of Chorus 2'), { target: { value: 'outro' } });
+    expect(toolbar).toHaveTextContent('In Outro');
+    expect(screen.getByRole('button', { name: 'Move Outro down' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Move Outro up' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    const name = screen.getByLabelText('Name for Outro');
+    fireEvent.change(name, { target: { value: 'Tag' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
+    expect(toolbar).toHaveTextContent('In Tag');
+    expect(screen.getAllByRole('heading', { level: 3 }).map((node) => node.textContent)).toEqual([
+      'Tag',
+      'Chorus',
+    ]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS);
+    });
+    const body = calls.find((call) => call.method === 'PUT')?.body as {
+      document: LyricsDocument;
+    };
+    expect(body.document.content.map((section) => section.attrs)).toEqual([
+      { kind: 'outro', label: 'Tag', timestampMs: null },
+      { kind: 'chorus', label: null, timestampMs: null },
+    ]);
+  });
+
+  it('puts the audio beside the lyrics', async () => {
+    vi.useFakeTimers();
+    stubFetch([{ document: CHORUS, version: 3, canEdit: true }], () => json({ version: 4 }));
+    await mountLoaded(<p>the player</p>);
+    const aside = screen.getByRole('complementary', { name: 'Audio for Headlights' });
+    expect(aside).toHaveTextContent('the player');
+    expect(aside.parentElement?.className).toMatch(/lg:grid-cols-/);
   });
 });

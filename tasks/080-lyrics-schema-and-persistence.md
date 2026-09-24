@@ -89,4 +89,4 @@ Additive. Reverting loses lyrics persistence — do not revert once lyrics exist
 
 ## Commit
 
-_(not yet)_
+`68e9988`

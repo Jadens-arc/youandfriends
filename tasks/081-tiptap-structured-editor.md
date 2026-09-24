@@ -51,13 +51,17 @@ Pasted content is untrusted input. The restricted Tiptap schema is the control: 
 
 ## Acceptance criteria
 
-- [ ] Section blocks for Verse, Pre-Chorus, Chorus, Bridge, Outro, and custom types exist.
-- [ ] Blocks can be created, reordered, renamed, duplicated, and deleted.
-- [ ] Typography uses the typewriter face with comfortable line height and measure.
-- [ ] Keyboard shortcuts insert and navigate blocks.
-- [ ] Desktop shows audio and lyrics side by side.
-- [ ] Section numbering derives from order and updates on reorder.
-- [ ] Pasted content is stripped to text and structure; arbitrary HTML is rejected.
+- [x] Section blocks for Verse, Pre-Chorus, Chorus, Bridge, Outro, and custom types exist. (Also Intro. A freeform section, or any section, can be given its own name. `components/lyrics/editor/schema.ts`.)
+- [x] Blocks can be created, reordered, renamed, duplicated, and deleted. (The "Section" toolbar — Add section, type, Rename, Move up/down, Duplicate, Delete — acts on the section holding the cursor; every action is undoable. A duplicate does not inherit timestamps. Deleting the last section leaves an empty one to type into, which is saved as no lyrics.)
+- [x] Typography uses the typewriter face with comfortable line height and measure. (`.font-lyric`: IBM Plex Mono, `--text-lyric` at 1.85 line height, `--container-lyric` 34 rem measure, centred on wide screens; headings in the editorial serif.)
+- [x] Keyboard shortcuts insert and navigate blocks. (Mod-Enter new section; Mod-Alt-1…6 and 0 by kind; Alt-↑/↓ previous/next section; Mod-Shift-↑/↓ move; Mod-Shift-D duplicate; Backspace in an empty section deletes it. Listed under "Keyboard shortcuts" below the editor.)
+- [x] Desktop shows audio and lyrics side by side. (`LyricsAudio` — the current playable version's play button, compact waveform and loop controls — in a sticky column beside the editor from `lg`; above it on narrower screens.)
+- [x] Section numbering derives from order and updates on reorder. (`sectionHeadings` in `@youandfriends/contracts` numbers a kind only when it repeats and is drawn as decorations; nothing numbered is stored. The plain-text projection and the bracketed text format use the same function. Tested through a reorder.)
+- [x] Pasted content is stripped to text and structure; arbitrary HTML is rejected. (Paste and external drops read `text/plain` only; `transformPastedHTML` returns nothing; control characters and bidi overrides are stripped and over-long lines cut to the contract's bound; bracketed headings become sections. The schema has three node types and no marks, so even `setContent` with HTML produces only sections, lines and text — tested.)
+
+**Changed from `080`.** A section's `label` is now a name the writer gave it; "Verse 2" in bracketed text is read as a verse (the number derived), not as a label.
+
+**Not verified here.** Manual QA 1–3 need a browser; none is available in this environment (task `120`). Editor tests run the real Tiptap editor in jsdom, with layout stubbed.
 
 ## Tests and validation commands
 
@@ -77,7 +81,7 @@ UI only. Reverting loses the editor; stored lyrics remain intact.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

@@ -1,19 +1,21 @@
 'use client';
 
 import type { LyricsDocument } from '@youandfriends/contracts';
-import { Button, cn, focusRing } from '@youandfriends/ui';
+import { Button, cn } from '@youandfriends/ui';
 import { AlertTriangle, Check, CloudOff, Loader2, Lock, PencilLine } from 'lucide-react';
 import * as React from 'react';
 
 import { createAutosave, httpSave, type Autosave, type SaveState } from '@/lib/lyrics/autosave';
-import { lyricsToText, textToLyrics } from '@/lib/lyrics/text-format';
+import { lyricsToText } from '@/lib/lyrics/text-format';
+
+import { LyricsEditor, type LyricsEditorHandle } from './editor/lyrics-editor';
 
 /**
- * The song's lyrics (task `080`): an autosaving editor with its save state always in words.
+ * The song's lyrics (tasks `080`, `081`): the structured editor, autosaving, with its save state
+ * always in words. Saves go to Postgres, the canonical store (ADR 0003).
  *
- * The editing surface is plain text with bracketed section headings — `[Chorus]` — until the
- * structured editor arrives (task `081`); the section structure round-trips, so nothing written
- * here is lost then. Saves go to Postgres, the canonical store (ADR 0003).
+ * On a wide screen the song's audio sits beside the words (`docs/DESIGN.md` §6), so a writer can
+ * play, loop, and scrub without leaving the page they are writing on.
  */
 
 const STATE_TEXT: Readonly<Record<SaveState, string>> = {
@@ -71,15 +73,19 @@ async function fetchLyrics(songId: string): Promise<Loaded | null> {
 export function LyricsPanel({
   songId,
   songTitle,
+  audio = null,
 }: {
   readonly songId: string;
   readonly songTitle: string;
+  /** The song's audio, shown beside the lyrics on a wide screen and above them on a narrow one. */
+  readonly audio?: React.ReactNode;
 }) {
   const [loaded, setLoaded] = React.useState<Loaded | null | 'error'>(null);
-  const [text, setText] = React.useState('');
   const [state, setState] = React.useState<SaveState>('saved');
   const [kept, setKept] = React.useState<string | null>(null);
   const autosave = React.useRef<Autosave | null>(null);
+  const editor = React.useRef<LyricsEditorHandle>(null);
+  const current = React.useRef<LyricsDocument | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -89,8 +95,8 @@ export function LyricsPanel({
         setLoaded('error');
         return;
       }
+      current.current = result.document;
       setLoaded(result);
-      setText(lyricsToText(result.document));
     });
     return () => {
       cancelled = true;
@@ -130,75 +136,72 @@ export function LyricsPanel({
   }, [songId, baseVersion]);
 
   async function loadLatest() {
-    setKept(text);
+    if (current.current !== null) setKept(lyricsToText(current.current));
     const latest = await fetchLyrics(songId);
     if (latest === null) return;
-    setLoaded(latest);
-    setText(lyricsToText(latest.document));
+    current.current = latest.document;
+    editor.current?.replace(latest.document);
     autosave.current?.rebase(latest.version);
   }
 
+  let body: React.ReactNode;
   if (loaded === null) {
-    return <p className="text-body text-muted-foreground font-sans">Loading lyrics…</p>;
-  }
-  if (loaded === 'error') {
-    return (
+    body = <p className="text-body text-muted-foreground font-sans">Loading lyrics…</p>;
+  } else if (loaded === 'error') {
+    body = (
       <p className="text-body text-muted-foreground font-sans">The lyrics could not be loaded.</p>
+    );
+  } else {
+    const editable = loaded.canEdit && state !== 'refused';
+    body = (
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {loaded.canEdit ? (
+            <SaveStateIndicator state={state} />
+          ) : (
+            <p className="text-caption text-muted-foreground font-sans">View only</p>
+          )}
+          {state === 'conflict' ? (
+            <Button variant="secondary" size="sm" onClick={() => void loadLatest()}>
+              Load the newer version
+            </Button>
+          ) : null}
+        </div>
+        <LyricsEditor
+          ref={editor}
+          document={loaded.document}
+          editable={editable}
+          label={`Lyrics for ${songTitle}`}
+          onChange={(document) => {
+            current.current = document;
+            autosave.current?.edit(document);
+          }}
+          onBlur={() => void autosave.current?.flush()}
+        />
+        {kept === null ? null : (
+          <details className="text-caption font-sans">
+            <summary className="text-muted-foreground cursor-pointer">
+              Your text before loading the newer version
+            </summary>
+            <textarea
+              readOnly
+              value={kept}
+              aria-label="Your text before loading the newer version"
+              className="border-border bg-card mt-2 min-h-32 w-full rounded-md border p-3 font-mono"
+            />
+          </details>
+        )}
+      </div>
     );
   }
 
-  const editable = loaded.canEdit && state !== 'refused';
+  if (audio === null) return body;
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {loaded.canEdit ? (
-          <SaveStateIndicator state={state} />
-        ) : (
-          <p className="text-caption text-muted-foreground font-sans">View only</p>
-        )}
-        {state === 'conflict' ? (
-          <Button variant="secondary" size="sm" onClick={() => void loadLatest()}>
-            Load the newer version
-          </Button>
-        ) : null}
-      </div>
-      <label className="sr-only" htmlFor={`lyrics-${songId}`}>
-        Lyrics for {songTitle}
-      </label>
-      <textarea
-        id={`lyrics-${songId}`}
-        value={text}
-        readOnly={!editable}
-        aria-describedby={`lyrics-help-${songId}`}
-        onChange={(event) => {
-          setText(event.target.value);
-          autosave.current?.edit(textToLyrics(event.target.value));
-        }}
-        onBlur={() => void autosave.current?.flush()}
-        placeholder={editable ? '[Verse]\nThe first line…' : 'No lyrics yet.'}
-        spellCheck
-        className={cn(
-          'border-border bg-card text-foreground min-h-[24rem] w-full resize-y rounded-md border p-4 font-mono text-[0.9375rem] leading-relaxed',
-          focusRing,
-        )}
-      />
-      <p id={`lyrics-help-${songId}`} className="text-caption text-muted-foreground font-sans">
-        Start a section with its name in brackets — [Verse], [Chorus], [Bridge] — on a line of its
-        own.
-      </p>
-      {kept === null ? null : (
-        <details className="text-caption font-sans">
-          <summary className="text-muted-foreground cursor-pointer">
-            Your text before loading the newer version
-          </summary>
-          <textarea
-            readOnly
-            value={kept}
-            aria-label="Your text before loading the newer version"
-            className="border-border bg-card mt-2 min-h-32 w-full rounded-md border p-3 font-mono"
-          />
-        </details>
-      )}
+    <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
+      <aside aria-label={`Audio for ${songTitle}`} className="lg:sticky lg:top-4">
+        {audio}
+      </aside>
+      <div className="min-w-0">{body}</div>
     </div>
   );
 }

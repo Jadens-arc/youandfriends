@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { lyricsDocumentSchema, lyricsPlainText, type LyricsDocument } from './lyrics';
+import {
+  lyricsDocumentSchema,
+  lyricsPlainText,
+  sectionHeadings,
+  type LyricsDocument,
+} from './lyrics';
 
 const withLine = (text: string): LyricsDocument => ({
   type: 'doc',
@@ -44,5 +49,21 @@ describe('lyrics documents', () => {
       ],
     };
     expect(lyricsPlainText(document)).toBe('Verse 2\nfirst\n\nChorus\n\nhook');
+  });
+
+  it('numbers a kind only when it repeats, by order, skipping named sections', () => {
+    const attrs = (kind: 'verse' | 'chorus' | 'bridge', label: string | null = null) => ({
+      attrs: { kind, label },
+    });
+    expect(
+      sectionHeadings([
+        attrs('verse'),
+        attrs('chorus'),
+        attrs('verse', 'Verse — alt'),
+        attrs('verse'),
+        attrs('bridge'),
+        attrs('chorus', '  '),
+      ]),
+    ).toEqual(['Verse 1', 'Chorus 1', 'Verse — alt', 'Verse 2', 'Bridge', 'Chorus 2']);
   });
 });

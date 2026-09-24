@@ -78,7 +78,11 @@ export const lyricsSectionSchema = z.object({
   type: z.literal('lyricsSection'),
   attrs: z.object({
     kind: z.enum(SECTION_KINDS),
-    /** A freeform section's own name, or a numbered one's ("Verse 2"). */
+    /**
+     * A name the writer gave the section ("Hook", "Verse — alt"). Absent, the heading is the
+     * kind's name, numbered by order when the kind repeats — derived, never stored, so it cannot
+     * go stale when sections are reordered (task `081`).
+     */
     label: z.string().max(80).nullable().optional(),
     timestampMs: timestampSchema,
   }),
@@ -100,10 +104,34 @@ export type LyricsLine = z.infer<typeof lyricsLineSchema>;
 
 export const EMPTY_LYRICS: LyricsDocument = { type: 'doc', content: [] };
 
-/** A section's heading as a person reads it: its label, or its kind's name. */
-export function sectionHeading(section: Pick<LyricsSection, 'attrs'>): string {
-  const label = section.attrs.label?.trim();
-  return label !== undefined && label !== '' ? label : SECTION_LABELS[section.attrs.kind];
+/**
+ * Every section's heading as a person reads it, in order: its own name if it has one, otherwise
+ * its kind's name — "Verse 1", "Verse 2" when unnamed sections of that kind repeat, plain "Bridge"
+ * when there is one. Numbering is derived from order on every call.
+ */
+export function sectionHeadings(
+  sections: readonly Pick<LyricsSection, 'attrs'>[],
+): readonly string[] {
+  const unnamed = (section: Pick<LyricsSection, 'attrs'>) => {
+    const label = section.attrs.label?.trim();
+    return label === undefined || label === '' ? null : label;
+  };
+  const totals = new Map<SectionKind, number>();
+  for (const section of sections) {
+    if (unnamed(section) !== null) continue;
+    totals.set(section.attrs.kind, (totals.get(section.attrs.kind) ?? 0) + 1);
+  }
+  const seen = new Map<SectionKind, number>();
+  return sections.map((section) => {
+    const label = unnamed(section);
+    if (label !== null) return label;
+    const kind = section.attrs.kind;
+    const ordinal = (seen.get(kind) ?? 0) + 1;
+    seen.set(kind, ordinal);
+    return (totals.get(kind) ?? 0) > 1
+      ? `${SECTION_LABELS[kind]} ${ordinal}`
+      : SECTION_LABELS[kind];
+  });
 }
 
 export function lineText(line: Pick<LyricsLine, 'content'>): string {
@@ -118,9 +146,10 @@ export function lineText(line: Pick<LyricsLine, 'content'>): string {
 export function lyricsPlainText(document: {
   readonly content: readonly Pick<LyricsSection, 'attrs' | 'content'>[];
 }): string {
+  const headings = sectionHeadings(document.content);
   return document.content
-    .map((section) =>
-      [sectionHeading(section), ...section.content.map((line) => lineText(line))].join('\n'),
+    .map((section, index) =>
+      [headings[index] ?? '', ...section.content.map((line) => lineText(line))].join('\n'),
     )
     .join('\n\n');
 }
