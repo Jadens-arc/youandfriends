@@ -13,6 +13,7 @@ import {
   type ConnectionStatus,
 } from '@/lib/lyrics/collaboration-client';
 import { lyricsToText } from '@/lib/lyrics/text-format';
+import type { Track } from '@/lib/player/machine';
 import { fromBase64, toBase64 } from '@/lib/lyrics/yjs';
 
 import { LyricsEditor, type LyricsEditorHandle } from './editor/lyrics-editor';
@@ -108,11 +109,14 @@ export function LyricsPanel({
   songId,
   songTitle,
   audio = null,
+  track = null,
 }: {
   readonly songId: string;
   readonly songTitle: string;
   /** The song's audio, shown beside the lyrics on a wide screen and above them on a narrow one. */
   readonly audio?: React.ReactNode;
+  /** The version a timestamp plays from when nothing of this song is loaded (task `083`). */
+  readonly track?: Track | null;
 }) {
   const [loaded, setLoaded] = React.useState<Loaded | null | 'error'>(null);
   const [state, setState] = React.useState<SaveState>('saved');
@@ -121,6 +125,7 @@ export function LyricsPanel({
   const editor = React.useRef<LyricsEditorHandle>(null);
   const current = React.useRef<LyricsDocument | null>(null);
   const createSession = React.useContext(SessionFactoryContext);
+  const timing = React.useMemo(() => ({ songId, track }), [songId, track]);
   const [together, setTogether] = React.useState<Together | null>(null);
   const [connection, setConnection] = React.useState<ConnectionStatus>('connecting');
   // Bumped when access changes: a fresh session asks for a fresh room token.
@@ -284,6 +289,7 @@ export function LyricsPanel({
             autosave.current?.edit(document);
           }}
           onBlur={() => void autosave.current?.flush()}
+          timing={timing}
           collaboration={
             together === null || room === null
               ? null

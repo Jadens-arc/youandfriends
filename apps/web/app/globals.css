@@ -110,3 +110,36 @@
     user-select: none;
   }
 }
+
+/* Lyric timestamps and follow-along (task `083`). */
+@layer components {
+  .lyrics-timestamp {
+    margin-inline-end: 0.625rem;
+    padding: 0 0.3rem;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    background: var(--color-card);
+    color: var(--color-muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-style: normal;
+    font-variant-numeric: tabular-nums lining-nums;
+    line-height: 1.5;
+    vertical-align: 0.1em;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .lyrics-timestamp:hover {
+    color: var(--color-foreground);
+    border-color: var(--color-foreground);
+  }
+
+  /* The playing line: a bar at its start and a tint — never colour alone. */
+  .lyrics-line--current {
+    margin-inline-start: -0.75rem;
+    padding-inline-start: calc(0.75rem - 3px);
+    border-inline-start: 3px solid var(--color-foreground);
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  }
+}

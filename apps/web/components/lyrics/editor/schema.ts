@@ -19,6 +19,8 @@ import {
 
 import { lyricsToText, textToLyrics } from '@/lib/lyrics/text-format';
 
+import { seekThrough, timestampButton } from '../timestamps/button';
+
 /**
  * The lyrics editor's schema (task `081`) — deliberately closed. A document is sections, a
  * section is lines, a line is plain text with **no marks**. Nothing else can exist in it: no
@@ -83,7 +85,7 @@ const LyricsSection = Node.create({
     return ['section', { 'data-lyrics-section': '' }, 0];
   },
   addNodeView() {
-    return ({ node, decorations }) => {
+    return ({ node, decorations, editor }) => {
       const dom = document.createElement('section');
       dom.className = 'lyrics-section';
       dom.dataset.lyricsSection = '';
@@ -100,7 +102,13 @@ const LyricsSection = Node.create({
         const spec = decos.find(
           (deco) => typeof (deco.spec as { heading?: unknown }).heading === 'string',
         );
-        heading.textContent = (spec?.spec as { heading: string } | undefined)?.heading ?? '';
+        const text = (spec?.spec as { heading: string } | undefined)?.heading ?? '';
+        heading.textContent = text;
+        // A section's own timestamp (task `083`) sits beside its heading.
+        const ms = current.attrs.timestampMs as number | null;
+        if (typeof ms === 'number') {
+          heading.append(' ', timestampButton(ms, text, seekThrough(editor.storage)));
+        }
       };
       paint(node, decorations);
       return {
@@ -405,6 +413,8 @@ export const LYRICS_SHORTCUTS: readonly { readonly keys: string; readonly action
   { keys: 'Mod-Shift-ArrowUp / Mod-Shift-ArrowDown', action: 'Move this section up / down' },
   { keys: 'Mod-Shift-d', action: 'Duplicate this section' },
   { keys: 'Backspace in an empty section', action: 'Delete it' },
+  { keys: 'Mod-Alt-t', action: 'Time this line from the playhead' },
+  { keys: 'Mod-Alt-Shift-t', action: 'Time this section from the playhead' },
   { keys: 'Mod-z / Mod-Shift-z', action: 'Undo / redo' },
 ];
 

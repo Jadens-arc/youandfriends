@@ -15,18 +15,23 @@ import {
 import {
   Button,
   cn,
+  usePrefersReducedMotion,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   focusRing,
 } from '@youandfriends/ui';
-import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock, Copy, Pencil, Plus, Trash2, X } from 'lucide-react';
 import * as React from 'react';
 import type { Awareness } from 'y-protocols/awareness';
 import type * as Y from 'yjs';
 
 import { LYRICS_FRAGMENT } from '@/lib/lyrics/yjs';
+
+import { LyricsTimestamps, timestampStorage } from '../timestamps/extension';
+import { useFollowAlong } from '../timestamps/follow-along';
+import type { LyricsTiming } from '../timestamps/playback';
 
 import {
   currentSection,
@@ -135,18 +140,22 @@ export const LyricsEditor = React.forwardRef<
     readonly onBlur?: () => void;
     /** Present when editing together; the document then comes from `collaboration.doc`. */
     readonly collaboration?: EditorCollaboration | null;
+    /** The song these lyrics belong to, for timestamps and follow-along (task `083`). */
+    readonly timing?: LyricsTiming | null;
   }
 >(function LyricsEditor(
-  { document, editable, label, describedBy, onChange, onBlur, collaboration = null },
+  { document, editable, label, describedBy, onChange, onBlur, collaboration = null, timing = null },
   ref,
 ) {
   const change = React.useRef(onChange);
   const blur = React.useRef(onBlur);
+  const [timingMessage, setTimingMessage] = React.useState('');
   // The editor is created once; it reads the latest handlers through these.
   React.useEffect(() => {
     change.current = onChange;
     blur.current = onBlur;
   });
+  const timestamps = LyricsTimestamps.configure({ onRefused: setTimingMessage });
 
   const placeholder = Placeholder.configure({
     includeChildren: true,
@@ -156,10 +165,11 @@ export const LyricsEditor = React.forwardRef<
     {
       extensions:
         collaboration === null
-          ? [...lyricsExtensions, placeholder]
+          ? [...lyricsExtensions, placeholder, timestamps]
           : [
               ...lyricsSchemaExtensions,
               placeholder,
+              timestamps,
               Collaboration.configure({ document: collaboration.doc, field: LYRICS_FRAGMENT }),
               CollaborationCaret.configure({
                 provider: { awareness: collaboration.awareness },
@@ -199,6 +209,12 @@ export const LyricsEditor = React.forwardRef<
     editor?.setEditable(editable, false);
   }, [editor, editable]);
 
+  // Which song timestamps play and stamp from — set on the live editor, not at creation.
+  React.useEffect(() => {
+    if (editor === null) return;
+    timestampStorage(editor).setTiming(timing);
+  }, [editor, timing]);
+
   React.useImperativeHandle(
     ref,
     () => ({
@@ -216,9 +232,19 @@ export const LyricsEditor = React.forwardRef<
     selector: ({ editor: current }) => sectionState(current),
   });
 
+  useFollowAlong(editor, timing?.songId ?? null, usePrefersReducedMotion());
+
   return (
     <div className="flex flex-col gap-3">
-      {editable && editor !== null ? <SectionToolbar editor={editor} section={section} /> : null}
+      {editable && editor !== null ? (
+        <SectionToolbar
+          editor={editor}
+          section={section}
+          timed={timing !== null}
+          timingMessage={timingMessage}
+          onTimingMessage={setTimingMessage}
+        />
+      ) : null}
       <div
         className={cn(
           'lyrics-editor border-border-subtle bg-card rounded-md border px-5 py-4 md:px-8 md:py-6',
@@ -243,6 +269,10 @@ export const LyricsEditor = React.forwardRef<
               </React.Fragment>
             ))}
           </dl>
+          <p className="mt-2">
+            Timestamps belong to the song, not to one version. Where versions differ in timing, a
+            timestamp set on one is only approximate on another.
+          </p>
         </details>
       ) : null}
     </div>
@@ -252,9 +282,15 @@ export const LyricsEditor = React.forwardRef<
 function SectionToolbar({
   editor,
   section,
+  timed,
+  timingMessage,
+  onTimingMessage,
 }: {
   readonly editor: Editor;
   readonly section: SectionState | null;
+  readonly timed: boolean;
+  readonly timingMessage: string;
+  readonly onTimingMessage: (message: string) => void;
 }) {
   const [renaming, setRenaming] = React.useState(false);
   const [name, setName] = React.useState('');
@@ -397,8 +433,47 @@ function SectionToolbar({
           >
             <Trash2 aria-hidden />
           </ToolbarIcon>
+          {timed ? (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                title={spokenKeys('Mod-Alt-t')}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onTimingMessage('');
+                  editor.chain().focus().stampLine().run();
+                }}
+              >
+                <Clock aria-hidden />
+                Time this line
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                title={spokenKeys('Mod-Alt-Shift-t')}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onTimingMessage('');
+                  editor.chain().focus().stampSection().run();
+                }}
+              >
+                <Clock aria-hidden />
+                Time {heading}
+              </Button>
+              <ToolbarIcon
+                label="Clear this line’s time"
+                onClick={() => editor.chain().focus().setLineTimestamp(null).run()}
+              >
+                <X aria-hidden />
+              </ToolbarIcon>
+            </>
+          ) : null}
         </>
       )}
+      <p aria-live="polite" className="text-caption text-muted-foreground basis-full empty:hidden">
+        {timingMessage}
+      </p>
     </div>
   );
 }

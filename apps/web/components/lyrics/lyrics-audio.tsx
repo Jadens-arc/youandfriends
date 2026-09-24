@@ -4,6 +4,7 @@ import { LoopControls } from '@/components/player/loop-controls';
 import { PlayVersionButton } from '@/components/player/play-version-button';
 import { Waveform } from '@/components/player/waveform/waveform';
 import type { CoverSource } from '@/lib/library/covers';
+import type { Track } from '@/lib/player/machine';
 import type { SongVersion } from '@/lib/songs/workspace';
 
 /**
@@ -11,6 +12,36 @@ import type { SongVersion } from '@/lib/songs/workspace';
  * play button, compact waveform, and loop controls — the same player the rest of the app uses,
  * so playback carries on as the writer moves between tabs.
  */
+interface SongAudio {
+  readonly songId: string;
+  readonly songTitle: string;
+  readonly artist: string | null;
+  readonly cover: CoverSource | null;
+  readonly album?: string | null;
+  readonly versions: readonly SongVersion[];
+}
+
+/** The version the lyrics page plays: the current one if it is ready, else the newest ready. */
+function playableVersion(versions: readonly SongVersion[]): SongVersion | null {
+  const playable = versions.filter((version) => version.processingState === 'complete');
+  return playable.find((candidate) => candidate.isCurrent) ?? playable[0] ?? null;
+}
+
+/** That version as the player loads it — what a lyric timestamp starts playback from. */
+export function lyricsTrack(song: SongAudio): Track | null {
+  const version = playableVersion(song.versions);
+  if (version === null) return null;
+  return {
+    versionId: version.id,
+    songId: song.songId,
+    title: song.songTitle,
+    artist: song.artist,
+    versionLabel: `Version ${version.number}`,
+    cover: song.cover,
+    album: song.album ?? null,
+  };
+}
+
 export function LyricsAudio({
   songId,
   songTitle,
@@ -26,8 +57,7 @@ export function LyricsAudio({
   readonly album?: string | null;
   readonly versions: readonly SongVersion[];
 }) {
-  const playable = versions.filter((version) => version.processingState === 'complete');
-  const version = playable.find((candidate) => candidate.isCurrent) ?? playable[0] ?? null;
+  const version = playableVersion(versions);
   if (version === null) {
     return (
       <p className="text-caption text-muted-foreground font-sans">

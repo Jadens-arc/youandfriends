@@ -92,4 +92,4 @@ Additive over task `080`'s canonical persistence. Reverting loses collaboration 
 
 ## Commit
 
-_(not yet)_
+`02db1c4`

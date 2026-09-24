@@ -1,6 +1,6 @@
 import { cn } from '@youandfriends/ui';
 
-import { LyricsAudio } from '@/components/lyrics/lyrics-audio';
+import { LyricsAudio, lyricsTrack } from '@/components/lyrics/lyrics-audio';
 import { LyricsPanel } from '@/components/lyrics/lyrics-panel';
 import type { ActivityItem } from '@/lib/library/projects';
 import type { SongWorkspace as SongWorkspaceData } from '@/lib/songs/workspace';
@@ -129,6 +129,14 @@ export function SongWorkspaceView({
                   <LyricsPanel
                     songId={workspace.song.id}
                     songTitle={workspace.song.title}
+                    track={lyricsTrack({
+                      songId: workspace.song.id,
+                      songTitle: workspace.song.title,
+                      artist: workspace.artist,
+                      cover: workspace.cover,
+                      album: workspace.project?.name ?? null,
+                      versions: workspace.versions,
+                    })}
                     audio={
                       <LyricsAudio
                         songId={workspace.song.id}
