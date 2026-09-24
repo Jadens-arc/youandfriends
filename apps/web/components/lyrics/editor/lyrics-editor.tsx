@@ -30,6 +30,7 @@ import type * as Y from 'yjs';
 import { LYRICS_FRAGMENT } from '@/lib/lyrics/yjs';
 
 import { LyricsTimestamps, timestampStorage } from '../timestamps/extension';
+import { useKeepCaretVisible } from '../mobile/keyboard';
 import { useFollowAlong } from '../timestamps/follow-along';
 import type { LyricsTiming } from '../timestamps/playback';
 
@@ -142,18 +143,41 @@ export const LyricsEditor = React.forwardRef<
     readonly collaboration?: EditorCollaboration | null;
     /** The song these lyrics belong to, for timestamps and follow-along (task `083`). */
     readonly timing?: LyricsTiming | null;
+    /**
+     * Full-screen on a phone (task `085`): the section controls dock above the on-screen
+     * keyboard (`inset` pixels up from the bottom), and the caret is kept visible in `scroller`.
+     */
+    readonly dock?: {
+      readonly inset: number;
+      readonly scroller: React.RefObject<HTMLElement | null>;
+    } | null;
+    /** Called when the writing surface gains focus — a phone enters full screen then. */
+    readonly onFocus?: () => void;
   }
 >(function LyricsEditor(
-  { document, editable, label, describedBy, onChange, onBlur, collaboration = null, timing = null },
+  {
+    document,
+    editable,
+    label,
+    describedBy,
+    onChange,
+    onBlur,
+    collaboration = null,
+    timing = null,
+    dock = null,
+    onFocus,
+  },
   ref,
 ) {
   const change = React.useRef(onChange);
   const blur = React.useRef(onBlur);
+  const focus = React.useRef(onFocus);
   const [timingMessage, setTimingMessage] = React.useState('');
   // The editor is created once; it reads the latest handlers through these.
   React.useEffect(() => {
     change.current = onChange;
     blur.current = onBlur;
+    focus.current = onFocus;
   });
   const timestamps = LyricsTimestamps.configure({ onRefused: setTimingMessage });
 
@@ -200,6 +224,7 @@ export const LyricsEditor = React.forwardRef<
         change.current(fromEditorContent(current.getJSON()));
       },
       onBlur: () => blur.current?.(),
+      onFocus: () => focus.current?.(),
     },
     // A new shared document (a fresh session after an access change) is a new editor.
     [collaboration?.doc],
@@ -234,6 +259,14 @@ export const LyricsEditor = React.forwardRef<
 
   useFollowAlong(editor, timing?.songId ?? null, usePrefersReducedMotion());
 
+  // The docked controls are about 64 px tall; the caret must clear them and the keyboard.
+  const emptyScroller = React.useRef<HTMLElement | null>(null);
+  useKeepCaretVisible(editor, dock?.scroller ?? emptyScroller, {
+    enabled: dock !== null,
+    inset: dock?.inset ?? 0,
+    reserved: (dock?.inset ?? 0) + 72,
+  });
+
   return (
     <div className="flex flex-col gap-3">
       {editable && editor !== null ? (
@@ -243,11 +276,14 @@ export const LyricsEditor = React.forwardRef<
           timed={timing !== null}
           timingMessage={timingMessage}
           onTimingMessage={setTimingMessage}
+          docked={dock === null ? null : dock.inset}
         />
       ) : null}
       <div
         className={cn(
           'lyrics-editor border-border-subtle bg-card rounded-md border px-5 py-4 md:px-8 md:py-6',
+          // Room below the last line for the docked controls, so they never cover the writing.
+          dock !== null && 'max-md:mb-24 max-md:rounded-none max-md:border-x-0',
           'focus-within:outline-ring focus-within:outline-2 focus-within:outline-offset-2',
           !editable && 'bg-transparent',
         )}
@@ -285,12 +321,15 @@ function SectionToolbar({
   timed,
   timingMessage,
   onTimingMessage,
+  docked,
 }: {
   readonly editor: Editor;
   readonly section: SectionState | null;
   readonly timed: boolean;
   readonly timingMessage: string;
   readonly onTimingMessage: (message: string) => void;
+  /** Docked above the keyboard on a phone, this many pixels up; null when inline. */
+  readonly docked: number | null;
 }) {
   const [renaming, setRenaming] = React.useState(false);
   const [name, setName] = React.useState('');
@@ -313,7 +352,15 @@ function SectionToolbar({
     <div
       role="toolbar"
       aria-label="Section"
-      className="border-border-subtle flex flex-wrap items-center gap-2 border-b pb-2 font-sans"
+      data-docked={docked === null ? undefined : 'true'}
+      style={docked === null ? undefined : { bottom: docked }}
+      className={cn(
+        'border-border-subtle flex flex-wrap items-center gap-2 border-b pb-2 font-sans',
+        // A thumb's reach on a phone: every control 44 px.
+        'max-md:[&_button]:min-h-11 max-md:[&_button]:min-w-11 max-md:[&_select]:h-11',
+        docked !== null &&
+          'bg-background max-md:fixed max-md:inset-x-0 max-md:z-50 max-md:flex-nowrap max-md:overflow-x-auto max-md:border-t max-md:border-b-0 max-md:px-2 max-md:py-2',
+      )}
     >
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

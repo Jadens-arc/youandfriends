@@ -100,7 +100,10 @@ export function LyricsAudio({
           label={`Seek in ${songTitle}, ${versionLabel}`}
         />
       </div>
-      <LoopControls songId={songId} />
+      {/* Set aside while writing full screen on a phone, where only play and seek fit. */}
+      <div data-lyrics-extra>
+        <LoopControls songId={songId} />
+      </div>
     </div>
   );
 }

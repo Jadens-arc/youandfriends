@@ -45,11 +45,26 @@ export function presenceChanges(before: readonly string[], after: readonly strin
   ];
 }
 
+/** "Sam Rivera" → "SR"; one name → its first letter. */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const letters = parts.length > 1 ? [parts[0], parts.at(-1)] : parts.slice(0, 1);
+  return letters.map((part) => Array.from(part ?? '')[0]?.toUpperCase() ?? '').join('');
+}
+
 const STATUS_TEXT: Readonly<Record<ConnectionStatus, string>> = {
   connecting: 'Connecting…',
   connected: 'Live',
   reconnecting: 'Reconnecting — your changes still save',
   offline: 'Working alone — live editing is unreachable, your changes still save',
+};
+
+/** The same, at phone width — still in words, just fewer of them. */
+const STATUS_SHORT: Readonly<Record<ConnectionStatus, string>> = {
+  connecting: 'Connecting…',
+  connected: 'Live',
+  reconnecting: 'Reconnecting…',
+  offline: 'Working alone — still saving',
 };
 
 export function PresenceList({
@@ -90,21 +105,33 @@ export function PresenceList({
             (status === 'connecting' || status === 'reconnecting') && 'motion-safe:animate-spin',
           )}
         />
-        {STATUS_TEXT[status]}
+        <span className="md:hidden">{STATUS_SHORT[status]}</span>
+        <span className="max-md:hidden">{STATUS_TEXT[status]}</span>
       </p>
       {status === 'connected' && others.length > 0 ? (
         <ul aria-label="Also here" className="flex flex-wrap items-center gap-1.5">
           {others.map((person) => (
             <li
               key={person.name}
-              className="text-caption border-border-subtle flex items-center gap-1 rounded-full border px-2 py-0.5"
+              title={person.name}
+              className="text-caption border-border-subtle flex items-center gap-1 rounded-full border px-2 py-0.5 max-md:border-0 max-md:p-0"
             >
               <span
                 aria-hidden
-                className="size-2 rounded-full"
+                className="size-2 rounded-full max-md:hidden"
                 style={{ backgroundColor: person.color }}
               />
-              {person.name}
+              {/* At phone width, space is scarce: an initial in their colour; the name stays for
+                  screen readers and on long-press as the title. */}
+              <span
+                aria-hidden
+                data-avatar
+                className="text-paper flex size-7 items-center justify-center rounded-full text-xs font-semibold md:hidden"
+                style={{ backgroundColor: person.color }}
+              >
+                {initials(person.name)}
+              </span>
+              <span className="max-md:sr-only">{person.name}</span>
             </li>
           ))}
         </ul>

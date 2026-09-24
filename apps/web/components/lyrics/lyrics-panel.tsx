@@ -2,7 +2,7 @@
 
 import type { LyricsDocument } from '@youandfriends/contracts';
 import { Button, cn } from '@youandfriends/ui';
-import { AlertTriangle, Check, CloudOff, Loader2, Lock, PencilLine } from 'lucide-react';
+import { AlertTriangle, Check, CloudOff, Loader2, Lock, Maximize2, PencilLine } from 'lucide-react';
 import * as React from 'react';
 import * as Y from 'yjs';
 
@@ -17,6 +17,7 @@ import type { Track } from '@/lib/player/machine';
 import { fromBase64, toBase64 } from '@/lib/lyrics/yjs';
 
 import { LyricsEditor, type LyricsEditorHandle } from './editor/lyrics-editor';
+import { useKeyboardInset } from './mobile/keyboard';
 import { PresenceList } from './presence/presence-list';
 import { HistoryPanel, type RestoreResponse } from './revisions/history-panel';
 
@@ -127,6 +128,11 @@ export function LyricsPanel({
   const current = React.useRef<LyricsDocument | null>(null);
   const createSession = React.useContext(SessionFactoryContext);
   const timing = React.useMemo(() => ({ songId, track }), [songId, track]);
+  // Full screen on a phone (task `085`). CSS decides whether it applies — the same editor stays
+  // mounted either way, so nothing is lost switching in and out.
+  const [fullScreen, setFullScreen] = React.useState(false);
+  const inset = useKeyboardInset(fullScreen);
+  const scroller = React.useRef<HTMLDivElement>(null);
   const [together, setTogether] = React.useState<Together | null>(null);
   const [connection, setConnection] = React.useState<ConnectionStatus>('connecting');
   // Bumped when access changes: a fresh session asks for a fresh room token.
@@ -299,10 +305,25 @@ export function LyricsPanel({
             </Button>
           ) : null}
         </div>
+        {editable && !fullScreen ? (
+          <Button
+            variant="secondary"
+            className="min-h-11 self-start md:hidden"
+            onClick={() => setFullScreen(true)}
+          >
+            <Maximize2 aria-hidden />
+            Write full screen
+          </Button>
+        ) : null}
         <LyricsEditor
           ref={editor}
           document={loaded.document}
           editable={editable}
+          dock={fullScreen && editable ? { inset, scroller } : null}
+          onFocus={() => {
+            // Starting to type on a phone opens the full-screen editor.
+            if (editable && window.matchMedia?.('(max-width: 767px)').matches) setFullScreen(true);
+          }}
           label={`Lyrics for ${songTitle}`}
           onChange={(document) => {
             current.current = document;
@@ -337,13 +358,45 @@ export function LyricsPanel({
     );
   }
 
-  if (audio === null) return body;
   return (
-    <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
-      <aside aria-label={`Audio for ${songTitle}`} className="lg:sticky lg:top-4">
-        {audio}
-      </aside>
-      <div className="min-w-0">{body}</div>
+    <div
+      data-full-screen={fullScreen ? 'true' : undefined}
+      onKeyDown={(event) => {
+        if (fullScreen && event.key === 'Escape') setFullScreen(false);
+      }}
+      className={cn(
+        'flex flex-col gap-6',
+        audio !== null && 'lg:grid lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start',
+        fullScreen &&
+          'max-md:bg-background max-md:fixed max-md:inset-0 max-md:z-40 max-md:gap-0 max-md:overscroll-contain max-md:[&_[data-lyrics-extra]]:hidden',
+      )}
+    >
+      {fullScreen ? (
+        <div className="border-border-subtle flex min-h-14 items-center justify-between gap-2 border-b px-3 md:hidden">
+          <p className="text-heading text-foreground truncate font-serif">{songTitle}</p>
+          <Button variant="secondary" className="min-h-11" onClick={() => setFullScreen(false)}>
+            Done
+          </Button>
+        </div>
+      ) : null}
+      {audio === null ? null : (
+        <aside
+          aria-label={`Audio for ${songTitle}`}
+          className={cn(
+            'lg:sticky lg:top-4',
+            // Above the lyrics while writing on a phone: the audio stays in view as you type.
+            fullScreen && 'max-md:border-border-subtle max-md:shrink-0 max-md:border-b max-md:p-2',
+          )}
+        >
+          {audio}
+        </aside>
+      )}
+      <div
+        ref={scroller}
+        className={cn('min-w-0', fullScreen && 'max-md:flex-1 max-md:overflow-y-auto max-md:p-3')}
+      >
+        {body}
+      </div>
     </div>
   );
 }

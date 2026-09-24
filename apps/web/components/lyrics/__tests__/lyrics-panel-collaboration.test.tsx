@@ -110,7 +110,7 @@ describe('LyricsPanel, editing together (task 082)', () => {
   it('shows who is here and announces arrivals and departures, not cursor movement', async () => {
     stubFetch([{ canEdit: true }]);
     await mount();
-    expect(screen.getByText('Live')).toBeInTheDocument();
+    expect(screen.getAllByText('Live').length).toBeGreaterThan(0);
 
     const alex = collaborator(relay.factory, 'Alex');
     await settle();
@@ -163,7 +163,7 @@ describe('LyricsPanel, editing together (task 082)', () => {
       }
     ).document;
     act(() => relay.disconnect(doc));
-    expect(screen.getByText(/Working alone/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Working alone/).length).toBeGreaterThan(0);
     act(() => {
       editor.chain().focus('end').insertContent(' offline').run();
     });
