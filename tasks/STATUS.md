@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `068` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 51 of 95 iteration-one tasks are `complete`.
+Task `069` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 52 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -78,8 +78,8 @@ Task `068` is next. `016`, `029`, `045` are passed over until their dependencies
 | `064` | Trigger.dev job orchestration                                          | Media pipeline                       | `060`, `061`, `062`, `063`, `051`         | `complete` | `1747ccb` | —       |
 | `065` | Processing status and error surfacing                                  | Media pipeline                       | `064`, `056`                              | `complete` | `5f26333` | —       |
 | `066` | Media pipeline fixture tests                                           | Media pipeline                       | `064`, `027`                              | `complete` | `24b9a4d` | —       |
-| `067` | Serve stored bytes as the type we recorded                             | Media pipeline                       | `051`, `062`                              | `complete` | —         | —       |
-| `068` | Threat model the media pipeline                                        | Media pipeline                       | `060`                                     | `pending`  | —         | —       |
+| `067` | Serve stored bytes as the type we recorded                             | Media pipeline                       | `051`, `062`                              | `complete` | `2c19915` | —       |
+| `068` | Threat model the media pipeline                                        | Media pipeline                       | `060`                                     | `complete` | —         | —       |
 | `069` | Cover art renditions and delivery                                      | Media pipeline                       | `064`, `067`, `058`                       | `pending`  | —         | —       |
 | `070` | Player state machine and audio element                                 | Persistent player                    | `062`, `013`, `067`                       | `pending`  | —         | —       |
 | `071` | Persistent player interface                                            | Persistent player                    | `070`, `012`                              | `pending`  | —         | —       |

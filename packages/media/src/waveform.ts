@@ -13,7 +13,7 @@
  */
 import { encodeWaveform, type WaveformPeaks, type WaveformTier } from '@youandfriends/contracts';
 
-import { ffmpegPath, runStreaming, type RunOptions } from './run';
+import { ffmpegPath, runStreaming, untrustedInput, type RunOptions } from './run';
 
 /** The finest tier: buckets per second of audio. Enough for a zoomed-in loop edit. */
 export const FINE_BUCKETS_PER_SECOND = 200;
@@ -171,8 +171,7 @@ export async function generateWaveformPeaks(
       '-nostdin',
       '-v',
       'error',
-      '-i',
-      path,
+      ...untrustedInput(path),
       '-map',
       '0:a:0',
       // Decoded as-is: the source's own rate and channel count, as 16-bit signed samples.

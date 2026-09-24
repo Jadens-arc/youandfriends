@@ -16,7 +16,7 @@
  */
 import { access } from 'node:fs/promises';
 
-import { ffmpegPath, run, type RunOptions } from './run';
+import { ffmpegPath, run, untrustedInput, type RunOptions } from './run';
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -63,8 +63,7 @@ export function transcodeArgs(input: string, output: string, recipe: DerivativeR
     // Never overwrite: if the output path exists something is wrong, and it is not the original's
     // path only because the caller chose a different one — this makes it not depend on that.
     '-n',
-    '-i',
-    input,
+    ...untrustedInput(input),
     '-map',
     '0:a:0',
     '-vn',

@@ -17,7 +17,7 @@
  *   - **Mono, and unusual sample rates.** The filter handles both itself (it upsamples to 192 kHz
  *     internally for true peak); nothing here assumes stereo or 44.1/48 kHz.
  */
-import { ffmpegPath, runForOutput, ToolError, type RunOptions } from './run';
+import { ffmpegPath, runForOutput, ToolError, untrustedInput, type RunOptions } from './run';
 
 /** Shorter than this and the integrated figure is not a measurement of anything. */
 export const MIN_MEASURABLE_MS = 3_000;
@@ -108,8 +108,7 @@ export async function measureLoudness(
         '-hide_banner',
         '-nostats',
         '-nostdin',
-        '-i',
-        path,
+        ...untrustedInput(path),
         '-map',
         '0:a:0',
         '-filter:a',

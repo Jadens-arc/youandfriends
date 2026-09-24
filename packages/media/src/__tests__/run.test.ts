@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { run, ToolError } from '../run';
+import { transcodeArgs } from '../derivative';
+import { run, ToolError, untrustedInput } from '../run';
 
 /**
  * These use a shell stub rather than ffmpeg, because the property under test is how a *child*
@@ -54,4 +55,35 @@ describe('running a tool', () => {
     const path = await stub("printf '%s' hello");
     await expect(run(path, [])).resolves.toBe('hello');
   }, 30_000);
+});
+
+describe('arguments for an untrusted input (task `068`, T12)', () => {
+  it('pins the protocol whitelist to file before the input', () => {
+    expect(untrustedInput('/scratch/original')).toEqual([
+      '-protocol_whitelist',
+      'file',
+      '-i',
+      '/scratch/original',
+    ]);
+  });
+
+  it('refuses a relative path, which ffmpeg could read as an option or a URL', () => {
+    for (const path of ['-f', 'http://example.test/x', 'original', 'concat:a|b']) {
+      expect(() => untrustedInput(path)).toThrow(/relative media path/);
+    }
+  });
+
+  it('is what the transcode recipe uses', () => {
+    const args = transcodeArgs('/in/original.wav', '/out/stream.m4a', {
+      bitrate: '192k',
+      encoder: 'aac',
+    });
+    const at = args.indexOf('-i');
+    expect(args.slice(at - 2, at + 2)).toEqual([
+      '-protocol_whitelist',
+      'file',
+      '-i',
+      '/in/original.wav',
+    ]);
+  });
 });

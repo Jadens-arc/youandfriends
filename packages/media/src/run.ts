@@ -27,6 +27,7 @@
  * exhausts a worker's memory.
  */
 import { execFile, spawn } from 'node:child_process';
+import { isAbsolute } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -47,6 +48,20 @@ export function ffprobePath(): string {
 
 export function ffmpegPath(): string {
   return process.env.YOUANDFRIENDS_FFMPEG_PATH ?? 'ffmpeg';
+}
+
+/**
+ * The input arguments every ffmpeg invocation uses for an untrusted file (`docs/THREAT_MODEL.md`
+ * T12): `-protocol_whitelist file` before `-i`, so a container that names an external reference —
+ * an HLS playlist, a concat list, a QuickTime data reference — cannot make the decoder open a URL,
+ * whatever this build's defaults; and an absolute path, so a name beginning with `-` or a
+ * protocol prefix is never read as an option or a URL.
+ */
+export function untrustedInput(path: string): string[] {
+  if (!isAbsolute(path)) {
+    throw new Error(`refusing a relative media path ${JSON.stringify(path)}; pass an absolute one`);
+  }
+  return ['-protocol_whitelist', 'file', '-i', path];
 }
 
 /** Long enough for a large file on slow storage, short enough that a hang is noticed. */

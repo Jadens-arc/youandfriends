@@ -43,7 +43,40 @@ export const AAC_ENCODERS = ['aac', 'libfdk_aac'] as const;
 /** `ebur128` is how loudness is measured (task `061`). Without it there is no LUFS value. */
 export const REQUIRED_FILTERS = ['ebur128'] as const;
 
+/**
+ * The oldest ffmpeg this worker accepts (task `068`, `docs/THREAT_MODEL.md` T12). 6.1 is the
+ * release the pipeline was built and reviewed against: its refusal of non-`file` protocols inside
+ * a `file:` input, its `ebur128` summary format, and its fMP4 muxer flags are what the rest of
+ * this package relies on. Older builds also carry published demuxer CVEs. A version is a control
+ * only because it is checked, here, at every job's start.
+ */
+export const MINIMUM_FFMPEG_VERSION = [6, 1] as const;
+
+/**
+ * `ffmpeg version 6.1.1-3ubuntu5 Copyright…` → `[6, 1, 1]`; `ffmpeg version n7.0.2` → `[7, 0, 2]`.
+ * A git snapshot (`ffmpeg version N-113348-g…`) has no release number and parses to `null` —
+ * refused, because "some commit" cannot be compared against a floor.
+ */
+export function parseToolVersion(versionOutput: string): readonly number[] | null {
+  const firstLine = versionOutput.split('\n')[0] ?? '';
+  const match = firstLine.match(/^\S+ version n?(\d+)\.(\d+)(?:\.(\d+))?/);
+  if (match === null) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3] ?? 0)];
+}
+
+export function meetsMinimum(version: readonly number[] | null): boolean {
+  if (version === null) return false;
+  const [major = 0, minor = 0] = version;
+  const [minMajor, minMinor] = MINIMUM_FFMPEG_VERSION;
+  return major > minMajor || (major === minMajor && minor >= minMinor);
+}
+
 export interface Capabilities {
+  /** ffmpeg's and ffprobe's release numbers, or `null` when they could not be read. */
+  readonly ffmpegVersion: readonly number[] | null;
+  readonly ffprobeVersion: readonly number[] | null;
+  /** Whether both are at or above {@link MINIMUM_FFMPEG_VERSION}. */
+  readonly versionOk: boolean;
   readonly encoders: readonly string[];
   readonly filters: readonly string[];
   readonly missingEncoders: readonly string[];
@@ -59,6 +92,13 @@ export class MissingCapabilityError extends Error {
     const missing = [
       ...capabilities.missingEncoders.map((name) => `encoder ${name}`),
       ...capabilities.missingFilters.map((name) => `filter ${name}`),
+      ...(capabilities.versionOk
+        ? []
+        : [
+            `version ${MINIMUM_FFMPEG_VERSION.join('.')} or later (found ffmpeg ${
+              capabilities.ffmpegVersion?.join('.') ?? 'unknown'
+            }, ffprobe ${capabilities.ffprobeVersion?.join('.') ?? 'unknown'})`,
+          ]),
     ];
     super(
       `this ffmpeg build is missing ${missing.join(', ')} — ` +
@@ -105,7 +145,14 @@ export function parseNames(listing: string): string[] {
  *
  * Every comparison is against a **parsed name**, never the listing text.
  */
-export function capabilitiesFrom(encoderListing: string, filterListing: string): Capabilities {
+export function capabilitiesFrom(
+  encoderListing: string,
+  filterListing: string,
+  versions: { readonly ffmpeg: string; readonly ffprobe: string } = { ffmpeg: '', ffprobe: '' },
+): Capabilities {
+  const ffmpegVersion = parseToolVersion(versions.ffmpeg);
+  const ffprobeVersion = parseToolVersion(versions.ffprobe);
+  const versionOk = meetsMinimum(ffmpegVersion) && meetsMinimum(ffprobeVersion);
   const encoders = parseNames(encoderListing);
   const filters = parseNames(filterListing);
 
@@ -120,12 +167,15 @@ export function capabilitiesFrom(encoderListing: string, filterListing: string):
   const missingFilters = REQUIRED_FILTERS.filter((name) => !filters.includes(name));
 
   return {
+    ffmpegVersion,
+    ffprobeVersion,
+    versionOk,
     encoders,
     filters,
     missingEncoders,
     missingFilters,
     aacEncoder,
-    ok: missingEncoders.length === 0 && missingFilters.length === 0,
+    ok: versionOk && missingEncoders.length === 0 && missingFilters.length === 0,
   };
 }
 
@@ -135,13 +185,14 @@ export async function probeCapabilities(options: RunOptions = {}): Promise<Capab
   // a mis-pointed `YOUANDFRIENDS_FFPROBE_PATH` started, consumed the queue, and failed every job
   // at run time — precisely the posture this file exists to prevent. ffprobe needs no capability
   // check, only proof that it is there and runnable.
-  const [encoderListing, filterListing] = await Promise.all([
+  const [encoderListing, filterListing, ffmpeg, ffprobe] = await Promise.all([
     run(ffmpegPath(), ['-hide_banner', '-encoders'], options),
     run(ffmpegPath(), ['-hide_banner', '-filters'], options),
-    run(ffprobePath(), ['-hide_banner', '-version'], options),
+    run(ffmpegPath(), ['-version'], options),
+    run(ffprobePath(), ['-version'], options),
   ]);
 
-  return capabilitiesFrom(encoderListing, filterListing);
+  return capabilitiesFrom(encoderListing, filterListing, { ffmpeg, ffprobe });
 }
 
 /**

@@ -165,6 +165,21 @@ regenerated from untouched originals. `ops:media:retry` deliberately does not re
 `complete` job; doing so means deleting that version's `derivatives` rows and setting its
 `media_jobs.state` back to `failed` before retrying, which is a deliberate operator action.
 
+### Deployment-owned limits for the media worker (`docs/THREAT_MODEL.md` T12)
+
+The pipeline bounds what it can — every tool's time, its own output buffers, its scratch disk —
+but some limits only the deployment can set. Keep them:
+
+| Limit             | Setting                                                                                                       | Why                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Memory per worker | Trigger.dev machine `medium-1x` (`apps/jobs/src/trigger/process-audio.ts`); raise the preset, never remove it | ffmpeg's own memory is not bounded by the pipeline; the container limit is what kills a decoder that balloons |
+| Disk per worker   | at least 3 GB of ephemeral disk                                                                               | the scratch budget is 2 GB per job; a worker running two jobs shares one disk                                 |
+| Concurrency       | `queue.concurrencyLimit: 2` on the task                                                                       | bounds simultaneous decoders per deployment, and so the memory and disk above                                 |
+| Maximum duration  | `maxDuration` 55 min + 5 (task) / 3600 s (project)                                                            | the platform's hard stop, above the pipeline's own deadline                                                   |
+| ffmpeg version    | 6.1 or later — `ffmpeg({ version: '7' })` in `apps/jobs/trigger.config.ts`                                    | older builds are refused by the capability probe at every job's start                                         |
+
+Changing any of these is a threat-model change, not only a cost one.
+
 ## 4. Migrations
 
 **Forward.** Drizzle migrations are generated, reviewed by a human, and applied in order.

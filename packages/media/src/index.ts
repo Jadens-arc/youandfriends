@@ -24,6 +24,9 @@ export {
 export {
   assertCapabilities,
   capabilitiesFrom,
+  meetsMinimum,
+  MINIMUM_FFMPEG_VERSION,
+  parseToolVersion,
   MissingCapabilityError,
   parseNames,
   probeCapabilities,
@@ -86,6 +89,7 @@ export {
   runForOutput,
   runStreaming,
   ToolError,
+  untrustedInput,
   type RunOptions,
 } from './run';
 
