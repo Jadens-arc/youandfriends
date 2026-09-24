@@ -48,7 +48,7 @@ import { Waveform } from './waveform/waveform';
  * invisible on this bar.
  */
 
-function TrackInfo({
+export function TrackInfo({
   state,
   size,
 }: {
@@ -94,7 +94,7 @@ function TrackInfo({
   );
 }
 
-function Transport({
+export function Transport({
   state,
   large = false,
 }: {
@@ -142,7 +142,7 @@ function Transport({
   );
 }
 
-function Progress({ state }: { readonly state: PlayerState }) {
+export function Progress({ state }: { readonly state: PlayerState }) {
   const player = getPlayer();
   const duration = state.durationSeconds;
   const position = Math.min(state.positionSeconds, duration ?? state.positionSeconds);
@@ -172,7 +172,7 @@ function Progress({ state }: { readonly state: PlayerState }) {
   );
 }
 
-function Volume({ state }: { readonly state: PlayerState }) {
+export function Volume({ state }: { readonly state: PlayerState }) {
   const player = getPlayer();
   const silent = state.muted || state.volume === 0;
   return (
@@ -203,7 +203,7 @@ function Volume({ state }: { readonly state: PlayerState }) {
   );
 }
 
-function Shortcuts() {
+export function Shortcuts() {
   return (
     <Dialog>
       <DialogTrigger asChild>

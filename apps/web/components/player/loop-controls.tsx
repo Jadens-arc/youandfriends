@@ -15,8 +15,11 @@ import { getPlayer, usePlayerState } from '@/lib/player/store';
 export function LoopControls({
   tone = 'paper',
   songId,
+  touch = false,
 }: {
   readonly tone?: 'paper' | 'espresso';
+  /** 44 px targets, for the phone's expanded player (task `077`). */
+  readonly touch?: boolean;
   /** On a song's page: shown only while that song is the one loaded, so they never act on another. */
   readonly songId?: string;
 }) {
@@ -27,11 +30,13 @@ export function LoopControls({
   const variant = tone === 'espresso' ? 'onEspresso' : 'secondary';
   const region = state.loopRegion;
   const muted = tone === 'espresso' ? 'text-secondary-on-espresso' : 'text-muted-foreground';
+  const target = touch ? 'min-h-11' : undefined;
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
         variant={variant}
         size="sm"
+        className={target}
         aria-pressed={state.loopTrack}
         disabled={disabled}
         onClick={() => player.toggleLoopTrack()}
@@ -39,16 +44,29 @@ export function LoopControls({
         <Repeat aria-hidden />
         {state.loopTrack ? 'Looping track' : 'Loop track'}
       </Button>
-      <Button variant={variant} size="sm" disabled={disabled} onClick={() => player.setLoopIn()}>
+      <Button
+        variant={variant}
+        size="sm"
+        className={target}
+        disabled={disabled}
+        onClick={() => player.setLoopIn()}
+      >
         <Scissors aria-hidden />
         Loop from here
       </Button>
-      <Button variant={variant} size="sm" disabled={disabled} onClick={() => player.setLoopOut()}>
+      <Button
+        variant={variant}
+        size="sm"
+        className={target}
+        disabled={disabled}
+        onClick={() => player.setLoopOut()}
+      >
         Loop to here
       </Button>
       <Button
         variant={variant}
         size="sm"
+        className={target}
         disabled={region === null}
         onClick={() => player.clearLoopRegion()}
       >
@@ -63,7 +81,10 @@ export function LoopControls({
       <label className={cn('text-caption flex items-center gap-2 font-sans', muted)}>
         Speed
         <select
-          className="border-border bg-card text-foreground rounded-sm border px-1 py-0.5"
+          className={cn(
+            'border-border bg-card text-foreground rounded-sm border px-1 py-0.5',
+            touch && 'min-h-11 px-2',
+          )}
           value={String(state.rate)}
           disabled={disabled}
           onChange={(event) => player.setRate(Number(event.target.value))}

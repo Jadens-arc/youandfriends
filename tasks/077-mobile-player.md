@@ -50,14 +50,18 @@ Same authorization model as desktop playback. No additional surface. The expande
 
 ## Acceptance criteria
 
-- [ ] The mini-player sits above bottom navigation and never overlaps content.
-- [ ] Tap and swipe-up both expand to the full-screen player.
-- [ ] The expanded player offers transport, waveform, loop, speed, version switch, and queue.
-- [ ] Swipe-down dismisses back to the mini-player.
-- [ ] All targets meet 44×44 px.
-- [ ] Gestures do not conflict with scrolling or browser back-swipe.
-- [ ] Reduced motion disables the expand transition.
-- [ ] No desktop control is missing on mobile.
+- [x] The mini-player sits above bottom navigation and never overlaps content. (A flow sibling above the bottom navigation, as task `014` laid out — artwork, title, state in words, play/pause.)
+- [x] Tap and swipe-up both expand to the full-screen player. (The artwork-and-title strip is a button: a tap opens the player, and a vertical swipe up of 32 px or more — mostly vertical — does too; a sideways swipe does not. The chevron button remains for keyboard and assistive technology.)
+- [x] The expanded player offers transport, waveform, loop, speed, version switch, and queue. (`MobileExpandedPlayer`: large artwork, the compact waveform, progress, transport, the loaded song's versions with loudness (`VersionPicker`), loop and speed, volume, the queue, and the shortcut list.)
+- [x] Swipe-down dismisses back to the mini-player. (The bottom sheet's drag on its header strip — task `014`'s `BottomSheetContent` — plus its close button and Escape.)
+- [x] All targets meet 44×44 px. (Every control in the expanded player is `size-11`, `size-14` or `min-h-11`, including the loop buttons, the speed select and each version option; tested.)
+- [x] Gestures do not conflict with scrolling or browser back-swipe. (Expand is bound to the mini-player's strip only — the one `touch-none` element — and dismiss to the sheet's header strip; nothing takes a page-wide or edge gesture. Tested structurally; on a real iPhone it is Manual QA 1–2.)
+- [x] Reduced motion disables the expand transition. (The sheet's settle spring is off under `prefers-reduced-motion`, and the token layer zeroes transition durations — task `014`'s behaviour, reused rather than duplicated.)
+- [x] No desktop control is missing on mobile. (Transport, seek, volume and mute, queue, shortcuts, loop and speed, and version switching are all in the expanded player; tested by name.)
+
+**Also.** The comparison set a song page offers now stays with the player for as long as that song is loaded — loading another song clears it — so the expanded player and the A/V keys work after leaving the song's page.
+
+**Not verified here.** Manual QA 1–3 need a real iPhone.
 
 ## Tests and validation commands
 
@@ -78,7 +82,7 @@ Mobile UI only. Reverting degrades mobile playback to the desktop bar.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

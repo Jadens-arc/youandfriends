@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `077` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 60 of 95 iteration-one tasks are `complete`.
+Task `080` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 61 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -87,8 +87,8 @@ Task `077` is next. `016`, `029`, `045` are passed over until their dependencies
 | `073` | Playback queue and best-effort gapless                                 | Persistent player                    | `070`, `071`                              | `complete` | `8e74a44` | —       |
 | `074` | Loop regions and playback speed                                        | Persistent player                    | `072`, `073`                              | `complete` | `5ad612f` | —       |
 | `075` | A/B version switching                                                  | Persistent player                    | `070`, `056`, `061`                       | `complete` | `41af46e` | —       |
-| `076` | Media Session and background playback                                  | Persistent player                    | `070`, `073`                              | `complete` | —         | —       |
-| `077` | Mobile mini-player and expanded player                                 | Persistent player                    | `071`, `072`, `074`, `075`, `014`         | `pending`  | —         | —       |
+| `076` | Media Session and background playback                                  | Persistent player                    | `070`, `073`                              | `complete` | `0e3e2dd` | —       |
+| `077` | Mobile mini-player and expanded player                                 | Persistent player                    | `071`, `072`, `074`, `075`, `014`         | `complete` | —         | —       |
 | `080` | Lyrics schema, plain-text projection, and autosave                     | Collaborative lyrics                 | `026`, `042`                              | `pending`  | —         | —       |
 | `081` | Tiptap structured lyrics editor                                        | Collaborative lyrics                 | `080`, `011`                              | `pending`  | —         | —       |
 | `082` | Real-time collaboration, presence, and cursors                         | Collaborative lyrics                 | `081`, `080`, `023`                       | `pending`  | —         | —       |

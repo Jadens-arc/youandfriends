@@ -47,6 +47,7 @@ export function ABControls({
           artist,
           versionLabel: `Version ${version.number}`,
           cover,
+          album,
           durationSeconds: version.durationMs === null ? null : version.durationMs / 1000,
           integratedLufs: version.integratedLufs,
           truePeakDb: version.truePeakDb,
@@ -59,11 +60,12 @@ export function ABControls({
   );
 
   // Offer this song's versions to the player while it is the one playing — which also warms the
-  // alternate — and withdraw them when the page goes.
+  // alternate. They stay offered after the page is left, for as long as this song is loaded, so
+  // the expanded player (task `077`) and the A/V keys keep working; loading another song clears
+  // them (`machine.ts`).
   React.useEffect(() => {
     if (!playingThisSong || comparison.length < 2) return;
     getPlayer().setComparison(comparison);
-    return () => getPlayer().setComparison(null);
   }, [playingThisSong, comparison]);
 
   if (!playingThisSong || comparison.length < 2) return null;
