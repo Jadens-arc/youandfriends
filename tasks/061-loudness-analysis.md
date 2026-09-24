@@ -51,11 +51,13 @@ Measurement only — no modification of user audio. Bounded processing time appl
 
 ## Acceptance criteria
 
-- [ ] Integrated loudness and true peak are measured for every audio version.
-- [ ] Values are stored and displayed with correct units and precision.
-- [ ] Silence, very short files, mono, and unusual sample rates are handled explicitly.
-- [ ] Measurement runs on the original, not the derivative.
-- [ ] Unreliable measurements are marked unavailable rather than shown as misleading numbers.
+- [x] Integrated loudness and true peak are measured for every audio version. (`measureLoudness` in `packages/media/src/loudness.ts`: one ffmpeg `ebur128=peak=true` pass. It runs for every audio version as a step of the orchestrated job in task `064`, which is where the pipeline is wired — this task provides the measurement and its storage.)
+- [x] Values are stored and displayed with correct units and precision. (`asset_versions.integrated_lufs`/`true_peak_db` already existed; migration `0015` adds `loudness_range_lu` and `loudness_unavailable`. Shown as "−14.2 LUFS", "−1.0 dBTP", "5.2 LU", one decimal each, with a real minus sign.)
+- [x] Silence, very short files, mono, and unusual sample rates are handled explicitly. (`src/__tests__/loudness.test.ts` against real ffmpeg: silence is `silent` with no `-inf` anywhere, a 1 s tone is `too_short` but keeps its peak, a 22.05 kHz mono tone measures about 3 dB below the same tone in stereo.)
+- [x] Measurement runs on the original, not the derivative. (The function takes the original's path; task `064` passes it the downloaded original.)
+- [x] Unreliable measurements are marked unavailable rather than shown as misleading numbers. (The version details say "Silent", "Too short to measure", or "Could not be measured".)
+
+Tolerance-based assertions against generated tones: a half-scale sine's true peak is −6 dBFS, and halving the amplitude lowers loudness and peak by 6 dB. No committed audio.
 
 ## Tests and validation commands
 
@@ -75,8 +77,8 @@ Additive columns. Reverting loses loudness display; audio is unaffected.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`3e3d092`

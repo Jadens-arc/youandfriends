@@ -20,6 +20,7 @@ import {
   assets,
   markStorageUsageStale,
   storageObjects,
+  storageUsage,
   uploadParts,
   uploadSessions,
   type DirectDatabase,
@@ -62,7 +63,8 @@ export class UploadError extends Error {
       | 'part_count_exceeded'
       | 'object_missing'
       | 'checksum_mismatch'
-      | 'invalid_state',
+      | 'invalid_state'
+      | 'quota_exceeded',
     message: string,
   ) {
     super(message);
@@ -81,6 +83,12 @@ export interface UploadContext {
   readonly newId?: (() => string) | undefined;
   /** Joins these audit rows to the structured logs for the same request. */
   readonly correlationId?: string | undefined;
+  /**
+   * `YOUANDFRIENDS_WORKSPACE_QUOTA_BYTES` and `YOUANDFRIENDS_MAX_OBJECT_BYTES` (task `055`).
+   * Checked when a session opens — before a byte is sent, not at the end of a 2 GB upload.
+   */
+  readonly quotaBytes?: number | undefined;
+  readonly maxObjectBytes?: number | undefined;
 }
 
 /** How long a session stays usable. Long enough for a 5 GB upload on a poor connection. */
@@ -123,6 +131,22 @@ export async function createUploadSession(context: UploadContext, input: CreateU
   // steps ask later, through the same function, so the three cannot drift apart.
   const asset = await assertMayWriteAsset(context, request.assetId);
 
+  if (context.maxObjectBytes !== undefined && request.sizeBytes > context.maxObjectBytes) {
+    throw new UploadError(
+      'size_exceeded',
+      `${request.sizeBytes} bytes exceeds the ${context.maxObjectBytes}-byte object limit`,
+    );
+  }
+  if (context.quotaBytes !== undefined) {
+    const usage = await storageUsage(context.db, context.workspaceId, now);
+    if (usage !== null && usage.usedBytes + request.sizeBytes > context.quotaBytes) {
+      throw new UploadError(
+        'quota_exceeded',
+        `${usage.usedBytes} + ${request.sizeBytes} bytes exceeds the ${context.quotaBytes}-byte quota`,
+      );
+    }
+  }
+
   const objectKey = newObjectKey(context.workspaceId, 'original');
   const partSize = partSizeFor(request.sizeBytes);
   // **Not the client's hint.** Whatever this is set to becomes the stored object's own
@@ -147,6 +171,7 @@ export async function createUploadSession(context: UploadContext, input: CreateU
       uploadId,
       maxSizeBytes: request.sizeBytes,
       contentTypeHint: request.contentTypeHint,
+      filename: request.filename,
       partSizeBytes: partSize,
       expectedChecksumSha256: request.expectedChecksumSha256 ?? null,
       expiresAt,

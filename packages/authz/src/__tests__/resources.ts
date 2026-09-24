@@ -17,6 +17,7 @@ import {
   assets,
   derivatives,
   favorites,
+  recents,
   folders,
   mixVersions,
   permissionGrants,
@@ -181,6 +182,25 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
       });
     },
     why: 'Reveals what someone is working on, and which collaborators they return to.',
+  },
+  {
+    status: 'live',
+    name: 'recents',
+    table: recents,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      const [owner] = await db.select().from(workspaceMemberships).limit(1);
+      await db.insert(recents).values({
+        id: testId(),
+        workspaceId,
+        userId: owner?.userId ?? testId(),
+        kind: 'viewed',
+        targetType: 'song',
+        targetId: song.id,
+      });
+    },
+    why: 'A private listening and reading history: what someone opened, and when.',
   },
   {
     status: 'live',

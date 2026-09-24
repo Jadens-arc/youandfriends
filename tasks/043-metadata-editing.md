@@ -52,12 +52,14 @@ Metadata is user input rendered back to other users — sanitize on output and r
 
 ## Acceptance criteria
 
-- [ ] Song and project metadata are editable inline by editors.
-- [ ] Validation is shared between client and server.
-- [ ] Optimistic updates roll back correctly and explain failures.
-- [ ] Viewers and commenters see read-only presentation, not disabled inputs.
-- [ ] Every mutation is authorized and audited.
-- [ ] Cover art upload works through the standard upload path.
+- [x] Song and project metadata are editable inline by editors. (Song title, artist, status in the header and notes on Overview; project name, artist, status on the project page. `songs.artist` and `songs.notes` are new, nullable — migration `0013` — and a song without its own artist shows its project's.)
+- [x] Validation is shared between client and server. (`METADATA_FIELD_SCHEMAS`, `updateSongSchema`, and `updateProjectSchema` in `packages/contracts/src/library.ts`; the inline editor refuses an empty title with the server's own sentence.)
+- [x] Optimistic updates roll back correctly and explain failures. (`components/metadata/inline-field.test.tsx`: the new value shows before the server answers; a refusal restores the exact previous value and says "Couldn't save the title: Not found. It's back to “Headlights”.")
+- [x] Viewers and commenters see read-only presentation, not disabled inputs. (Plain text and the worded status badge — no textbox, combobox, or edit button.)
+- [x] Every mutation is authorized and audited. (`PATCH /api/songs/:songId` and `/api/projects/:projectId`, `edit` on the target, 404-shaped otherwise; `song.updated`/`project.updated` with before and after, nothing written for a no-op. `lib/library/__tests__/metadata.test.ts`.)
+- [x] Cover art upload works through the standard upload path. ("Set cover" queues the image as the project's artwork through task `055`'s queue and, once its version is recorded, points `projects.cover_asset_id` at it; the server accepts only this project's own live artwork.)
+
+Metadata edits raise the `metadata.changed` notification event (`packages/contracts/src/notifications.ts`, defined now with the rest of the vocabulary); delivery is tasks `095`–`096`. Cover _display_ needs sized renditions, which are task `069` — until then cards keep the designed placeholder rather than serving full-resolution originals.
 
 ## Tests and validation commands
 
@@ -78,8 +80,8 @@ Additive. Reverting loses editing; data is unaffected.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`315d389`

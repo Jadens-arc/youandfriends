@@ -52,13 +52,15 @@ Download is gated on `can_download`, which is independent of role — a viewer m
 
 ## Acceptance criteria
 
-- [ ] A new mix upload creates an immutable version and becomes current.
-- [ ] Earlier versions remain fully available.
-- [ ] Versions display all required metadata including processing status.
-- [ ] The current version is unmistakable in the selector.
-- [ ] An earlier version can be made current without data loss.
-- [ ] Notes are editable; bytes and identity are not.
-- [ ] Download serves the original, is gated on `can_download`, and is audited.
+- [x] A new mix upload creates an immutable version and becomes current. (`lib/versions/__tests__/service.test.ts`, through the real upload service: `prepareMixUpload` → session → `recordMixVersion`; the `mix_versions_become_current` trigger moves the pointer. Idempotent: the asset version through an existence check under a row lock on the asset (not a unique index — two versions may share an object, which task `028`'s purge relies on), the mix version through the new `mix_versions_asset_version_key` index, migration `0009`; concurrent records get distinct numbers.)
+- [x] Earlier versions remain fully available. (Nothing deletes or copies; the stack is append-only.)
+- [x] Versions display all required metadata including processing status. (Upload time, uploader, note, duration, format, sample rate, bit depth, loudness, true peak, and a worded processing badge — task `042`'s `VersionDetails`, now with the uploader's own filename via `asset_versions.original_filename`.)
+- [x] The current version is unmistakable in the selector. (Task `042`'s "Current" badge in words.)
+- [x] An earlier version can be made current without data loss. (`setCurrentVersion` is a pointer update; another song's version id is refused.)
+- [x] Notes are editable; bytes and identity are not. (Editors, or the uploader while they can still comment; a deny on the song stops even the uploader. The immutability trigger refusing a storage-object change is re-asserted.)
+- [x] Download serves the original, is gated on `can_download`, and is audited. (`GET /api/songs/:songId/versions/:versionId/download` redirects to a five-minute presigned URL signed with the original filename; a viewer without `can_download` and a foreign tenant are refused 404-shaped; `version.downloaded` is written without the URL.)
+
+The upload control on the song page ("Upload new version") uses task `053`'s uploader and is deliberately compact; the full upload surface is task `055`. Media-job enqueueing on a new version is a hook (`VersionContext.onVersionRecorded`) that task `064` fills. The audit vocabulary now names `056` as the emitter of `version.created` and `version.downloaded`.
 
 ## Tests and validation commands
 
@@ -80,8 +82,8 @@ Additive. Reverting after versions exist would strand the current pointer.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`f9d642e`

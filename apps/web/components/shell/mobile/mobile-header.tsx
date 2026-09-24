@@ -6,6 +6,8 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { useBackTarget } from './back-target';
+
 const SECTION_LABELS: Readonly<Record<string, string>> = {
   library: 'Library',
   recent: 'Recent',
@@ -42,7 +44,11 @@ export function MobileHeader() {
   const section = segments[0];
 
   // One segment is a root destination; more means we have drilled in and can go up.
-  const parent = segments.length > 1 ? `/${segments.slice(0, -1).join('/')}` : null;
+  const pathParent = segments.length > 1 ? `/${segments.slice(0, -1).join('/')}` : null;
+  // A page whose logical parent is not its path prefix (a song's is its project) says so.
+  const declared = useBackTarget();
+  const parent = declared?.href ?? pathParent;
+  const parentLabel = declared?.label ?? labelFor(segments.at(-2));
 
   return (
     <header
@@ -59,7 +65,7 @@ export function MobileHeader() {
           // `typedRoutes` cannot check a path assembled at runtime. The segments come from
           // `usePathname`, so the parent of a route that exists exists too.
           href={parent as Route}
-          aria-label={`Back to ${labelFor(segments.at(-2))}`}
+          aria-label={`Back to ${parentLabel}`}
           className={cn(
             'text-foreground flex min-h-11 min-w-11 items-center gap-0.5 rounded-sm pr-3',
             transition,
@@ -67,7 +73,7 @@ export function MobileHeader() {
           )}
         >
           <ChevronLeft className="size-5 shrink-0" aria-hidden />
-          <span className="text-body font-sans">{labelFor(segments.at(-2))}</span>
+          <span className="text-body max-w-[60vw] truncate font-sans">{parentLabel}</span>
         </Link>
       )}
 

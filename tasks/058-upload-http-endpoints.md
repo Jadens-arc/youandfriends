@@ -81,13 +81,16 @@ what this task must not do is undermine them — by reading a key from the body,
 
 ## Acceptance criteria
 
-- [ ] All four routes exist and call the service layer without duplicating its checks.
-- [ ] A request from a signed-out caller is refused.
-- [ ] A malformed body is rejected by Zod before any database or storage call.
-- [ ] An `UploadError` maps to the documented status code, and no refusal returns 403.
-- [ ] No response body contains an object key, an upload id, or a presigned URL beyond the
-      part URLs the caller asked for.
-- [ ] A cross-workspace session id returns 404.
+- [x] All four routes exist and call the service layer without duplicating its checks. (`app/api/uploads/route.ts`, `[id]/parts`, `[id]/complete`, `[id]/abort`; each parses, resolves the workspace, and calls one service function. Shared transport in `lib/api/http.ts` and `lib/uploads/http.ts`.)
+- [x] A request from a signed-out caller is refused. (`lib/uploads/__tests__/routes.test.ts`: 401, and the driver is never called. The proxy's `auth.protect()` refuses first in production.)
+- [x] A malformed body is rejected by Zod before any database or storage call. (Same file: non-JSON, a negative size, a bad asset id, and a part number of 0 are 422 with zero workspace lookups and zero driver calls.)
+- [x] An `UploadError` maps to the documented status code, and no refusal returns 403. (`UPLOAD_ERROR_STATUS`: not_found/forbidden 404, expired 410, size/part-count 413, object_missing and invalid_state 409, checksum_mismatch 422; an unconfigured bucket is an honest 503. Expired, finished, and cross-tenant cases are exercised.)
+- [x] No response body contains an object key, an upload id, or a presigned URL beyond the part URLs the caller asked for. (Asserted against the real session row's key and provider upload id.)
+- [x] A cross-workspace session id returns 404. (Sign, complete, and abort on another tenant's session; creation against another tenant's asset.)
+
+The route tests live in `apps/web/lib/uploads/__tests__/routes.test.ts` rather than under `app/api`: the `no-unscoped-db` lint rule covers everything under `app/api`, and the Clerk webhook route's tests already live under `lib/` for the same reason.
+
+Manual QA against MinIO was not run in this environment: the pinned MinIO image cannot be pulled here (the registry is blocked by the network policy), so the end-to-end check through a real S3 server is still owed. The service and routes are exercised end to end against a real Postgres with the recording driver.
 
 ## Tests and validation commands
 
@@ -106,14 +109,10 @@ pnpm release-check
 
 Additive. Reverting removes the HTTP surface but leaves the protocol intact.
 
-## Blocker
-
-Workspace resolution — task `031` (`pending`) must turn a request into a workspace before a route can build an `UploadContext`. Task `030` (`in-progress`) is waiting on Clerk keys.
-
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`06862fa`

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   libraryAccessFrom,
   projectCollaboratorsFrom,
+  songCollaboratorsFrom,
   type MemberBaselineRow,
   type MemberGrant,
   type ProjectChain,
@@ -181,5 +182,39 @@ describe('projectCollaboratorsFrom', () => {
   it('never lists a scope-limited collaborator where their grants do not reach', () => {
     // Unfiled: only membership reaches it, and the expired project grant does not count.
     expect(result.get(UNFILED)).toEqual([OWNER, DENIED_EDITOR]);
+  });
+});
+
+describe('songCollaboratorsFrom', () => {
+  const OWNER = 'USER00000000000000000OWNER';
+  const SONG_DENIED = 'USER00000000000000SDENIED';
+  const SONG_ONLY = 'USER0000000000000SONGONLY';
+  const OTHER_SONG = 'USER000000000000OTHERSONG';
+
+  const members: MemberBaselineRow[] = [
+    { userId: OWNER, role: 'owner', canDownload: true, canInvite: true },
+    { userId: SONG_DENIED, role: 'editor', canDownload: false, canInvite: false },
+    { userId: SONG_ONLY, role: null, canDownload: false, canInvite: false },
+    { userId: OTHER_SONG, role: null, canDownload: false, canInvite: false },
+  ];
+
+  const grants: MemberGrant[] = [
+    {
+      userId: SONG_DENIED,
+      ...grant({ scopeType: 'song', scopeId: SONG, role: null, isDeny: true }),
+    },
+    { userId: SONG_ONLY, ...grant({ scopeType: 'song', scopeId: SONG }) },
+    { userId: OTHER_SONG, ...grant({ scopeType: 'song', scopeId: DENIED_SONG }) },
+  ];
+
+  it('applies a song-level deny the project card cannot see, and a song-level share', () => {
+    const song = { id: SONG, projectId: PROJECT, folderPath: DEEP_PATH };
+    expect(songCollaboratorsFrom(song, members, grants, NOW)).toEqual([OWNER, SONG_ONLY]);
+    // The same people on the project: the deny and the share are both below it.
+    expect(
+      projectCollaboratorsFrom([{ id: PROJECT, folderPath: DEEP_PATH }], members, grants, NOW).get(
+        PROJECT,
+      ),
+    ).toEqual([OWNER, SONG_DENIED]);
   });
 });

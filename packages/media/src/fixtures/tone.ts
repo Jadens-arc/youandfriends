@@ -24,6 +24,11 @@ export interface ToneSpec {
   readonly channels: 1 | 2;
   readonly seconds: number;
   readonly toneHz: number;
+  /**
+   * Peak amplitude as a fraction of full scale. Defaults to 0.5 (−6.02 dBFS). `0` is digital
+   * silence — the case loudness measurement has to handle without an `-inf` leaking out.
+   */
+  readonly amplitude?: number;
 }
 
 /** The ffprobe codec name for a PCM WAV of this depth. 16- and 24-bit are not the same codec. */
@@ -70,7 +75,7 @@ export function generateWav(spec: ToneSpec): Uint8Array {
   // Amplitude short of full scale, so a later loudness or peak test has headroom to measure
   // rather than a clipped square edge.
   const peak = 2 ** (spec.bitDepth - 1) - 1;
-  const amplitude = Math.floor(peak * 0.5);
+  const amplitude = Math.floor(peak * (spec.amplitude ?? 0.5));
   const step = (2 * Math.PI * spec.toneHz) / spec.sampleRateHz;
 
   let offset = 44;

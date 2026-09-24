@@ -1,0 +1,36 @@
+{
+  "$comment": "Golden cases for folder-snapshot paths and ignore rules (task 054). The browser (packages/contracts/src/snapshots.ts) and the macOS agent (task 113) both test against this file, so the two paths cannot drift.",
+  "paths": [
+    { "input": "Audio Files/Kick.wav", "expect": "Audio Files/Kick.wav" },
+    { "input": "Bounces//Mix v2.wav", "expect": "Bounces/Mix v2.wav" },
+    { "input": "Samples/", "expect": "Samples" },
+    { "input": "", "reject": "empty" },
+    { "input": "/etc/passwd", "reject": "absolute" },
+    { "input": "C:/Users/x.wav", "reject": "absolute" },
+    { "input": "\\\\server\\share", "reject": "absolute" },
+    { "input": "../secret.wav", "reject": "traversal" },
+    { "input": "a/../../b.wav", "reject": "traversal" },
+    { "input": "a/./b.wav", "reject": "traversal" },
+    { "input": "a/ .. /b.wav", "reject": "traversal" },
+    { "input": "a\\b.wav", "reject": "unsupported_characters" },
+    { "input": "..\uff0f..\uff0fetc/passwd", "reject": "unsupported_characters" },
+    { "input": "\uff0e\uff0e/etc/passwd", "reject": "unsupported_characters" },
+    { "input": "%2e%2e/%2e%2e/x", "reject": "unsupported_characters" },
+    { "input": "a.wav\n../secret.wav", "reject": "unsupported_characters" },
+    { "input": "Caf\u00e9.wav", "reject": "unsupported_characters" },
+    { "input": " leading.wav", "reject": "unsupported_characters" },
+    { "input": "trailing /x.wav", "reject": "unsupported_characters" },
+    { "input": "~backup/x.wav", "reject": "reserved_name" }
+  ],
+  "ignore": [
+    { "path": ".DS_Store", "rule": "ds_store" },
+    { "path": "Audio Files/.DS_Store", "rule": "ds_store" },
+    { "path": "Audio Files/._Kick.wav", "rule": "apple_double" },
+    { "path": "Project.logicx/Alternatives/000/Undo Data.lock", "rule": "lock" },
+    { "path": "Render.wav.part", "rule": "partial" },
+    { "path": ".cache/thumbs/1.png", "rule": "caches" },
+    { "path": "Audio Files/Kick.wav", "rule": null },
+    { "path": "Mixdown.lockedin.wav", "rule": null },
+    { "path": "Notes.txt", "rule": null }
+  ]
+}

@@ -168,7 +168,7 @@ function toSongSummary(access: LibraryAccess, row: SongListRow): SongSummary {
   };
 }
 
-function targetVisible(
+export function targetVisible(
   access: LibraryAccess,
   row: Pick<FavoriteRow, 'targetType' | 'targetId' | 'projectId' | 'folderPath'>,
 ): boolean {
@@ -185,7 +185,7 @@ function targetVisible(
 }
 
 /** A song's project id, only if this viewer can open that project — see {@link SongSummary}. */
-function visibleProjectId(
+export function visibleProjectId(
   access: LibraryAccess,
   row: { readonly projectId: string | null; readonly folderPath: string },
 ): string | null {
@@ -194,7 +194,7 @@ function visibleProjectId(
     : null;
 }
 
-function toActivityItem(access: LibraryAccess, row: ActivityRow): ActivityItem {
+export function toActivityItem(access: LibraryAccess, row: ActivityRow): ActivityItem {
   return {
     id: row.id,
     actorName: row.actorName,

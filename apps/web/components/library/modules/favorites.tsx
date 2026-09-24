@@ -1,8 +1,5 @@
-import { cn, focusRing, transition } from '@youandfriends/ui';
-import type { Route } from 'next';
-import Link from 'next/link';
-
 import type { FavoriteItem } from '@/lib/library/projects';
+import { folderHref, projectHref, songHref } from '@/lib/songs/routes';
 
 import { ModuleItem, ModuleSection } from './module-section';
 
@@ -11,6 +8,17 @@ const KIND_LABEL: Readonly<Record<FavoriteItem['targetType'], string>> = {
   project: 'Project',
   song: 'Song',
 };
+
+function hrefFor(favorite: FavoriteItem) {
+  switch (favorite.targetType) {
+    case 'folder':
+      return folderHref(favorite.targetId);
+    case 'project':
+      return projectHref(favorite.targetId);
+    case 'song':
+      return songHref(favorite.targetId);
+  }
+}
 
 /** This viewer's own favourites, newest first — only the ones they can still open. */
 export function Favorites({ favorites }: { readonly favorites: readonly FavoriteItem[] }) {
@@ -23,19 +31,8 @@ export function Favorites({ favorites }: { readonly favorites: readonly Favorite
         {favorites.map((favorite) => (
           <ModuleItem
             key={`${favorite.targetType}-${favorite.targetId}`}
-            primary={
-              favorite.targetType === 'folder' ? (
-                // A folder opens at whatever depth it now sits; the page re-derives its path.
-                <Link
-                  href={`/library/${favorite.targetId}` as Route}
-                  className={cn('rounded-sm hover:underline', transition, focusRing)}
-                >
-                  {favorite.name}
-                </Link>
-              ) : (
-                favorite.name
-              )
-            }
+            primary={favorite.name}
+            href={hrefFor(favorite)}
             secondary={KIND_LABEL[favorite.targetType]}
           />
         ))}

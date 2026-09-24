@@ -101,6 +101,14 @@ describe('LibraryModules', () => {
       'href',
       '/library/f1',
     );
+    // Every song and project row opens its destination (task `042`).
+    const linkIn = (title: string, name: string) =>
+      within(section(title)).getByRole('link', { name }).getAttribute('href');
+    expect(linkIn('Recent songs', 'Hook')).toBe('/songs/s1');
+    expect(linkIn('Shared with me', 'Night Drives')).toBe('/projects/p1');
+    expect(linkIn('Shared with me', 'Lone Song')).toBe('/songs/s3');
+    expect(linkIn('Favorites', 'Hook')).toBe('/songs/s1');
+    expect(linkIn('Collaborator activity', 'Hook')).toBe('/songs/s1');
     expect(section('Collaborator activity')).toHaveTextContent('Sam Reed edited lyrics for Hook');
     expect(section('Collaborator activity')).toHaveTextContent('yesterday');
     const meter = within(section('Storage')).getByRole('meter', { name: 'Workspace storage' });

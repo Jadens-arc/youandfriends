@@ -4,6 +4,7 @@ import { MobileHeader } from '@/components/shell/mobile/mobile-header';
 import { MiniPlayer } from '@/components/shell/mobile/mini-player';
 import { NavigationRail } from '@/components/shell/navigation-rail';
 import { PlayerRegion } from '@/components/shell/player-region';
+import { UploadTray } from '@/components/upload/upload-tray';
 import { WorkspaceGate } from '@/components/workspace/workspace-gate';
 
 /**
@@ -54,6 +55,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           <MiniPlayer />
           <BottomNavigation />
         </div>
+
+        {/* Uploads, like playback, outlive the page that started them (task `055`). */}
+        <UploadTray />
 
         {/* Desktop: full-width player bar. */}
         <div className="hidden md:block">

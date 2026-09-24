@@ -50,6 +50,29 @@ small direct pool against `DATABASE_URL_UNPOOLED` as well as the pooled `DATABAS
 must be set in Vercel. Without them, and without migration `0007`, every workspace page shows
 "Your workspace isn't available" and the log says `workspace resolution failed`.
 
+### The originals bucket's CORS policy
+
+Browsers upload parts straight to R2 with presigned `PUT` URLs (task `053`), so the originals
+bucket needs a CORS rule for the app's origin. The uploader reads each part's `ETag` from the
+response, which a cross-origin response only exposes when the rule lists it. In the Cloudflare
+dashboard → R2 → the originals bucket → **Settings** → **CORS policy**:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://youandfriends.org"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["content-type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Without `ExposeHeaders: ["ETag"]` every upload fails at its first part with "Storage did not
+return an ETag", and the uploader does not retry it — it is configuration, not a network blip.
+Add each preview deployment's origin as needed; never `*`.
+
 ## 2. Stuck uploads
 
 **Symptom:** an upload shows progress but never finalizes, or `upload_sessions` rows sit in
@@ -351,6 +374,10 @@ Documented honestly rather than worked around dishonestly:
 - **Web Push** requires the PWA to be added to the Home Screen on iOS, and delivery is less
   dependable than native. In-app notifications are the required path; push is deferred
   (task `210`).
+- **Uploads stop when the tab closes.** Browsers do not upload in the background, on iOS or
+  anywhere else. The upload tray warns before the tab closes while anything is moving, and an
+  interrupted upload resumes from its last confirmed part when the same file is picked again in
+  the same browser (task `053`). For large or recurring folders, the Mac app is the reliable path.
 - **Background audio** works through native `<audio>` and Media Session, but a fully custom
   Web Audio graph can be suspended when backgrounded. This is why playback uses native audio
   elements (ADR 0004).

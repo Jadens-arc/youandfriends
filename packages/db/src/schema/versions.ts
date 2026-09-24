@@ -37,6 +37,13 @@ const audioMetadata = () => ({
   integratedLufs: real('integrated_lufs'),
   /** True peak, dBTP. */
   truePeakDb: real('true_peak_db'),
+  /** Loudness range, LU (task `061`). */
+  loudnessRangeLu: real('loudness_range_lu'),
+  /**
+   * Why loudness is missing once analysis finished: `silent`, `too_short`, or `unreadable`
+   * (task `061`). Stored so the UI can say so instead of showing an empty cell or an `-inf`.
+   */
+  loudnessUnavailable: text('loudness_unavailable'),
   processingState: processingStateEnum('processing_state').notNull().default('queued'),
   processingError: text('processing_error'),
 });
@@ -69,6 +76,8 @@ export const assetVersions = pgTable(
       .references(() => storageObjects.id, { onDelete: 'restrict' }),
     uploadedBy: reference('uploaded_by'),
     note: text('note'),
+    /** The uploader's own filename, from the session (task `056`). Display and download only. */
+    originalFilename: text('original_filename'),
     ...audioMetadata(),
     createdAt: createdAt(),
   },
@@ -86,6 +95,10 @@ export const assetVersions = pgTable(
       .on(table.workspaceId, table.processingState)
       .where(sql`processing_state <> 'complete'`),
     check('asset_versions_number_positive', sql`version_number >= 1`),
+    check(
+      'asset_versions_loudness_unavailable_known',
+      sql`loudness_unavailable is null or loudness_unavailable in ('silent', 'too_short', 'unreadable')`,
+    ),
   ],
 );
 
@@ -127,6 +140,10 @@ export const mixVersions = pgTable(
      * can be dropped, disabled, or raced.
      */
     uniqueIndex('mix_versions_id_song_key').on(table.id, table.songId),
+    // One mix per asset version (task `056`): what makes recording a finished upload as a mix
+    // idempotent. A replay finds the mix version the first call made instead of stacking the
+    // same bytes twice.
+    uniqueIndex('mix_versions_asset_version_key').on(table.workspaceId, table.assetVersionId),
     index('mix_versions_workspace_song_idx').on(
       table.workspaceId,
       table.songId,

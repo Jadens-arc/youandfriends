@@ -29,6 +29,13 @@ export const songs = pgTable(
     /** Of the current version. Null until a version has been analysed (task `064`). */
     durationMs: integer('duration_ms'),
     status: workStatusEnum('status').notNull().default('idea'),
+    /**
+     * Who the song is by, when that differs from its project — a feature, a remix, a cover on a
+     * compilation (task `043`). Null means the project's artist.
+     */
+    artist: text('artist'),
+    /** Free-form notes about the song, plain text, rendered escaped (task `043`). */
+    notes: text('notes'),
     currentVersionId: reference('current_version_id'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

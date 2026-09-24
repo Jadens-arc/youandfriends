@@ -53,14 +53,16 @@ The client is untrusted; all enforcement lives server-side in task `051`. The up
 
 ## Acceptance criteria
 
-- [ ] Files are chunked with a valid part size respecting minimum and maximum limits.
-- [ ] Part uploads run with bounded concurrency.
-- [ ] Progress is accurate and updates smoothly.
-- [ ] Pause and resume work, including across a page reload.
-- [ ] Cancel aborts the server session.
-- [ ] Transient failures retry with backoff; non-transient failures surface immediately.
-- [ ] Checksums compute in a worker without blocking the main thread.
-- [ ] Persisted state contains no presigned URLs.
+- [x] Files are chunked with a valid part size respecting minimum and maximum limits. (`lib/upload/chunker.ts` uses the server's part size and refuses a plan S3 would reject; `__tests__/pieces.test.ts` covers byte coverage, a 2 GB plan under 500 parts, and the refusals.)
+- [x] Part uploads run with bounded concurrency. (Default four, configurable; `uploader.test.ts` observes at most three with a limit of three.)
+- [x] Progress is accurate and updates smoothly. (Confirmed plus in-flight bytes from XHR upload events; monotonic, per-part granularity, ends exactly at the total.)
+- [x] Pause and resume work, including across a page reload. (Pause keeps confirmed parts; a new uploader over the same IndexedDB store resumes the session for the same file fingerprint without resending confirmed parts. `fake-indexeddb` provides IndexedDB in the tests.)
+- [x] Cancel aborts the server session. (Calls `POST /api/uploads/:id/abort` and forgets local state.)
+- [x] Transient failures retry with backoff; non-transient failures surface immediately. (Exponential backoff with jitter; 404/409/410/4xx surface at once; an expired signature is re-signed once.)
+- [x] Checksums compute in a worker without blocking the main thread. (`checksum.worker.ts` runs `hashBlob`, an incremental SHA-256 over 8 MiB slices, verified against Node's one-shot digest. The worker wrapper itself is not executed under jsdom, which has no `Worker`; it is exercised when the upload UI lands in task `055`.)
+- [x] Persisted state contains no presigned URLs. (`assertNoCredentials` refuses any URL at write time; the resume test inspects what reached IndexedDB.)
+
+Not run here: `pnpm --filter @youandfriends/storage test:contract` and the manual QA against a real bucket — the MinIO image cannot be pulled in this environment. The bucket's CORS rule exposing `ETag` is now documented in `docs/OPERATIONS.md` §1, because without it no browser upload can complete.
 
 ## Tests and validation commands
 
@@ -81,8 +83,8 @@ Additive client code. Reverting breaks uploading from the browser.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`929e816`

@@ -1,18 +1,23 @@
-import type { ContentActivityAction } from '@youandfriends/db';
+import { cn, focusRing, transition } from '@youandfriends/ui';
+import Link from 'next/link';
 
+import { ACTIVITY_VERB } from '@/components/library/activity-feed';
 import { formatRelative } from '@/lib/library/format';
 import type { ActivityItem } from '@/lib/library/projects';
+import { folderHref, projectHref, songHref } from '@/lib/songs/routes';
 
 import { ModuleItem, ModuleSection } from './module-section';
 
-const VERB: Readonly<Record<ContentActivityAction, string>> = {
-  'project.updated': 'updated',
-  'song.updated': 'updated',
-  'folder.updated': 'updated',
-  'folder.moved': 'moved',
-  'lyrics.updated': 'edited lyrics for',
-  'comment.created': 'commented on',
-};
+function hrefFor(item: ActivityItem) {
+  switch (item.targetType) {
+    case 'folder':
+      return folderHref(item.targetId);
+    case 'project':
+      return projectHref(item.targetId);
+    case 'song':
+      return songHref(item.targetId);
+  }
+}
 
 /**
  * What the people this viewer works with have been doing — only to things this viewer can see,
@@ -41,8 +46,13 @@ export function CollaboratorActivity({
             key={item.id}
             primary={
               <>
-                <span className="font-medium">{item.actorName}</span> {VERB[item.action]}{' '}
-                <span className="font-serif">{item.targetName}</span>
+                <span className="font-medium">{item.actorName}</span> {ACTIVITY_VERB[item.action]}{' '}
+                <Link
+                  href={hrefFor(item)}
+                  className={cn('rounded-sm font-serif hover:underline', transition, focusRing)}
+                >
+                  {item.targetName}
+                </Link>
               </>
             }
             secondary={

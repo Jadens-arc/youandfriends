@@ -73,6 +73,11 @@ export const uploadSessions = pgTable(
     maxSizeBytes: bigint('max_size_bytes', { mode: 'number' }).notNull(),
     /** What the client said it was sending. A hint only — finalize reads magic bytes. */
     contentTypeHint: text('content_type_hint').notNull(),
+    /**
+     * What the file was called on the uploader's machine (task `056`). Carried to the version it
+     * becomes, so a downloaded original is saved under its own name. Never part of the key.
+     */
+    filename: text('filename'),
     /** Part size the client must use, so part count is predictable from size. */
     partSizeBytes: integer('part_size_bytes').notNull(),
     /** What the client claims the whole object hashes to, for an end-to-end check. */

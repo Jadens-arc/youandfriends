@@ -54,14 +54,20 @@ Relative paths are untrusted input and are the path-traversal vector in T4. ZIPs
 
 ## Acceptance criteria
 
-- [ ] Folder selection preserves relative paths.
-- [ ] Paths are normalized; traversal and absolute paths are rejected client- and server-side.
-- [ ] Default ignore rules apply and are configurable.
-- [ ] The manifest records path, size, mtime, checksum, and ignore reason.
-- [ ] The review step shows included and ignored files with reasons before upload.
-- [ ] Client ZIP works below the threshold; above it, the Mac agent is recommended.
-- [ ] Uploaded ZIPs are never expanded server-side.
-- [ ] Snapshots are immutable once finalized.
+- [x] Folder selection preserves relative paths. (`lib/upload/folder.ts`: `webkitdirectory` lists and dropped directory trees, rooted inside the chosen folder; `lib/upload/__tests__/folder.test.ts`, including `readEntries` batching.)
+- [x] Paths are normalized; traversal and absolute paths are rejected client- and server-side. (`normalizeRelativePath` in `packages/contracts/src/snapshots.ts` mirrors the `snapshot_entries_relative_path_safe` constraint; the server re-judges every path and refuses the whole manifest — `lib/snapshots/__tests__/service.test.ts` posts traversals, absolute, un-normalized, percent-encoded, backslashed, non-ASCII, and duplicate paths directly.)
+- [x] Default ignore rules apply and are configurable. (`DEFAULT_IGNORE_RULES` plus caller-supplied patterns with `*`/`**`.)
+- [x] The manifest records path, size, mtime, checksum, and ignore reason. (New `snapshot_entries.ignore_reason`, migration `0010`.)
+- [x] The review step shows included and ignored files with reasons before upload. (`components/upload/folder-review.tsx`, in a dialog from "Upload folder" on the project page; statuses are words plus icons.)
+- [x] Client ZIP works below the threshold; above it, the Mac agent is recommended. (Stored, not deflated, via `fflate`, slice by slice; 512 MiB / 5,000 files ceiling; the test unzips the result and compares bytes.)
+- [x] Uploaded ZIPs are never expanded server-side. (No server code opens an archive; the ZIP becomes one version of a Project Files asset.)
+- [x] Snapshots are immutable once finalized. (Finalize seals via `finalized_at`; the test tries to rename the snapshot and to edit and delete its entries and each is refused by the existing triggers.)
+
+Golden path and ignore cases live in `packages/contracts/src/snapshots.cases.json` so the Mac agent (task `113`) tests against the same data.
+
+**Limitation, stated plainly:** the path rule is an ASCII allow-list (task `026`'s security review), so files whose names contain accents, emoji, or non-Latin scripts cannot be included yet. The review lists each one as "Can't include" with that reason rather than dropping it silently. Widening the rule safely is follow-up work, not something to loosen here.
+
+The snapshot → asset link (`snapshots.asset_id`) is a composite, same-workspace foreign key with `SET NULL ("asset_id")`, hand-written in `0010` like the file layer's other parent references.
 
 ## Tests and validation commands
 
@@ -83,8 +89,8 @@ Additive. Reverting loses folder upload; the Mac agent path remains.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`df5d104`

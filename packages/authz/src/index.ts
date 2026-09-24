@@ -58,14 +58,17 @@ export {
   loadFolderAccess,
   loadLibraryAccess,
   loadProjectCollaborators,
+  loadSongCollaborators,
   loadVisibleFolders,
   projectCollaboratorsFrom,
+  songCollaboratorsFrom,
   resolveFolderAccess,
   type FolderPath,
   type LibraryAccess,
   type MemberBaselineRow,
   type MemberGrant,
   type ProjectChain,
+  type SongChain,
 } from './library';
 export {
   canGrantAccess,

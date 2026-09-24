@@ -37,6 +37,29 @@ export {
   type TriggerClient,
 } from './dispatcher';
 
+export {
+  DEFAULT_STREAM_BITRATE,
+  DERIVATIVE_CONTENT_TYPE,
+  STREAM_CHANNELS,
+  STREAM_SAMPLE_RATE_HZ,
+  topLevelBoxes,
+  transcodeArgs,
+  transcodeStreamingDerivative,
+  TRANSCODE_TIMEOUT_MS,
+  variantOf,
+  type DerivativeRecipe,
+} from './derivative';
+
+export {
+  ABSOLUTE_GATE_LUFS,
+  LOUDNESS_TIMEOUT_MS,
+  measureLoudness,
+  MIN_MEASURABLE_MS,
+  parseEbur128Summary,
+  type LoudnessResult,
+  type LoudnessUnavailable,
+} from './loudness';
+
 export { NotAudioError, probeAudio, ffprobeOutputSchema, type AudioProbe } from './probe';
 
 export {
@@ -44,6 +67,7 @@ export {
   DEFAULT_TIMEOUT_MS,
   ffmpegPath,
   ffprobePath,
+  runForOutput,
   ToolError,
   type RunOptions,
 } from './run';

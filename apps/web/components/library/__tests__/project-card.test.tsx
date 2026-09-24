@@ -50,6 +50,14 @@ describe('ProjectCard', () => {
     expect(card).toHaveTextContent('Last activity');
   });
 
+  it('opens the project from the card, with the name as its one link', () => {
+    render(<ProjectCard project={project()} now={NOW} />);
+    const links = screen.getAllByRole('link');
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAccessibleName('Night Drives');
+    expect(links[0]).toHaveAttribute('href', '/projects/P1');
+  });
+
   it('says plainly when there is no artist yet, and counts one song as one', () => {
     render(<ProjectCard project={project({ artist: null, songCount: 1 })} now={NOW} />);
     expect(screen.getByText('No artist yet')).toBeInTheDocument();

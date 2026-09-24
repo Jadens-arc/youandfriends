@@ -53,12 +53,15 @@ export const AUDIT_ACTIONS = [
   'upload.aborted',
   'version.created',
 
+  'song.created',
   'song.updated',
+  'project.created',
   'project.updated',
   'folder.updated',
   'folder.moved',
   'lyrics.updated',
   'comment.created',
+  'asset.updated',
 
   'asset.downloaded',
   'version.downloaded',
@@ -131,17 +134,21 @@ export const AUDIT_ACTION_INFO: Readonly<
   'upload.started': { class: 'upload', emittedBy: '051' },
   'upload.completed': { class: 'upload', emittedBy: '051' },
   'upload.aborted': { class: 'upload', emittedBy: '051' },
-  'version.created': { class: 'upload', emittedBy: '057' },
+  'version.created': { class: 'upload', emittedBy: '056' },
 
+  'song.created': { class: 'edit', emittedBy: '046' },
   'song.updated': { class: 'edit', emittedBy: '044' },
+  'project.created': { class: 'edit', emittedBy: '046' },
   'project.updated': { class: 'edit', emittedBy: '044' },
   'folder.updated': { class: 'edit', emittedBy: '040' },
   'folder.moved': { class: 'edit', emittedBy: '040' },
   'lyrics.updated': { class: 'edit', emittedBy: '081' },
   'comment.created': { class: 'edit', emittedBy: '090' },
+  // Renaming, moving, and tagging a file in Project Files.
+  'asset.updated': { class: 'edit', emittedBy: '057' },
 
   'asset.downloaded': { class: 'download', emittedBy: '058' },
-  'version.downloaded': { class: 'download', emittedBy: '058' },
+  'version.downloaded': { class: 'download', emittedBy: '056' },
 
   'song.deleted': { class: 'deletion', emittedBy: '025' },
   'project.deleted': { class: 'deletion', emittedBy: '025' },

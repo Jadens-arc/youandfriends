@@ -110,6 +110,7 @@ which requires workspace ownership, so an unguarded read of it is not one call a
 | `projects`              | covered    | Unreleased work, by name and artist.                                                                                             |
 | `songs`                 | covered    | The asset the whole product exists to protect.                                                                                   |
 | `favorites`             | covered    | Reveals what someone is working on, and which collaborators they return to.                                                      |
+| `recents`               | covered    | A private listening and reading history: what someone opened, and when.                                                          |
 | `workspace_memberships` | covered    | The membership list is the collaborator list. Enumerating it is reconnaissance.                                                  |
 | `permission_grants`     | covered    | Reading the grants tells an attacker exactly where the soft edges are.                                                           |
 | `audit_events`          | covered    | Who did what, and when. Another tenant’s log is a complete activity record.                                                      |

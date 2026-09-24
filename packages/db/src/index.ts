@@ -119,6 +119,36 @@ export {
   type SongListRow,
 } from './queries/projects';
 export {
+  listRecents,
+  recordRecent,
+  RECENT_DEBOUNCE_SECONDS,
+  RECENTS_CAP,
+  setFavorite,
+  type RecentRow,
+} from './queries/personal';
+export {
+  getLiveAsset,
+  listProjectAssets,
+  workspaceTags,
+  type AssetOwnerRow,
+  type ProjectAssetRow,
+} from './queries/assets';
+export {
+  favoritedTargets,
+  getProjectHeader,
+  getSongHeader,
+  listMixVersions,
+  listProjectSongs,
+  listSongFiles,
+  listWorkspaceSongs,
+  type MixVersionRow,
+  type ProjectHeaderRow,
+  type ProjectSongRow,
+  type SongFileRow,
+  type SongHeaderRow,
+  type WorkspaceSongRow,
+} from './queries/songs';
+export {
   acceptInvitation,
   createInvitation,
   findInvitationById,

@@ -88,6 +88,11 @@ export default async function LibraryPage({ params }: { params: Promise<{ path?:
           view={view}
           sort={sort}
           quotaBytes={parseServerEnv().YOUANDFRIENDS_WORKSPACE_QUOTA_BYTES}
+          mayCreateProject={
+            currentFolder === null
+              ? tree.mayCreateAtRoot
+              : tree.editableFolderIds.has(currentFolder.id)
+          }
         />
       </Suspense>
     </LibraryBrowser>
