@@ -28,7 +28,11 @@ import {
   type LoudnessResult,
 } from '@youandfriends/media';
 import { derivativeObjectKey, type ObjectTransfer } from '@youandfriends/storage';
-import { WAVEFORM_CONTENT_TYPE } from '@youandfriends/contracts';
+import {
+  PROCESSING_FAILURE_MESSAGES,
+  WAVEFORM_CONTENT_TYPE,
+  type ProcessingFailureKind,
+} from '@youandfriends/contracts';
 import { and, eq, sql } from 'drizzle-orm';
 
 /**
@@ -296,7 +300,7 @@ async function run(
 
       const validation = await validateAudio(original, { timeoutMs: remaining() });
       if (!validation.ok) {
-        await recordRejection(deps.db, input, validation.reason);
+        await recordRejection(deps.db, input, validation.failure, validation.reason);
         return { status: 'rejected', reason: validation.reason } as const;
       }
       const probe = validation.probe;
@@ -500,12 +504,20 @@ async function recordComplete(
   });
 }
 
-/** Not audio. Final: no retry turns a text file into a song. */
-async function recordRejection(db: DirectDatabase, input: AudioJobInput, reason: string) {
+/**
+ * Not audio. Final: no retry turns a text file into a song. The version gets the explanation a
+ * person can act on; the tool's own words, which can carry paths, stay in the job row.
+ */
+async function recordRejection(
+  db: DirectDatabase,
+  input: AudioJobInput,
+  failure: ProcessingFailureKind,
+  reason: string,
+) {
   await db.transaction(async (tx) => {
     await tx
       .update(assetVersions)
-      .set({ processingState: 'failed', processingError: reason.slice(0, 500) })
+      .set({ processingState: 'failed', processingError: PROCESSING_FAILURE_MESSAGES[failure] })
       .where(
         and(
           eq(assetVersions.id, input.assetVersionId),
@@ -558,7 +570,7 @@ async function recordFailure(
       .update(assetVersions)
       .set(
         final
-          ? { processingState: 'failed', processingError: 'processing failed; it can be retried' }
+          ? { processingState: 'failed', processingError: PROCESSING_FAILURE_MESSAGES.gave_up }
           : { processingState: 'queued' },
       )
       .where(

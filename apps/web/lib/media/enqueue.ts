@@ -30,13 +30,15 @@ function mediaDispatcher(): JobDispatcher | null {
  * `ops:media:retry`, and the failure is logged under the request's correlation id.
  */
 export function enqueueVersionProcessing(workspaceId: string, correlationId: string) {
-  return async (assetVersionId: string): Promise<void> => {
+  return async (assetVersionId: string, idempotencyKey?: string): Promise<void> => {
     const log = loggerForEnv(parseServerEnv());
     try {
-      const result = await enqueueMediaJob(transactionalDatabase(), mediaDispatcher(), {
-        workspaceId,
-        assetVersionId,
-      });
+      const result = await enqueueMediaJob(
+        transactionalDatabase(),
+        mediaDispatcher(),
+        { workspaceId, assetVersionId },
+        idempotencyKey === undefined ? {} : { idempotencyKey },
+      );
       if (!result.dispatched) {
         log.warn('media job not dispatched', {
           correlationId,

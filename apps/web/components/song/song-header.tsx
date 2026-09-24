@@ -11,7 +11,7 @@ import { InlineField, InlineStatus } from '@/components/metadata/inline-field';
 import { STATUS_OPTIONS } from '@/lib/songs/format';
 
 import { SongActions } from './song-actions';
-import { WorkStatusBadge } from './status-badge';
+import { ProcessingBadge, WorkStatusBadge } from './status-badge';
 
 /**
  * The song header (`docs/DESIGN.md` §4): cover, title, artist, project, duration, status,
@@ -92,6 +92,7 @@ export function SongHeader({ workspace }: { readonly workspace: SongWorkspace })
             >
               <WorkStatusBadge status={song.status} />
             </InlineStatus>
+            <HeaderProcessing workspace={workspace} />
             <CollaboratorStack collaborators={workspace.collaborators} />
           </div>
         </div>
@@ -103,5 +104,21 @@ export function SongHeader({ workspace }: { readonly workspace: SongWorkspace })
         projectHref={project === null ? null : projectHref(project.id)}
       />
     </header>
+  );
+}
+
+/**
+ * The version the header speaks for — the current one, or the newest before one is chosen — when
+ * it is not ready yet (task `065`). A ready version needs no badge; the duration says it all.
+ */
+function HeaderProcessing({ workspace }: { readonly workspace: SongWorkspace }) {
+  const version =
+    workspace.versions.find((candidate) => candidate.isCurrent) ?? workspace.versions[0];
+  if (version === undefined || version.processingState === 'complete') return null;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="sr-only">Version {version.number}: </span>
+      <ProcessingBadge state={version.processingState} />
+    </span>
   );
 }

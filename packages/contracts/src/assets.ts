@@ -50,3 +50,18 @@ export const audioMetadataSchema = z.object({
   truePeakDbtp: z.number().nullable(),
 });
 export type AudioMetadata = z.infer<typeof audioMetadataSchema>;
+
+/**
+ * Why processing failed, as a person should read it (task `065`). The pipeline stores one of
+ * these in `asset_versions.processing_error`; the tool output and paths behind it go to the job's
+ * own log (`media_jobs.last_error`), never to the page. "ffprobe exited 1" is not an explanation.
+ */
+export const PROCESSING_FAILURE_MESSAGES = {
+  not_media: 'This file doesn’t appear to be audio we can process.',
+  no_audio_stream: 'This file doesn’t contain any audio.',
+  no_duration: 'This file has no audio in it — it may be empty or cut short.',
+  too_long: 'This recording is longer than the six-hour limit.',
+  unreadable: 'This file doesn’t appear to be audio we can process.',
+  gave_up: 'We couldn’t finish processing this version.',
+} as const;
+export type ProcessingFailureKind = keyof typeof PROCESSING_FAILURE_MESSAGES;

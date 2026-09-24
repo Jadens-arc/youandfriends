@@ -149,6 +149,7 @@ export {
   getProjectHeader,
   getSongHeader,
   listMixVersions,
+  listVersionProcessingStates,
   listProjectSongs,
   listSongFiles,
   listWorkspaceSongs,

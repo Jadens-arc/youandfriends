@@ -52,6 +52,7 @@ export const AUDIT_ACTIONS = [
   'upload.completed',
   'upload.aborted',
   'version.created',
+  'version.processing_retried',
 
   'song.created',
   'song.updated',
@@ -135,6 +136,7 @@ export const AUDIT_ACTION_INFO: Readonly<
   'upload.completed': { class: 'upload', emittedBy: '051' },
   'upload.aborted': { class: 'upload', emittedBy: '051' },
   'version.created': { class: 'upload', emittedBy: '056' },
+  'version.processing_retried': { class: 'edit', emittedBy: '065' },
 
   'song.created': { class: 'edit', emittedBy: '046' },
   'song.updated': { class: 'edit', emittedBy: '044' },

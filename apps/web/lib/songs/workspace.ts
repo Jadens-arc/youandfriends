@@ -67,6 +67,8 @@ export interface SongVersion {
   readonly processingState: ProcessingState;
   /** Only ever shown to someone who may edit the song — see {@link readSongWorkspace}. */
   readonly processingError: string | null;
+  /** The job's run reference, to quote when asking for help. Editors only, like the error. */
+  readonly processingReference: string | null;
   /** Editors, and the uploader while they can still comment (task `056`). */
   readonly noteEditable: boolean;
 }
@@ -271,6 +273,7 @@ export async function readSongWorkspace(
       // A pipeline error can name codecs, paths inside a temp directory, and tool output. The
       // viewer is told *that* it failed; the detail is for the people who can re-upload.
       processingError: capabilities.edit ? row.processingError : null,
+      processingReference: capabilities.edit ? row.processingReference : null,
       noteEditable: mayEditVersionNote(access, row.uploadedBy, context.userId),
     })),
     currentVersionId: header.currentVersionId,

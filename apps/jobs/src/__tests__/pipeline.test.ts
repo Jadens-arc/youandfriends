@@ -389,7 +389,11 @@ describeWithPrerequisites('the audio processing job', () => {
     const outcome = await processAudioVersion(deps(), input, { number: 1, maxAttempts: 3 });
     expect(outcome.status).toBe('rejected');
     expect(await versionOf(assetVersionId)).toMatchObject({ processingState: 'failed' });
-    expect((await versionOf(assetVersionId))?.processingError).toMatch(/audio|media/i);
+    // In the person's terms; ffprobe's words (which carry the scratch path) stay in the job row.
+    expect((await versionOf(assetVersionId))?.processingError).toBe(
+      'This file doesn’t appear to be audio we can process.',
+    );
+    expect((await jobOf(assetVersionId))?.lastError).toMatch(/^rejected: ffprobe/);
     expect(await jobOf(assetVersionId)).toMatchObject({ state: 'failed' });
     expect(await derivativesOf(assetVersionId)).toEqual([]);
   });

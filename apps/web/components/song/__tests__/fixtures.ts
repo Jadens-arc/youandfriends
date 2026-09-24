@@ -24,6 +24,7 @@ export function version(overrides: Partial<SongVersion> = {}): SongVersion {
     loudnessUnavailable: null,
     processingState: 'complete',
     processingError: null,
+    processingReference: null,
     noteEditable: true,
     ...overrides,
   };

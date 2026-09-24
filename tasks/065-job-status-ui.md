@@ -51,13 +51,15 @@ Error messages carry a correlation id rather than internal detail (task `002`). 
 
 ## Acceptance criteria
 
-- [ ] Processing status is visible per version and in the song header.
-- [ ] Status updates live without a manual reload.
-- [ ] Queued, processing, complete, and failed are visually and textually distinct.
-- [ ] Errors are explained in user terms with a correlation id, not internal detail.
-- [ ] Editors can retry a failed job; the action is authorized and audited.
-- [ ] No fabricated progress for unknown-duration work.
-- [ ] Status is never color-only.
+- [x] Processing status is visible per version and in the song header. (Each row of the version list shows its badge in place of a duration until it is ready; the selected version's details show `ProcessingStatus`; the header shows the current — or newest — version's badge while it is not ready.)
+- [x] Status updates live without a manual reload. (`useProcessingPoll` in `components/song/processing-status.tsx` polls `GET /api/songs/:songId/versions/status` while any version is queued or processing — 3 s, backing off ×1.5 to 30 s, paused while the tab is hidden — and calls `router.refresh()` when a state changes. A polite live region announces "Version N is ready.")
+- [x] Queued, processing, complete, and failed are visually and textually distinct. (Four words, four icons, four badge variants; tested.)
+- [x] Errors are explained in user terms with a correlation id, not internal detail. (The pipeline now stores a sentence from `PROCESSING_FAILURE_MESSAGES` in `asset_versions.processing_error` — "This file doesn’t appear to be audio we can process." — and keeps ffprobe's words, which carry paths, in `media_jobs.last_error` only. Editors see the sentence and a reference to quote: the queue's run id or the job's id. Viewers are told only that the version could not be processed. A refused retry shows the server's safe message and its correlation id.)
+- [x] Editors can retry a failed job; the action is authorized and audited. (`POST /api/songs/:songId/versions/:versionId/retry` → `retryProcessing` in `lib/versions/processing.ts`: `assertCan(edit)` on the song, the version must belong to that song in this workspace, only a `failed` version, reset guarded on `failed` inside the transaction so two retries become one retry and one conflict, `version.processing_retried` audited, then dispatched under a fresh idempotency key. Commenters, viewers, another song's version, and another workspace's all get a 404-shaped refusal; tested against a real database.)
+- [x] No fabricated progress for unknown-duration work. (An indeterminate spinning icon on "Processing", still under reduced motion; no progress bar anywhere — tested.)
+- [x] Status is never color-only. (Icon plus word on every badge.)
+
+**Path.** The task names `app/api/versions/[versionId]/retry`; the route lives beside the other version routes at `app/api/songs/[songId]/versions/[versionId]/retry`, because authorization is on the song and a version id alone does not say which song to check.
 
 ## Tests and validation commands
 
@@ -78,7 +80,7 @@ UI only. Reverting hides status; processing continues.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
