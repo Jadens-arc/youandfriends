@@ -64,6 +64,21 @@ export interface PlayerState {
   readonly loopRegion: { readonly start: number; readonly end: number } | null;
   /** Playback rate, 0.5–2. Survives loads, like volume. */
   readonly rate: number;
+  /**
+   * The versions of the loaded song offered for A/B comparison (task `075`), newest first, with
+   * the loudness that must be visible while comparing. `null` outside a song's page.
+   */
+  readonly comparison: readonly ComparisonTrack[] | null;
+  /** The last *other* version that sounded, for the A/B key. */
+  readonly lastOther: string | null;
+  /** Said after a switch landed somewhere other than the same instant — a shorter version. */
+  readonly switchNotice: string | null;
+}
+
+export interface ComparisonTrack extends Track {
+  readonly durationSeconds: number | null;
+  readonly integratedLufs: number | null;
+  readonly truePeakDb: number | null;
 }
 
 export type MediaEventName =
@@ -107,7 +122,15 @@ export type PlayerEvent =
       readonly type: 'loop-region';
       readonly region: { readonly start: number; readonly end: number } | null;
     }
-  | { readonly type: 'rate'; readonly rate: number };
+  | { readonly type: 'rate'; readonly rate: number }
+  | { readonly type: 'comparison'; readonly versions: readonly ComparisonTrack[] | null }
+  | {
+      readonly type: 'switched';
+      readonly track: Track;
+      readonly from: string;
+      readonly startAt: number;
+      readonly notice: string | null;
+    };
 
 export const INITIAL_STATE: PlayerState = {
   status: 'idle',
@@ -122,6 +145,9 @@ export const INITIAL_STATE: PlayerState = {
   loopTrack: false,
   loopRegion: null,
   rate: 1,
+  comparison: null,
+  lastOther: null,
+  switchNotice: null,
 };
 
 /** Errors after which trying again with the same track is pointless or not allowed. */
@@ -140,6 +166,8 @@ export function transition(state: PlayerState, event: PlayerEvent): PlayerState 
         muted: state.muted,
         rate: state.rate,
         loopTrack: state.loopTrack,
+        // The same song keeps its comparison set; another song's page will offer its own.
+        comparison: state.track?.songId === event.track.songId ? state.comparison : null,
         status: 'loading',
         track: event.track,
         wantsToPlay: event.autoplay,
@@ -151,6 +179,20 @@ export function transition(state: PlayerState, event: PlayerEvent): PlayerState 
       return { ...state, loopTrack: event.on };
     case 'loop-region':
       return state.track === null ? state : { ...state, loopRegion: event.region };
+    case 'comparison':
+      return { ...state, comparison: event.versions };
+    case 'switched':
+      // A/B: same song, same instant, same wish to play — only the version changes. The loop
+      // region is the song's, so it stays; the status follows from what the element does next.
+      return {
+        ...state,
+        track: event.track,
+        status: 'loading',
+        positionSeconds: event.startAt,
+        lastOther: event.from,
+        switchNotice: event.notice,
+        error: null,
+      };
     case 'rate':
       return { ...state, rate: Math.min(2, Math.max(0.5, event.rate)) };
     case 'volume':

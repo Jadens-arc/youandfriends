@@ -9,10 +9,12 @@ import {
   isTerminal,
   transition,
   type PlayerErrorKind,
+  type ComparisonTrack,
   type PlayerEvent,
   type PlayerState,
   type Track,
 } from './machine';
+import { alternateOf, nextInCycle, switchPosition } from './ab-switch';
 import { normalizeRegion, pastLoopEnd, withIn, withOut, type LoopRegionSeconds } from './loop';
 import {
   addNext,
@@ -154,6 +156,14 @@ export interface PlayerController {
   setRate(rate: number): void;
   /** Whether speed changes keep pitch in this browser (task `074`). */
   preservesPitch(): boolean;
+  /** Offer these versions of the loaded song for A/B comparison, and warm the alternate. */
+  setComparison(versions: readonly ComparisonTrack[] | null): void;
+  /** Switch to another version of this song at the same instant, playing if it was (task `075`). */
+  switchVersion(versionId: string): Promise<void>;
+  /** Flip back to the last other version heard — the A/B key. */
+  toggleAB(): Promise<void>;
+  /** The next version in the list. */
+  cycleVersion(): Promise<void>;
 }
 
 export function createPlayer(dependencies: PlayerDependencies = {}): PlayerController {
@@ -176,6 +186,9 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
   let queue: QueueState = EMPTY_QUEUE;
   /** The next track's URL, fetched — and so authorized — ahead of time, in memory only. */
   let preloaded: { versionId: string; grant: StreamUrl } | null = null;
+  /** The A/B alternate's URL, fetched — and authorized — ahead of the switch (task `075`). */
+  let alternate: { versionId: string; grant: StreamUrl } | null = null;
+  let alternatePending: string | null = null;
   let preloading: string | null = null;
   const random = dependencies.random ?? Math.random;
 
@@ -385,6 +398,83 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
   function applyRegion(region: LoopRegionSeconds | null) {
     dispatch({ type: 'loop-region', region });
     persistLoop(region);
+  }
+
+  function usableGrant(held: { versionId: string; grant: StreamUrl } | null, versionId: string) {
+    return held !== null &&
+      held.versionId === versionId &&
+      held.grant.expiresAt.getTime() - now() > REFRESH_LEAD_MS * 2
+      ? held.grant
+      : null;
+  }
+
+  /** Fetch — and so authorize — the A/B alternate's URL, and warm it where playback is. */
+  function prepareAlternate() {
+    const current = state.track;
+    const versions = state.comparison;
+    if (current === null || versions === null) return;
+    const target = alternateOf(versions, current.versionId, state.lastOther);
+    if (target === null || usableGrant(alternate, target.versionId) !== null) return;
+    if (alternatePending === target.versionId) return;
+    alternatePending = target.versionId;
+    void fetchUrl(target.versionId).then((result) => {
+      alternatePending = null;
+      if (!result.ok) return;
+      alternate = { versionId: target.versionId, grant: result.grant };
+      adapter?.preload?.(result.grant.url, adapter.currentTime);
+    });
+  }
+
+  async function switchVersion(versionId: string) {
+    const current = state.track;
+    const versions = state.comparison;
+    const target = versions?.find((version) => version.versionId === versionId);
+    if (current === null || target === undefined || target.versionId === current.versionId) return;
+    // Read the instant *now*, from the element — not the store's last timeupdate — so the other
+    // version starts where this one is, to the millisecond.
+    const { startAt, clamped } = switchPosition(
+      adapter?.currentTime ?? state.positionSeconds,
+      target.durationSeconds,
+    );
+    const resume = state.wantsToPlay;
+    loadToken += 1;
+    const token = loadToken;
+    clearTimers();
+    const track: Track = {
+      versionId: target.versionId,
+      songId: target.songId,
+      title: target.title,
+      artist: target.artist,
+      versionLabel: target.versionLabel,
+      cover: target.cover ?? null,
+    };
+    dispatch({
+      type: 'switched',
+      track,
+      from: current.versionId,
+      startAt,
+      notice: clamped ? `${target.versionLabel} is shorter — playing from its end.` : null,
+    });
+    // The queue's current entry becomes the version now sounding.
+    if (queue.position >= 0) {
+      const index = queue.order[queue.position];
+      if (index !== undefined) {
+        setQueue({ ...queue, items: queue.items.map((item, at) => (at === index ? track : item)) });
+      }
+    }
+    const ready = usableGrant(alternate, target.versionId);
+    alternate = null;
+    let fresh: StreamUrl | null;
+    if (ready !== null) {
+      grant = ready;
+      scheduleRefresh(token);
+      fresh = ready;
+    } else {
+      fresh = await acquire(token);
+    }
+    if (fresh === null || adapter === null || token !== loadToken) return;
+    adapter.setSource(fresh.url, { startAt, play: resume, onPlayRejected: blocked });
+    prepareAlternate();
   }
 
   /** Play one track on its own: the queue becomes just this track. */
@@ -668,6 +758,23 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
       adapter?.setRate(state.rate);
     },
     preservesPitch: () => adapter?.preservesPitch ?? true,
+    setComparison(versions) {
+      dispatch({ type: 'comparison', versions });
+      prepareAlternate();
+    },
+    switchVersion,
+    async toggleAB() {
+      const current = state.track;
+      if (current === null || state.comparison === null) return;
+      const target = alternateOf(state.comparison, current.versionId, state.lastOther);
+      if (target !== null) await switchVersion(target.versionId);
+    },
+    async cycleVersion() {
+      const current = state.track;
+      if (current === null || state.comparison === null) return;
+      const target = nextInCycle(state.comparison, current.versionId);
+      if (target !== null) await switchVersion(target.versionId);
+    },
     async restoreQueue() {
       let stored: PersistedQueue | null = null;
       try {

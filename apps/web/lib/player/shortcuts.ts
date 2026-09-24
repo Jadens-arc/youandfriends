@@ -13,6 +13,8 @@ export const PLAYER_SHORTCUTS = [
   { keys: 'I', action: 'Start a loop here' },
   { keys: 'O', action: 'End the loop here' },
   { keys: 'U', action: 'Clear the loop' },
+  { keys: 'A', action: 'Flip to the other version (A/B)' },
+  { keys: 'V', action: 'Next version of this song' },
 ] as const;
 
 /**
@@ -95,6 +97,16 @@ export function handlePlayerKey(event: KeyboardEvent, player: PlayerController):
     case 'u':
     case 'U':
       player.clearLoopRegion();
+      return true;
+    case 'a':
+    case 'A':
+      if (state.comparison === null) return false;
+      void player.toggleAB();
+      return true;
+    case 'v':
+    case 'V':
+      if (state.comparison === null) return false;
+      void player.cycleVersion();
       return true;
     default:
       return false;

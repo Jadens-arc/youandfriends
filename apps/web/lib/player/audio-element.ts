@@ -35,7 +35,7 @@ export interface MediaAdapter {
    * Warm the next track's bytes (task `073`) in a detached element that is never played, so it
    * never takes audio focus — the one element that plays stays the only one.
    */
-  preload?(url: string): void;
+  preload?(url: string, startAt?: number): void;
   readonly currentTime: number;
   readonly paused: boolean;
   /** `MediaError.code` of the last error, or `null`. */
@@ -121,12 +121,22 @@ export function createAudioElementAdapter(element: HTMLAudioElement): MediaAdapt
         'mozPreservesPitch' in element
       );
     },
-    preload(url) {
+    preload(url, startAt = 0) {
       warm ??= new Audio();
-      warm.preload = 'auto';
-      warm.muted = true;
-      warm.src = url;
-      warm.load();
+      const target = warm;
+      target.preload = 'auto';
+      target.muted = true;
+      if (startAt > 0) {
+        // Warm the bytes around where playback will land (an A/B switch mid-song, task `075`),
+        // not the file's opening seconds.
+        const seek = () => {
+          target.removeEventListener('loadedmetadata', seek);
+          target.currentTime = startAt;
+        };
+        target.addEventListener('loadedmetadata', seek);
+      }
+      target.src = url;
+      target.load();
     },
     get currentTime() {
       return element.currentTime;

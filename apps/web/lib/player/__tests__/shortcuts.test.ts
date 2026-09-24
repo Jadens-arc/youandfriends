@@ -19,7 +19,11 @@ function controller(state: Partial<PlayerState> = {}) {
     setLoopIn: vi.fn(),
     setLoopOut: vi.fn(),
     clearLoopRegion: vi.fn(),
+    toggleAB: vi.fn(),
+    cycleVersion: vi.fn(),
   } as unknown as PlayerController & {
+    toggleAB: ReturnType<typeof vi.fn>;
+    cycleVersion: ReturnType<typeof vi.fn>;
     setLoopIn: ReturnType<typeof vi.fn>;
     setLoopOut: ReturnType<typeof vi.fn>;
     clearLoopRegion: ReturnType<typeof vi.fn>;
@@ -84,5 +88,15 @@ describe('player keyboard shortcuts (task 071)', () => {
     expect(handlePlayerKey(press('l', document.body, { ctrlKey: true }), player)).toBe(false);
     expect(handlePlayerKey(press(' '), controller({ track: null }))).toBe(false);
     expect(handlePlayerKey(press('x'), player)).toBe(false);
+  });
+
+  it('flips and cycles versions only where a comparison is offered (task 075)', () => {
+    const nothing = controller();
+    expect(handlePlayerKey(press('a'), nothing)).toBe(false);
+    const comparing = controller({ comparison: [] });
+    expect(handlePlayerKey(press('a'), comparing)).toBe(true);
+    expect(handlePlayerKey(press('v'), comparing)).toBe(true);
+    expect(comparing.toggleAB).toHaveBeenCalledTimes(1);
+    expect(comparing.cycleVersion).toHaveBeenCalledTimes(1);
   });
 });

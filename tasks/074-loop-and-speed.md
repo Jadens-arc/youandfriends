@@ -86,4 +86,4 @@ Additive. Reverting loses loop and speed; core playback is unaffected.
 
 ## Commit
 
-_(not yet)_
+`5ad612f`

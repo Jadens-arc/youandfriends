@@ -22,6 +22,7 @@ import type { SongCapabilities, SongVersion } from '@/lib/songs/workspace';
 
 import { ProcessingPoller, ProcessingStatus } from './processing-status';
 import { ProcessingBadge } from './status-badge';
+import { ABControls } from './versions/ab-controls';
 import { UploadVersion } from './versions/upload-version';
 import { VersionActions } from './versions/version-actions';
 import { WaveformRegion } from './waveform-region';
@@ -344,6 +345,13 @@ export function VersionPanel({
         )}
       </WaveformRegion>
       <LoopControls songId={songId} />
+      <ABControls
+        songId={songId}
+        songTitle={songTitle}
+        artist={artist}
+        cover={cover}
+        versions={versions}
+      />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">

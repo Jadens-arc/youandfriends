@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `075` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 58 of 95 iteration-one tasks are `complete`.
+Task `076` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 59 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -85,8 +85,8 @@ Task `075` is next. `016`, `029`, `045` are passed over until their dependencies
 | `071` | Persistent player interface                                            | Persistent player                    | `070`, `012`                              | `complete` | `6132517` | —       |
 | `072` | Waveform rendering and seeking                                         | Persistent player                    | `063`, `071`                              | `complete` | `128f15d` | —       |
 | `073` | Playback queue and best-effort gapless                                 | Persistent player                    | `070`, `071`                              | `complete` | `8e74a44` | —       |
-| `074` | Loop regions and playback speed                                        | Persistent player                    | `072`, `073`                              | `complete` | —         | —       |
-| `075` | A/B version switching                                                  | Persistent player                    | `070`, `056`, `061`                       | `pending`  | —         | —       |
+| `074` | Loop regions and playback speed                                        | Persistent player                    | `072`, `073`                              | `complete` | `5ad612f` | —       |
+| `075` | A/B version switching                                                  | Persistent player                    | `070`, `056`, `061`                       | `complete` | —         | —       |
 | `076` | Media Session and background playback                                  | Persistent player                    | `070`, `073`                              | `pending`  | —         | —       |
 | `077` | Mobile mini-player and expanded player                                 | Persistent player                    | `071`, `072`, `074`, `075`, `014`         | `pending`  | —         | —       |
 | `080` | Lyrics schema, plain-text projection, and autosave                     | Collaborative lyrics                 | `026`, `042`                              | `pending`  | —         | —       |
