@@ -45,7 +45,7 @@ const timestampSchema = z
   .optional();
 
 /** C0 controls other than tab and newline, DEL, and the bidirectional embeddings and isolates. */
-function hasForbiddenCharacter(value: string): boolean {
+export function hasForbiddenCharacter(value: string): boolean {
   for (const character of value) {
     const code = character.codePointAt(0) ?? 0;
     if (code === 0x09 || code === 0x0a) continue;

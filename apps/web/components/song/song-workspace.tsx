@@ -5,6 +5,7 @@ import { LyricsPanel } from '@/components/lyrics/lyrics-panel';
 import type { ActivityItem } from '@/lib/library/projects';
 import type { SongWorkspace as SongWorkspaceData } from '@/lib/songs/workspace';
 
+import { CommentsPanel } from '@/components/comments/comments-panel';
 import { ActivityFeed } from '@/components/library/activity-feed';
 import { InlineField } from '@/components/metadata/inline-field';
 import { DropZone, UploadFilesButton } from '@/components/upload/drop-zone';
@@ -164,20 +165,26 @@ export function SongWorkspaceView({
                   </div>
                 ),
                 activity: (
-                  <section aria-labelledby="song-activity-heading" className="flex flex-col gap-2">
-                    <h2
-                      id="song-activity-heading"
-                      className="text-caption text-muted-foreground font-sans font-medium tracking-wide uppercase"
+                  <div className="flex flex-col gap-8">
+                    <CommentsPanel songId={workspace.song.id} />
+                    <section
+                      aria-labelledby="song-activity-heading"
+                      className="flex flex-col gap-2"
                     >
-                      Activity
-                    </h2>
-                    <ActivityFeed
-                      items={activity}
-                      now={now}
-                      showTarget={false}
-                      empty="Nothing has happened here yet."
-                    />
-                  </section>
+                      <h2
+                        id="song-activity-heading"
+                        className="text-caption text-muted-foreground font-sans font-medium tracking-wide uppercase"
+                      >
+                        Activity
+                      </h2>
+                      <ActivityFeed
+                        items={activity}
+                        now={now}
+                        showTarget={false}
+                        empty="Nothing has happened here yet."
+                      />
+                    </section>
+                  </div>
                 ),
               }}
             />

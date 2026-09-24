@@ -63,6 +63,9 @@ export const AUDIT_ACTIONS = [
   'lyrics.updated',
   'lyrics.checkpoint_created',
   'comment.created',
+  'comment.updated',
+  'comment.resolved',
+  'comment.reopened',
   'asset.updated',
 
   'asset.downloaded',
@@ -148,6 +151,9 @@ export const AUDIT_ACTION_INFO: Readonly<
   'lyrics.updated': { class: 'edit', emittedBy: '081' },
   'lyrics.checkpoint_created': { class: 'edit', emittedBy: '084' },
   'comment.created': { class: 'edit', emittedBy: '090' },
+  'comment.updated': { class: 'edit', emittedBy: '090' },
+  'comment.resolved': { class: 'edit', emittedBy: '090' },
+  'comment.reopened': { class: 'edit', emittedBy: '090' },
   // Renaming, moving, and tagging a file in Project Files.
   'asset.updated': { class: 'edit', emittedBy: '057' },
 

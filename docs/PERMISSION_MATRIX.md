@@ -125,11 +125,11 @@ which requires workspace ownership, so an unguarded read of it is not one call a
 | `snapshot_entries`      | covered    | The file listing inside a snapshot. Reveals structure and naming even without bytes.                                             |
 | `lyrics_documents`      | covered    | Unpublished words, which are as sensitive as unreleased audio.                                                                   |
 | `lyrics_revisions`      | covered    | Every earlier draft of the same.                                                                                                 |
+| `comment_threads`       | covered    | Private discussion between collaborators.                                                                                        |
+| `comments`              | covered    | The same, at message granularity.                                                                                                |
 | `upload_sessions`       | covered    | An in-flight session is a writable handle to storage.                                                                            |
 | `upload_parts`          | covered    | Each row names a part already in the bucket, with its ETag. Reading another workspace’s parts is half of hijacking their upload. |
 | `invitations`           | covered    | An email address plus a role plus a scope — exactly who is being brought in, and to what.                                        |
-| `comment_threads`       | task `090` | Private discussion between collaborators.                                                                                        |
-| `comments`              | task `090` | The same, at message granularity.                                                                                                |
 | `notifications`         | task `095` | Reveals activity, timing, and who is working with whom.                                                                          |
 | `share_links`           | task `200` | A share link is a bearer credential. Enumerating them is total compromise.                                                       |
 | `sync_tokens`           | task `110` | A sync token authorizes a Mac agent. Same.                                                                                       |

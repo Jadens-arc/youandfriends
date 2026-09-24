@@ -85,4 +85,4 @@ Mobile UI only. Reverting degrades mobile lyrics to the desktop layout.
 
 ## Commit
 
-_(not yet)_
+`667147c`, then `5a7bfaa` (the lint fix-up described above)

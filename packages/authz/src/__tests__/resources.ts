@@ -22,6 +22,8 @@ import {
   loopRegions,
   lyricsDocuments,
   lyricsRevisions,
+  commentThreads,
+  comments,
   mediaJobs,
   mixVersions,
   permissionGrants,
@@ -429,17 +431,42 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     why: 'Every earlier draft of the same.',
   },
   {
-    status: 'pending',
+    status: 'live',
     name: 'comment_threads',
-    tableName: 'comment_threads',
-    task: '090',
+    table: commentThreads,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      await db.insert(commentThreads).values({
+        id: testId(),
+        workspaceId,
+        songId: song.id,
+        anchorKind: 'general',
+      });
+    },
     why: 'Private discussion between collaborators.',
   },
   {
-    status: 'pending',
+    status: 'live',
     name: 'comments',
-    tableName: 'comments',
-    task: '090',
+    table: comments,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      const threadId = testId();
+      await db.insert(commentThreads).values({
+        id: threadId,
+        workspaceId,
+        songId: song.id,
+        anchorKind: 'general',
+      });
+      await db.insert(comments).values({
+        id: testId(),
+        workspaceId,
+        threadId,
+        body: 'The second chorus drags — cut it?',
+      });
+    },
     why: 'The same, at message granularity.',
   },
   {
