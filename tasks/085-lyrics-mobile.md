@@ -58,6 +58,8 @@ Same authorization as desktop lyrics. Read-only presentation for viewers and com
 - [x] Playback is controllable without leaving the lyrics surface. (The play button and seekable compact waveform stay above the lyrics in full screen; timestamps (task `083`) still play from their line.)
 - [x] Space does not trigger play/pause while editing. (The player's shortcut handler leaves keys to a contenteditable or `role="textbox"`; tested against the real editor, with the same key on the page body shown to reach the player.)
 
+**Fix-up after commit.** The implementation commit carried one lint error (`react-hooks/immutability` in `mobile/keyboard.ts`) that the gate did not catch: `turbo.json` limited the lint and test task inputs to `src/**` and `app/**`, so changes under `apps/web/components/**` and `apps/web/lib/**` hit a stale cache and reported green. A second `085:` commit fixes the error and removes those input restrictions, so every tracked file in a package now invalidates its lint and test cache; a forced lint of every package is clean.
+
 **Not verified here.** Manual QA 1–3 need a real iPhone (task `102`/`120`); jsdom has no layout or on-screen keyboard, so the tests exercise the measurements and wiring, not Safari's rendering.
 
 ## Tests and validation commands

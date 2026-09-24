@@ -81,10 +81,10 @@ export function useKeepCaretVisible(
         return;
       }
       const delta = caretScrollDelta(caret, { top, bottom });
-      if (delta === 0) return;
-      // `scrollBy` with options is missing from older Safari; `scrollTop` works everywhere.
-      if (typeof container.scrollBy === 'function') container.scrollBy({ top: delta });
-      else container.scrollTop += delta;
+      // `scrollBy` with options: Safari 14 and later, every current phone browser.
+      if (delta !== 0 && typeof container.scrollBy === 'function') {
+        container.scrollBy({ top: delta });
+      }
     };
     reveal();
     editor.on('selectionUpdate', reveal);
