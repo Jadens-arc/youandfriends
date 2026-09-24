@@ -28,6 +28,8 @@ import {
   type LoudnessResult,
 } from '@youandfriends/media';
 import { derivativeObjectKey, type ObjectTransfer } from '@youandfriends/storage';
+
+import { produceCoverRenditions } from './artwork';
 import {
   PROCESSING_FAILURE_MESSAGES,
   WAVEFORM_CONTENT_TYPE,
@@ -298,6 +300,10 @@ async function run(
       });
       await after('download');
 
+      if (operations.has('artwork')) {
+        return produceCoverRenditions(deps, input, scratch, original, remaining);
+      }
+
       const validation = await validateAudio(original, { timeoutMs: remaining() });
       if (!validation.ok) {
         await recordRejection(deps.db, input, validation.failure, validation.reason);
@@ -359,10 +365,10 @@ async function run(
  * is fixed before any bytes move. Whatever point a previous attempt died at, this attempt writes
  * the same key and the same row.
  */
-async function produceDerivative(
+export async function produceDerivative(
   deps: PipelineDeps,
   input: AudioJobInput,
-  kind: 'streaming_audio' | 'waveform_peaks',
+  kind: 'streaming_audio' | 'waveform_peaks' | 'thumbnail',
   variant: string,
   steps: {
     readonly contentType: string;
@@ -508,7 +514,7 @@ async function recordComplete(
  * Not audio. Final: no retry turns a text file into a song. The version gets the explanation a
  * person can act on; the tool's own words, which can carry paths, stay in the job row.
  */
-async function recordRejection(
+export async function recordRejection(
   db: DirectDatabase,
   input: AudioJobInput,
   failure: ProcessingFailureKind,

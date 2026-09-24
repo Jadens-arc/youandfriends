@@ -75,12 +75,22 @@ not reach them, including inside a module entry.
 
 ## Acceptance criteria
 
-- [ ] Uploading artwork produces renditions at every configured width, recorded as derivatives.
-- [ ] Library cards and rows render the renditions through `srcSet`/`sizes`, never the original.
-- [ ] Renditions carry no EXIF or location metadata.
-- [ ] An oversized or malformed image is refused, and the refusal is surfaced, not swallowed.
-- [ ] Cover resolution adds a fixed number of queries per library load, not one per card.
-- [ ] A project the viewer cannot see never contributes a cover URL to their payload.
+- [x] Uploading artwork produces renditions at every configured width, recorded as derivatives. (A recorded artwork version is enqueued with the `artwork` operation; `produceCoverRenditions` in `apps/jobs/src/artwork.ts` renders a square JPEG at 128, 256 and 512 px — `COVER_RENDITION_WIDTHS` — each a `thumbnail` derivative named `cover-<width>`, with the same idempotency as audio: each rendition's row names its object, and a recorded one is not rendered again on retry. Tested end to end, including a retry after a partial run.)
+- [x] Library cards and rows render the renditions through `srcSet`/`sizes`, never the original. (`resolveCovers` in `apps/web/lib/library/covers.ts` fills `ProjectCard.cover`, the song header's and the project header's covers with `src` = the smallest rendition and a width-described `srcSet`; `CoverArt` already rendered them. Nothing reads the original.)
+- [x] Renditions carry no EXIF or location metadata. (`-map_metadata -1` and the MJPEG encoder's bare JFIF header. Tested with a JPEG carrying an EXIF segment with a GPS pointer: the rendition has no `Exif`, no marker, and no APP1 segment.)
+- [x] An oversized or malformed image is refused, and the refusal is surfaced, not swallowed. (`probeArtwork` in `packages/media/src/artwork.ts` checks the declared size against a 40-megapixel ceiling **before decoding** — tested with a hand-built PNG declaring 8000×8000 in a few hundred bytes — and refuses anything that is not a single JPEG, PNG or WebP still: SVG, text, audio, video. The version is recorded `failed` with a sentence — "This file doesn’t appear to be a JPEG, PNG, or WebP image." / "This image is too large to use as cover art." — shown with the file's "Processing failed" badge, and not retried.)
+- [x] Cover resolution adds a fixed number of queries per library load, not one per card. (`listCoverRenditions` resolves every project on the page in one query, run in parallel with the page's other reads; signing is local. Tested by counting `execute` calls for five projects: one.)
+- [x] A project the viewer cannot see never contributes a cover URL to their payload. (Covers are resolved only for projects that passed the visibility filter; a song shared on its own does not bring its hidden project's cover. Tested by searching the whole serialized payload for the hidden project's rendition keys, and mutation-checked.)
+
+**Also in this task.**
+
+- The sniffer now recognises JPEG, PNG and WebP (never SVG), and `image/jpeg` joins the servable allowlist so a rendition is served inline to an `<img>`; originals are still attachments (task `067`).
+- **A 064 bug fixed:** every recorded asset version was sent down the audio pipeline, so a project file or artwork would have been marked "failed" for not being audio. Enqueueing now chooses by kind: audio kinds get the audio pipeline, artwork gets renditions, and anything else is marked ready with nothing to derive.
+- With no derivatives bucket configured, cards keep their placeholder rather than failing the page.
+
+**Limitation.** An EXIF orientation flag is not applied, so a phone photo stored sideways with an orientation tag renders sideways. Cover art is ordinarily exported upright and square.
+
+**Manual QA** (a card in a browser, rendition choice across viewports) was not run: there is no browser harness until task `120` and no R2 bucket here.
 
 ## Tests and validation commands
 
@@ -101,7 +111,7 @@ Additive. Reverting returns every card to its placeholder. No data is lost.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

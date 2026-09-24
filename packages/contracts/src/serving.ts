@@ -20,6 +20,8 @@ export const SERVABLE_CONTENT_TYPES = [
   'audio/mpeg',
   'audio/mp4',
   'audio/ogg',
+  // Cover renditions (task `069`) — JPEG, produced by the worker. Never SVG.
+  'image/jpeg',
 ] as const;
 
 export const OPAQUE_CONTENT_TYPE = 'application/octet-stream';

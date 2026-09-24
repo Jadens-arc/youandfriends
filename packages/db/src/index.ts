@@ -117,6 +117,8 @@ export {
   type RecencyCursor,
   type RecencyPage,
   type SongListRow,
+  listCoverRenditions,
+  type CoverRenditionRow,
 } from './queries/projects';
 export {
   listRecents,

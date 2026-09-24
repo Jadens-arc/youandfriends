@@ -74,6 +74,19 @@ const SIGNATURES: readonly Signature[] = [
   { contentType: 'video/mp4', at: [{ offset: 4, bytes: 'ftyp' }] },
   { contentType: 'audio/ogg', at: [{ offset: 0, bytes: 'OggS' }] },
 
+  // Cover art (task `069`). Only these three: they are what the artwork pipeline will decode,
+  // and none of them can carry script. SVG is deliberately absent — it is a document, not an
+  // image, and it can.
+  { contentType: 'image/jpeg', at: [{ offset: 0, bytes: '\xff\xd8\xff' }] },
+  { contentType: 'image/png', at: [{ offset: 0, bytes: '\x89PNG\r\n\x1a\n' }] },
+  {
+    contentType: 'image/webp',
+    at: [
+      { offset: 0, bytes: 'RIFF' },
+      { offset: 8, bytes: 'WEBP' },
+    ],
+  },
+
   // Project bundles. A Logic project and an MPC program are directories; they arrive zipped.
   // Recorded as ZIP and never expanded server-side (T4).
   //

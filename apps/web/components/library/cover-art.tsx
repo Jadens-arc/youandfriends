@@ -1,5 +1,6 @@
 import { cn } from '@youandfriends/ui';
 
+import type { CoverSource } from '@/lib/library/covers';
 import { initialsOf, stableIndex } from '@/lib/library/format';
 
 /**
@@ -12,12 +13,7 @@ const TINTS = [
   { ground: 'bg-ochre/25', ink: 'text-ochre-text', groove: 'border-ochre-text/20' },
 ] as const;
 
-export interface CoverSource {
-  /** The smallest rendition, used as `src` where `srcSet` is unsupported. */
-  readonly src: string;
-  /** Width-described renditions, e.g. `…/cover-256 256w, …/cover-512 512w`. */
-  readonly srcSet: string;
-}
+export type { CoverSource } from '@/lib/library/covers';
 
 export interface CoverArtProps {
   readonly id: string;

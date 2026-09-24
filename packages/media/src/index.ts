@@ -57,6 +57,17 @@ export {
 } from './waveform';
 
 export {
+  ARTWORK_CODECS,
+  ARTWORK_TIMEOUT_MS,
+  ArtworkRejectedError,
+  MAX_ARTWORK_PIXELS,
+  probeArtwork,
+  renderCoverRendition,
+  type ArtworkProbe,
+  type ArtworkRejection,
+} from './artwork';
+
+export {
   DEFAULT_STREAM_BITRATE,
   DERIVATIVE_CONTENT_TYPE,
   STREAM_CHANNELS,

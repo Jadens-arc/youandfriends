@@ -193,7 +193,7 @@ export async function expectDatabaseError(
 export async function makeStorageObject(
   db: DirectDatabase,
   workspaceId: string,
-  overrides: { key?: string; sizeBytes?: number } = {},
+  overrides: { key?: string; sizeBytes?: number; contentType?: string } = {},
 ) {
   const { storageObjects } = await import('../schema/index');
   const objectId = testId();
@@ -208,7 +208,7 @@ export async function makeStorageObject(
       // A fabricated digest, assembled rather than written as a literal so `no-secrets` does
       // not read 64 hex characters as a key (CLAUDE.md §8).
       checksumSha256: Array.from({ length: 8 }, () => 'deadbeef').join(''),
-      contentType: 'audio/wav',
+      contentType: overrides.contentType ?? 'audio/wav',
     })
     .returning();
   if (!row) throw new Error('storage object insert returned nothing');

@@ -11,3 +11,4 @@ export {
   type FixtureContainer,
   type MediaFixture,
 } from '../fixtures/catalog';
+export { writeTestImage } from '../fixtures/images';

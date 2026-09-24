@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import type { DirectDatabase } from '../client';
 import type { Transaction } from '../transaction';
+import { assets } from '../schema/assets';
 import { mediaJobs } from '../schema/media-jobs';
 import { storageObjects } from '../schema/storage-objects';
 import { assetVersions } from '../schema/versions';
@@ -24,6 +25,8 @@ export interface MediaJobSource {
   readonly assetVersionId: string;
   readonly objectKey: string;
   readonly sizeBytes: number;
+  /** Decides which operations apply: audio, artwork, or none (task `069`). */
+  readonly assetKind: (typeof assets.$inferSelect)['kind'];
 }
 
 export async function loadMediaJobSource(
@@ -32,8 +35,16 @@ export async function loadMediaJobSource(
   assetVersionId: string,
 ): Promise<MediaJobSource | null> {
   const [row] = await db
-    .select({ objectKey: storageObjects.key, sizeBytes: storageObjects.sizeBytes })
+    .select({
+      objectKey: storageObjects.key,
+      sizeBytes: storageObjects.sizeBytes,
+      assetKind: assets.kind,
+    })
     .from(assetVersions)
+    .innerJoin(
+      assets,
+      and(eq(assets.id, assetVersions.assetId), eq(assets.workspaceId, assetVersions.workspaceId)),
+    )
     .innerJoin(
       storageObjects,
       and(
