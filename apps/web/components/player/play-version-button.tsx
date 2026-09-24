@@ -16,6 +16,7 @@ export function PlayVersionButton({
   songTitle,
   artist,
   cover,
+  album = null,
   versionId,
   versionNumber,
 }: {
@@ -23,6 +24,8 @@ export function PlayVersionButton({
   readonly songTitle: string;
   readonly artist: string | null;
   readonly cover: CoverSource | null;
+  /** The project's name, when the listener can see the project (task `076`). */
+  readonly album?: string | null;
   readonly versionId: string;
   readonly versionNumber: number;
 }) {
@@ -48,6 +51,7 @@ export function PlayVersionButton({
           artist,
           versionLabel: label,
           cover,
+          album,
         });
       }}
     >

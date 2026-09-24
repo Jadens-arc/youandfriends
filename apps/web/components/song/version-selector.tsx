@@ -193,6 +193,7 @@ export function VersionDetails({
         readonly songTitle: string;
         readonly artist: string | null;
         readonly cover: CoverSource | null;
+        readonly album?: string | null;
       }
     | undefined;
 }) {
@@ -207,6 +208,7 @@ export function VersionDetails({
               songTitle={playback.songTitle}
               artist={playback.artist}
               cover={playback.cover}
+              album={playback.album ?? null}
               versionId={version.id}
               versionNumber={version.number}
             />
@@ -270,6 +272,7 @@ export function VersionPanel({
   capabilities,
   artist = null,
   cover = null,
+  album = null,
 }: {
   readonly versions: readonly SongVersion[];
   readonly linkedVersionId: string | null;
@@ -281,6 +284,8 @@ export function VersionPanel({
   /** For the player's track display (task `071`). */
   readonly artist?: string | null;
   readonly cover?: CoverSource | null;
+  /** The project's name, when visible — the lock screen's album line (task `076`). */
+  readonly album?: string | null;
 }) {
   const [selectedId, setSelectedId] = React.useState(() =>
     initialVersionId(versions, linkedVersionId),
@@ -337,6 +342,7 @@ export function VersionPanel({
               artist,
               versionLabel: versionName(selected),
               cover,
+              album,
             }}
             label={`Seek in ${songTitle}, ${versionName(selected)}`}
           />
@@ -350,6 +356,7 @@ export function VersionPanel({
         songTitle={songTitle}
         artist={artist}
         cover={cover}
+        album={album}
         versions={versions}
       />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
@@ -380,7 +387,7 @@ export function VersionPanel({
               version={selected}
               songId={songId}
               canRetry={capabilities.edit}
-              playback={{ songTitle, artist, cover }}
+              playback={{ songTitle, artist, cover, album }}
             />
             <VersionActions
               key={selected.id}

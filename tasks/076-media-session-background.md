@@ -51,13 +51,17 @@ Media Session exposes track metadata to the operating system, which may display 
 
 ## Acceptance criteria
 
-- [ ] Lock-screen and system controls show correct title, artist, project, and artwork.
-- [ ] Play, pause, previous, next, and seek actions work from system controls.
-- [ ] Position state keeps the system scrubber accurate, including after seek and rate change.
-- [ ] Artwork is provided at platform-expected sizes.
-- [ ] Playback continues when the tab is backgrounded and when the screen locks.
-- [ ] AirPlay works through native controls; no custom picker is claimed.
-- [ ] Action handlers are feature-detected.
+- [x] Lock-screen and system controls show correct title, artist, project, and artwork. (`connectMediaSession` in `lib/player/media-session.ts`, connected by the one `AudioHost`. Tracks now carry `album` — the project's name, only where the listener can see the project — and it falls back to the version label for a song shared on its own.)
+- [x] Play, pause, previous, next, and seek actions work from system controls. (play, pause, stop, previoustrack, nexttrack, seekbackward/seekforward — ten seconds when the system does not say — and seekto, each driving the same controller the player bar does.)
+- [x] Position state keeps the system scrubber accurate, including after seek and rate change. (`setPositionState` with duration, position read from the element, and the playback rate, re-sent when any of them moves; tested after a system seek and a speed change.)
+- [x] Artwork is provided at platform-expected sizes. (Every cover rendition — 128, 256, 512 — declared at its real size, from task `069`'s `srcSet`.)
+- [x] Playback continues when the tab is backgrounded and when the screen locks. (By construction: one native `<audio>` element, nothing paused on visibility change, no Web Audio graph (ADR 0004). Verifying it on a locked iPhone is Manual QA 1, not run here.)
+- [x] AirPlay works through native controls; no custom picker is claimed. (`x-webkit-airplay="allow"` on the element; `docs/OPERATIONS.md` §9 says the system offers the route and we do not.)
+- [x] Action handlers are feature-detected. (Each registration is attempted and a rejection swallowed; tested against a session that throws for three actions. "Next" is offered only when something is queued, and withdrawn otherwise.)
+
+**Privacy, recorded.** An unreleased song's title and artwork appear on a locked phone's screen; `docs/OPERATIONS.md` §9 says so plainly.
+
+**Not verified here.** Manual QA 1–3 need an iPhone and an AirPlay speaker.
 
 ## Tests and validation commands
 
@@ -77,7 +81,7 @@ Additive. Reverting loses system integration; in-app playback remains.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

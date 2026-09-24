@@ -43,6 +43,11 @@ export interface Track {
   readonly versionLabel: string;
   /** The project's cover renditions (task `069`), or `null` for the placeholder. */
   readonly cover?: { readonly src: string; readonly srcSet: string } | null;
+  /**
+   * The project's name, for the lock screen's "album" line (task `076`) — only when the listener
+   * can see the project; a song shared on its own does not name its hidden project.
+   */
+  readonly album?: string | null;
 }
 
 export interface PlayerState {

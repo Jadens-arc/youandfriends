@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 import { createAudioElementAdapter } from '@/lib/player/audio-element';
+import { connectMediaSession, type MediaSessionLike } from '@/lib/player/media-session';
 import { handlePlayerKey } from '@/lib/player/shortcuts';
 import { getPlayer } from '@/lib/player/store';
 
@@ -23,7 +24,16 @@ export function AudioHost() {
     const detach = player.attach(createAudioElementAdapter(element));
     // Last session's queue, re-authorized by the server before any of it is shown (task `073`).
     void player.restoreQueue();
-    return detach;
+    // The lock screen and system media controls (task `076`).
+    const disconnect = connectMediaSession(
+      player,
+      'mediaSession' in navigator ? (navigator.mediaSession as MediaSessionLike) : undefined,
+      typeof MediaMetadata === 'undefined' ? undefined : MediaMetadata,
+    );
+    return () => {
+      disconnect();
+      detach();
+    };
   }, []);
 
   // The player's keyboard shortcuts, workspace-wide — except where the key belongs to whatever
@@ -36,5 +46,7 @@ export function AudioHost() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   // Music, not speech: there is no caption track to offer.
-  return <audio ref={ref} data-player-audio hidden />;
+  // `x-webkit-airplay="allow"`: AirPlay is offered by the system's own media controls (Control
+  // Centre, the lock screen) — exposed, never a picker of ours (`docs/OPERATIONS.md` §9).
+  return <audio ref={ref} data-player-audio hidden x-webkit-airplay="allow" />;
 }

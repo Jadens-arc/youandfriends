@@ -119,6 +119,7 @@ export function SongWorkspaceView({
                       capabilities={workspace.capabilities}
                       artist={workspace.artist}
                       cover={workspace.cover}
+                      album={workspace.project?.name ?? null}
                     />
                   </div>
                 ),

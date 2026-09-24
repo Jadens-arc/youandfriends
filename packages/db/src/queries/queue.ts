@@ -18,6 +18,7 @@ export interface PlayableVersionRow {
   readonly songArtist: string | null;
   readonly projectId: string;
   readonly projectArtist: string | null;
+  readonly projectName: string;
   readonly folderPath: string;
 }
 
@@ -39,6 +40,7 @@ type Row = {
   song_artist: string | null;
   project_id: string;
   project_artist: string | null;
+  project_name: string;
   folder_path: string;
 };
 
@@ -107,6 +109,7 @@ export async function listPlayableVersions(
     songArtist: row.song_artist,
     projectId: row.project_id,
     projectArtist: row.project_artist,
+    projectName: row.project_name,
     folderPath: row.folder_path,
   }));
 }

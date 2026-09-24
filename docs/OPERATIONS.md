@@ -430,7 +430,13 @@ Documented honestly rather than worked around dishonestly:
   the same browser (task `053`). For large or recurring folders, the Mac app is the reliable path.
 - **Background audio** works through native `<audio>` and Media Session, but a fully custom
   Web Audio graph can be suspended when backgrounded. This is why playback uses native audio
-  elements (ADR 0004).
+  elements (ADR 0004). The lock screen and Control Centre get title, artist, project, artwork at
+  128, 256 and 512 px, play/pause/seek/previous — and next only when something is queued — with
+  the position re-sent on every seek and speed change (task `076`). Each action is feature-detected;
+  a browser that rejects one simply does not show that control.
+- **Song titles on the lock screen.** Media Session hands the operating system the playing song's
+  title, artist and artwork, and a locked phone shows them to anyone who can see it — an
+  unreleased title included. That is what the feature is; it is accepted, not hidden.
 - **Storage eviction.** Safari may evict Cache Storage under pressure. Offline downloads must
   therefore always show real state and re-download gracefully — never assume a cached file is
   still present.
@@ -440,8 +446,10 @@ Documented honestly rather than worked around dishonestly:
   authorized — and its first bytes are warmed in a detached, never-played element; on `ended`,
   the one playing element switches to that URL. This shortens the gap everywhere and removes none
   of it on Safari, where a source change always costs a moment.
-- **AirPlay** is exposed through native media controls only. We do not present a custom
-  AirPlay picker, because the web platform does not offer reliable control of one.
+- **AirPlay** is exposed through native media controls only — the element is marked
+  `x-webkit-airplay="allow"`, and Control Centre or the lock screen offers the route. We do not
+  present a custom AirPlay picker, because the web platform does not offer reliable control of
+  one.
 - **No install prompt on iOS.** Safari has no `beforeinstallprompt` and no programmatic
   install. The app shows written Add-to-Home-Screen steps there instead of a button — a button
   that does nothing when tapped is worse than no button, and is the common shape. iPadOS is

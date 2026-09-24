@@ -23,12 +23,14 @@ export function ABControls({
   songTitle,
   artist,
   cover,
+  album = null,
   versions,
 }: {
   readonly songId: string;
   readonly songTitle: string;
   readonly artist: string | null;
   readonly cover: CoverSource | null;
+  readonly album?: string | null;
   readonly versions: readonly SongVersion[];
 }) {
   const state = usePlayerState();
@@ -49,7 +51,7 @@ export function ABControls({
           integratedLufs: version.integratedLufs,
           truePeakDb: version.truePeakDb,
         })),
-    [versions, songId, songTitle, artist, cover],
+    [versions, songId, songTitle, artist, cover, album],
   );
   const loudnessOf = React.useMemo(
     () => new Map(versions.map((version) => [version.id, version])),
