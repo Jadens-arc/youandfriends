@@ -1,6 +1,10 @@
 import { getSchema } from '@tiptap/core';
 import type { Schema } from '@tiptap/pm/model';
-import { prosemirrorJSONToYXmlFragment, yXmlFragmentToProseMirrorRootNode } from '@tiptap/y-tiptap';
+import {
+  prosemirrorJSONToYXmlFragment,
+  updateYFragment,
+  yXmlFragmentToProseMirrorRootNode,
+} from '@tiptap/y-tiptap';
 import { lyricsDocumentSchema, type LyricsDocument } from '@youandfriends/contracts';
 import * as Y from 'yjs';
 
@@ -54,6 +58,30 @@ export function documentFromYjs(state: Uint8Array): LyricsDocument {
   // transiently; it is simply no lyrics.
   const json = root.childCount === 0 ? { type: 'doc', content: [] } : root.toJSON();
   return lyricsDocumentSchema.parse(fromEditorContent(json));
+}
+
+/**
+ * Make a Yjs state read as `document` (restoring a revision, task `084`), as an **edit** of that
+ * state: the update deletes what is there and inserts the revision, so applied to any copy of the
+ * room — including one with words not yet saved — it restores without resurrecting or erasing
+ * anything it does not know about. Returns the update and the merged state.
+ */
+export function yjsReplace(
+  base: Uint8Array,
+  document: LyricsDocument,
+): { readonly update: Uint8Array; readonly merged: Uint8Array } {
+  const doc = new Y.Doc();
+  Y.applyUpdate(doc, base);
+  const before = Y.encodeStateVector(doc);
+  const fragment = doc.getXmlFragment(LYRICS_FRAGMENT);
+  const node = schema().nodeFromJSON(toEditorContent(document));
+  doc.transact(() => {
+    updateYFragment(doc, fragment, node, { mapping: new Map(), isOMark: new Map() });
+  });
+  const update = Y.encodeStateAsUpdate(doc, before);
+  const merged = Y.encodeStateAsUpdate(doc);
+  doc.destroy();
+  return { update, merged };
 }
 
 /** Two states' union. Order does not matter, and merging the same state twice changes nothing. */

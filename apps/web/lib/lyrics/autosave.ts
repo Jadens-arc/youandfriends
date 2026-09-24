@@ -164,6 +164,8 @@ export function httpSave(songId: string, yjsState?: () => string): SaveLyrics {
           document,
           baseVersion,
           ...(yjsState === undefined ? {} : { yjsState: yjsState() }),
+          // A save as the page is left may keep a revision sooner (task `084`).
+          ...(keepalive ? { lifecycle: true } : {}),
         }),
         // On page hide the page may be gone before the response; `keepalive` lets the request
         // finish anyway (bodies up to 64 KB — a long lyric sheet, comfortably).

@@ -10,6 +10,7 @@ import {
   hasSoftDelete,
   loopRegions,
   lyricsDocuments,
+  lyricsRevisions,
   mediaJobs,
   mixVersions,
   permissionGrants,
@@ -66,6 +67,8 @@ export const SCOPED_TABLES = {
   loopRegions,
   // Added in task `080`: a song's lyrics.
   lyricsDocuments,
+  // Added in task `084`: their earlier drafts.
+  lyricsRevisions,
   storageObjects,
   snapshots,
   snapshotEntries,

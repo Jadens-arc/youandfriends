@@ -19,6 +19,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 
 import type { LibraryContext } from '@/lib/library/context';
 
+import { snapshotIfDue } from './revisions';
 import { documentFromYjs, fromBase64, mergeYjs, toBase64, yjsFromDocument } from './yjs';
 import type { NotificationSink } from '@/lib/library/metadata';
 
@@ -115,7 +116,7 @@ export async function saveLyrics(
   });
   await liveSong(context, songId);
 
-  const { document, baseVersion, yjsState } = parsed.data;
+  const { document, baseVersion, yjsState, lifecycle = false } = parsed.data;
   const now = context.now ?? (() => new Date());
 
   const result = await withAuditedTransaction(
@@ -195,6 +196,19 @@ export async function saveLyrics(
       } else {
         await tx.update(lyricsDocuments).set(values).where(eq(lyricsDocuments.id, current.id));
       }
+
+      // An automatic revision, when this save changed enough since the last one (task `084`).
+      await snapshotIfDue(tx, {
+        workspaceId: context.workspaceId,
+        songId,
+        document: stored,
+        plainText,
+        version,
+        userId: context.userId,
+        now: values.updatedAt,
+        lifecycle,
+        newId: context.newId ?? newUlid,
+      });
 
       // Autosave writes every few seconds; the audit log records an editing session, not each
       // keystroke. A save by the same person within the window of their last is part of it.

@@ -21,6 +21,7 @@ import {
   folders,
   loopRegions,
   lyricsDocuments,
+  lyricsRevisions,
   mediaJobs,
   mixVersions,
   permissionGrants,
@@ -408,10 +409,23 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     why: 'Unpublished words, which are as sensitive as unreleased audio.',
   },
   {
-    status: 'pending',
+    status: 'live',
     name: 'lyrics_revisions',
-    tableName: 'lyrics_revisions',
-    task: '083',
+    table: lyricsRevisions,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      await db.insert(lyricsRevisions).values({
+        id: testId(),
+        workspaceId,
+        songId: song.id,
+        kind: 'checkpoint',
+        name: 'Before the bridge rewrite',
+        document: { type: 'doc', content: [] },
+        plainText: 'An earlier unpublished line',
+        sourceVersion: 1,
+      });
+    },
     why: 'Every earlier draft of the same.',
   },
   {

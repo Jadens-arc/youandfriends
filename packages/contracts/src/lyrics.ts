@@ -171,5 +171,20 @@ export const saveLyricsSchema = z.object({
     .regex(/^[A-Za-z0-9+/]*={0,2}$/, 'must be base64')
     .nullable()
     .optional(),
+  /**
+   * A save made as the page is left (page hide, navigation). It may leave an automatic revision
+   * sooner than the usual time floor — the writing session is ending (task `084`).
+   */
+  lifecycle: z.boolean().optional(),
 });
 export type SaveLyricsRequest = z.infer<typeof saveLyricsSchema>;
+
+/** A named checkpoint of the lyrics as they stand (task `084`). */
+export const createCheckpointSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Give the checkpoint a name.')
+    .max(80, 'Keep the name under 80 characters.'),
+});
+export type CreateCheckpointRequest = z.infer<typeof createCheckpointSchema>;

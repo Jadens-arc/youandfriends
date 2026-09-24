@@ -378,6 +378,7 @@ export const CONTENT_ACTIVITY_ACTIONS = [
   'folder.updated',
   'folder.moved',
   'lyrics.updated',
+  'lyrics.revision_restored',
   'comment.created',
 ] as const;
 

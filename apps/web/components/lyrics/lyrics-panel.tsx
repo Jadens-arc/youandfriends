@@ -18,6 +18,7 @@ import { fromBase64, toBase64 } from '@/lib/lyrics/yjs';
 
 import { LyricsEditor, type LyricsEditorHandle } from './editor/lyrics-editor';
 import { PresenceList } from './presence/presence-list';
+import { HistoryPanel, type RestoreResponse } from './revisions/history-panel';
 
 /**
  * The song's lyrics (tasks `080`, `081`): the structured editor, autosaving, with its save state
@@ -251,6 +252,18 @@ export function LyricsPanel({
     autosave.current?.rebase(latest.version);
   }
 
+  function restored(result: RestoreResponse) {
+    current.current = result.document;
+    if (shared.current !== null) {
+      // Together: apply the restore as an edit of the shared document, which carries it to
+      // everyone in the room — nobody is left on a copy that silently diverges.
+      Y.applyUpdate(shared.current, fromBase64(result.yjsUpdate));
+      return;
+    }
+    editor.current?.replace(result.document);
+    autosave.current?.rebase(result.version);
+  }
+
   let body: React.ReactNode;
   if (loaded === null) {
     body = <p className="text-body text-muted-foreground font-sans">Loading lyrics…</p>;
@@ -273,6 +286,13 @@ export function LyricsPanel({
           {together === null ? null : (
             <PresenceList awareness={together.session.awareness} status={connection} />
           )}
+          <HistoryPanel
+            songId={songId}
+            canEdit={editable}
+            current={() => current.current ?? loaded.document}
+            beforeCheckpoint={() => autosave.current?.flush() ?? Promise.resolve()}
+            onRestored={restored}
+          />
           {state === 'conflict' ? (
             <Button variant="secondary" size="sm" onClick={() => void loadLatest()}>
               Load the newer version

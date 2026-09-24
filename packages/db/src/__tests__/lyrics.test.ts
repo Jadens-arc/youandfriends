@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { lyricsDocuments, songs } from '../schema/index';
+import { lyricsDocuments, lyricsRevisions, songs } from '../schema/index';
 import {
   expectDatabaseError,
   makeProject,
@@ -124,5 +124,69 @@ describeWithDatabase('lyrics documents', () => {
       .from(lyricsDocuments)
       .where(eq(lyricsDocuments.songId, song.id));
     expect(left).toEqual([]);
+  });
+
+  describe('revisions (task 084)', () => {
+    function revision(
+      workspaceId: string,
+      songId: string,
+      overrides: Record<string, unknown> = {},
+    ) {
+      return {
+        id: testId(),
+        workspaceId,
+        songId,
+        kind: 'automatic' as const,
+        document: { type: 'doc', content: [] },
+        plainText: 'Verse\nearlier',
+        sourceVersion: 1,
+        ...overrides,
+      };
+    }
+
+    it('requires a checkpoint to be named', async () => {
+      const { workspace } = await makeTenant(database.db);
+      const song = await songIn(workspace.id);
+      await expectDatabaseError(
+        database.db
+          .insert(lyricsRevisions)
+          .values(revision(workspace.id, song.id, { kind: 'checkpoint' })),
+        SQLSTATE.checkViolation,
+        /lyrics_revisions_checkpoint_named/,
+      );
+      await expectDatabaseError(
+        database.db
+          .insert(lyricsRevisions)
+          .values(revision(workspace.id, song.id, { kind: 'checkpoint', name: '   ' })),
+        SQLSTATE.checkViolation,
+        /lyrics_revisions_checkpoint_named/,
+      );
+      await database.db
+        .insert(lyricsRevisions)
+        .values(revision(workspace.id, song.id, { kind: 'checkpoint', name: 'Demo' }));
+    });
+
+    it('refuses a revision filed under another workspace’s song', async () => {
+      const { workspace } = await makeTenant(database.db);
+      const foreign = await makeTenant(database.db);
+      const theirSong = await songIn(foreign.workspace.id);
+      await expectDatabaseError(
+        database.db.insert(lyricsRevisions).values(revision(workspace.id, theirSong.id)),
+        SQLSTATE.foreignKeyViolation,
+        /lyrics_revisions_song_same_workspace/,
+      );
+    });
+
+    it('goes with its song when the song is purged', async () => {
+      const { workspace } = await makeTenant(database.db);
+      const song = await songIn(workspace.id);
+      await database.db.insert(lyricsRevisions).values(revision(workspace.id, song.id));
+      await database.db.delete(songs).where(eq(songs.id, song.id));
+      const left = await database.db
+        .select()
+        .from(lyricsRevisions)
+        .where(eq(lyricsRevisions.songId, song.id));
+      expect(left).toEqual([]);
+    });
   });
 });

@@ -17,7 +17,7 @@ import { auditEvents } from './audit';
 import { derivatives, assetVersions, mixVersions } from './versions';
 import { favorites } from './favorites';
 import { loopRegions } from './loop-regions';
-import { lyricsDocuments } from './lyrics';
+import { lyricsDocuments, lyricsRevisions } from './lyrics';
 import { mediaJobs } from './media-jobs';
 import { snapshotEntries, snapshots } from './snapshots';
 import { storageObjects } from './storage-objects';
@@ -78,6 +78,7 @@ export const schema = {
   mediaJobs,
   loopRegions,
   lyricsDocuments,
+  lyricsRevisions,
   snapshots,
   snapshotEntries,
   users,

@@ -85,4 +85,4 @@ Additive. Reverting loses timestamps; lyrics text is unaffected.
 
 ## Commit
 
-_(not yet)_
+`f526fde`

@@ -141,6 +141,13 @@
       "when": 1790275410575,
       "tag": "0019_lyrics_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790291740343,
+      "tag": "0020_lyrics_revisions",
+      "breakpoints": true
     }
   ]
 }

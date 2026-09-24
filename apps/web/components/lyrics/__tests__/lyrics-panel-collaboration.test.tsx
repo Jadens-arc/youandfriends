@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 
@@ -7,7 +7,14 @@ import { createRelay } from '@/lib/lyrics/__tests__/relay';
 import { AUTOSAVE_DEBOUNCE_MS } from '@/lib/lyrics/autosave';
 import { SessionFactoryContext, type SessionFactory } from '@/lib/lyrics/collaboration-client';
 import { textToLyrics } from '@/lib/lyrics/text-format';
-import { LYRICS_FRAGMENT, toBase64, yjsFromDocument } from '@/lib/lyrics/yjs';
+import {
+  documentFromYjs,
+  LYRICS_FRAGMENT,
+  toBase64,
+  yjsFromDocument,
+  yjsReplace,
+} from '@/lib/lyrics/yjs';
+import { lyricsToText } from '@/lib/lyrics/text-format';
 
 import { ACCESS_RECHECK_MS, LyricsPanel } from '../lyrics-panel';
 
@@ -176,5 +183,71 @@ describe('LyricsPanel, editing together (task 082)', () => {
     // A new session asks the server for a new token, at the new access.
     expect(opened).toBe(2);
     expect(relay.count()).toBe(1);
+  });
+
+  it('carries a restore to everyone in the room', async () => {
+    const draft = textToLyrics('[Verse]\nAn older verse, restored');
+    const { update } = yjsReplace(SEED, draft);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/restore')) {
+          return new Response(
+            JSON.stringify({
+              version: 3,
+              document: draft,
+              yjsUpdate: toBase64(update),
+              beforeRevisionId: 'B',
+            }),
+          );
+        }
+        if (url.endsWith('/revisions')) {
+          return new Response(
+            JSON.stringify({
+              revisions: [
+                {
+                  id: 'R1',
+                  kind: 'checkpoint',
+                  name: 'Old verse',
+                  createdAt: '2026-09-20T10:00:00Z',
+                  author: 'Alex',
+                },
+              ],
+            }),
+          );
+        }
+        if (url.includes('/revisions/')) {
+          return new Response(JSON.stringify({ id: 'R1', document: draft }));
+        }
+        if (init?.method === 'PUT') return new Response(JSON.stringify({ version: 4 }));
+        return new Response(
+          JSON.stringify({
+            document: DOCUMENT,
+            version: 1,
+            canEdit: true,
+            updatedAt: null,
+            yjsState: toBase64(SEED),
+            collaboration: { room: ROOM, self: { name: 'Sam', color: 'var(--color-rust-text)' } },
+          }),
+        );
+      }),
+    );
+    await mount();
+    const alex = collaborator(relay.factory, 'Alex');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'History' }));
+    });
+    await settle();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Old verse/ }));
+    });
+    await settle();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Restore this draft' }));
+    });
+    await settle();
+    expect(lyricsToText(documentFromYjs(Y.encodeStateAsUpdate(alex.doc)))).toBe(
+      '[Verse]\nAn older verse, restored',
+    );
   });
 });

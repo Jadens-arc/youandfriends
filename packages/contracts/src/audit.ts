@@ -61,6 +61,7 @@ export const AUDIT_ACTIONS = [
   'folder.updated',
   'folder.moved',
   'lyrics.updated',
+  'lyrics.checkpoint_created',
   'comment.created',
   'asset.updated',
 
@@ -145,6 +146,7 @@ export const AUDIT_ACTION_INFO: Readonly<
   'folder.updated': { class: 'edit', emittedBy: '040' },
   'folder.moved': { class: 'edit', emittedBy: '040' },
   'lyrics.updated': { class: 'edit', emittedBy: '081' },
+  'lyrics.checkpoint_created': { class: 'edit', emittedBy: '084' },
   'comment.created': { class: 'edit', emittedBy: '090' },
   // Renaming, moving, and tagging a file in Project Files.
   'asset.updated': { class: 'edit', emittedBy: '057' },
@@ -164,7 +166,8 @@ export const AUDIT_ACTION_INFO: Readonly<
   'asset.restored': { class: 'restoration', emittedBy: '028' },
   'snapshot.restored': { class: 'restoration', emittedBy: '028' },
   'folder.restored': { class: 'restoration', emittedBy: '025' },
-  'lyrics.revision_restored': { class: 'restoration', emittedBy: '083' },
+  // Restoring an earlier draft — the draft it replaced is kept as a revision first.
+  'lyrics.revision_restored': { class: 'restoration', emittedBy: '084' },
 
   'member.added': { class: 'administration', emittedBy: '032' },
   'member.removed': { class: 'administration', emittedBy: '032' },

@@ -61,3 +61,44 @@ export const lyricsDocuments = pgTable(
     check('lyrics_documents_version_positive', sql`version >= 1`),
   ],
 );
+
+/**
+ * Earlier drafts of a song's lyrics (task `084`).
+ *
+ * - `automatic`: taken by the save path when the lyrics have meaningfully changed since the last
+ *   revision, at most once per time floor — thinned with age by the documented retention policy.
+ * - `checkpoint`: named by a person. Kept indefinitely.
+ * - `before_restore`: the work in place at the moment someone restored an older draft, taken
+ *   first, so a restore can itself be undone. Kept indefinitely.
+ *
+ * A revision is a whole document, not a delta: restoring one never depends on another surviving
+ * the thinning. Same song reference as `lyrics_documents` — composite, hand-written.
+ */
+export const lyricsRevisions = pgTable(
+  'lyrics_revisions',
+  {
+    id: id(),
+    workspaceId: workspaceId().references(() => workspaces.id, { onDelete: 'cascade' }),
+    songId: reference('song_id').notNull(),
+    kind: text('kind', { enum: ['automatic', 'checkpoint', 'before_restore'] }).notNull(),
+    name: text('name'),
+    document: jsonb('document').notNull(),
+    plainText: text('plain_text').notNull().default(''),
+    /** The `lyrics_documents.version` this snapshots. */
+    sourceVersion: integer('source_version').notNull(),
+    createdBy: reference('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('lyrics_revisions_song_created_idx').on(table.workspaceId, table.songId, table.createdAt),
+    check(
+      'lyrics_revisions_kind_known',
+      sql`kind in ('automatic', 'checkpoint', 'before_restore')`,
+    ),
+    check(
+      'lyrics_revisions_checkpoint_named',
+      sql`kind <> 'checkpoint' or (name is not null and length(trim(name)) between 1 and 80)`,
+    ),
+    check('lyrics_revisions_source_version_positive', sql`source_version >= 1`),
+  ],
+);
