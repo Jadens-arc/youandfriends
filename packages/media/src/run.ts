@@ -26,7 +26,7 @@
  * file can emit megabytes of stream metadata, and buffering it unbounded is how one upload
  * exhausts a worker's memory.
  */
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -144,4 +144,66 @@ export async function runForOutput(
       stderr,
     );
   }
+}
+
+/**
+ * Run a tool and hand its stdout to `onData` as it arrives — for decoded audio, which is far too
+ * large to buffer. The same safety as {@link run}: an argument array with no shell, a mandatory
+ * timeout that kills with SIGKILL, and stderr bounded to what a diagnosis needs.
+ */
+export function runStreaming(
+  tool: string,
+  args: readonly string[],
+  onData: (chunk: Buffer) => void,
+  options: RunOptions = {},
+): Promise<void> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const stderrLimit = 64 * 1024;
+  return new Promise((resolve, reject) => {
+    const child = spawn(tool, [...args], {
+      shell: false,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stderr = '';
+    let settled = false;
+    const finish = (error: Error | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error === null) resolve();
+      else reject(error);
+    };
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      finish(new ToolError(tool, 'timed_out', `${tool} did not finish within ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      try {
+        onData(chunk);
+      } catch (error) {
+        child.kill('SIGKILL');
+        finish(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      if (stderr.length < stderrLimit)
+        stderr += chunk.toString('utf8').slice(0, stderrLimit - stderr.length);
+    });
+    child.on('error', (error: NodeJS.ErrnoException) => {
+      finish(
+        error.code === 'ENOENT'
+          ? new ToolError(tool, 'not_installed', `${tool} is not installed or not on PATH`)
+          : error,
+      );
+    });
+    child.on('close', (code) => {
+      finish(
+        code === 0
+          ? null
+          : new ToolError(tool, 'failed', `${tool} exited with ${String(code)}`, stderr.trim()),
+      );
+    });
+  });
 }

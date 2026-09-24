@@ -87,4 +87,4 @@ Additive; derivatives are regenerable. Reverting and regenerating is always safe
 
 ## Commit
 
-_(not yet)_
+`d4c37c7` (lint fix `058b8fa`)

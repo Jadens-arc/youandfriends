@@ -38,6 +38,16 @@ export {
 } from './dispatcher';
 
 export {
+  FINE_BUCKETS_PER_SECOND,
+  generateWaveformPeaks,
+  MEDIUM_BUCKETS_PER_SECOND,
+  mergeBuckets,
+  OVERVIEW_BUCKETS,
+  PeakAccumulator,
+  WAVEFORM_TIMEOUT_MS,
+} from './waveform';
+
+export {
   DEFAULT_STREAM_BITRATE,
   DERIVATIVE_CONTENT_TYPE,
   STREAM_CHANNELS,
@@ -68,6 +78,7 @@ export {
   ffmpegPath,
   ffprobePath,
   runForOutput,
+  runStreaming,
   ToolError,
   type RunOptions,
 } from './run';
