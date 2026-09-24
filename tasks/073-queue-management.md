@@ -51,14 +51,16 @@ Queue restoration is an authorization boundary: persisted local state is untrust
 
 ## Acceptance criteria
 
-- [ ] Queues build from song, project, folder, and search results.
-- [ ] Add next, add to end, remove, and reorder all work, with a keyboard path for reordering.
-- [ ] The queue panel shows upcoming tracks and current position.
-- [ ] Queues persist across sessions and are re-authorized on restore.
-- [ ] Revoked items are dropped from a restored queue.
-- [ ] Preloading reduces the gap between tracks where the browser permits.
-- [ ] Repeat and shuffle work.
-- [ ] Persisted state contains no presigned URLs.
+- [x] Queues build from song, project, folder, and search results. (`POST /api/queue/resolve` → `resolveQueue` takes a song list, a project, a folder, or version ids, and returns only what this viewer may play — one load of their grants, each song at its current version (or newest), streamable versions only. "Play / Play next / Add to queue" on the project page, on an opened folder in the library, and on each ready version; search results use the same song-list selection once search exists (task `045`).)
+- [x] Add next, add to end, remove, and reorder all work, with a keyboard path for reordering. (Pure operations in `lib/player/queue.ts`; the panel offers drag **and** Move up / Move down buttons on every row, announcing where a track went.)
+- [x] The queue panel shows upcoming tracks and current position. (`QueuePanel`, from the player bar's Queue button: every entry in play order, the current one marked `aria-current` and "Now playing" in words.)
+- [x] Queues persist across sessions and are re-authorized on restore. (Stored as version ids and positions; on start the ids go to the server, and only its answer is shown — nothing is displayed or played from storage. If the server cannot be asked, nothing is restored.)
+- [x] Revoked items are dropped from a restored queue. (Tested end to end against a real database — a grant deleted between two resolves drops that version — together with missing, foreign-workspace and not-yet-streamable ids; the queue resumes at what followed a dropped current track.)
+- [x] Preloading reduces the gap between tracks where the browser permits. (Twenty seconds before the end the next URL is fetched — authorized at preload time — and warmed in a detached element that never plays, so there is still only one playing element (task `070`); on `ended` that URL is used with no second request. `docs/OPERATIONS.md` §9 says exactly what this does and does not achieve on Safari.)
+- [x] Repeat and shuffle work. (Repeat off / all / this track — "next" still moves on under repeat-one; shuffle reorders only what is still to come and turning it off restores the listener's own order.)
+- [x] Persisted state contains no presigned URLs. (`toPersisted` writes ids, order, position, repeat and shuffle — tested to contain no URL and no title even when a track carries a signed cover URL.)
+
+**Not verified here.** Tight transitions (Manual QA 1) need real audio in a browser — task `120`.
 
 ## Tests and validation commands
 
@@ -79,7 +81,7 @@ Additive. Reverting loses the queue; single-track playback remains.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

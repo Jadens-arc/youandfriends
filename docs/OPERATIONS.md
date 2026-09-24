@@ -435,7 +435,11 @@ Documented honestly rather than worked around dishonestly:
   therefore always show real state and re-download gracefully — never assume a cached file is
   still present.
 - **No true gapless playback** is guaranteed on Safari. We preload the next queue item for
-  best-effort continuity and do not claim gapless where the browser cannot deliver it.
+  best-effort continuity and do not claim gapless where the browser cannot deliver it. Concretely
+  (task `073`): twenty seconds before a track ends, the next one's stream URL is fetched — and so
+  authorized — and its first bytes are warmed in a detached, never-played element; on `ended`,
+  the one playing element switches to that URL. This shortens the gap everywhere and removes none
+  of it on Safari, where a source change always costs a moment.
 - **AirPlay** is exposed through native media controls only. We do not present a custom
   AirPlay picker, because the web platform does not offer reliable control of one.
 - **No install prompt on iOS.** Safari has no `beforeinstallprompt` and no programmatic

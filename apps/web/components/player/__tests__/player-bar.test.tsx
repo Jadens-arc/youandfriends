@@ -13,10 +13,14 @@ const controller = {
   hasNext: () => false,
 };
 let state: PlayerState = INITIAL_STATE;
-vi.mock('@/lib/player/store', () => ({
-  getPlayer: () => controller,
-  usePlayerState: () => state,
-}));
+vi.mock('@/lib/player/store', async () => {
+  const { EMPTY_QUEUE } = await import('@/lib/player/queue');
+  return {
+    getPlayer: () => controller,
+    usePlayerState: () => state,
+    useQueueState: () => EMPTY_QUEUE,
+  };
+});
 
 const { PlayerBar, formatClock, spokenPosition } = await import('../player-bar');
 

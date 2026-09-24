@@ -13,6 +13,26 @@ import {
   type PlayerState,
   type Track,
 } from './machine';
+import {
+  addNext,
+  addToEnd,
+  advance,
+  buildQueue,
+  currentOf,
+  cycleRepeat,
+  EMPTY_QUEUE,
+  fromPersisted,
+  hasNext as queueHasNext,
+  jumpTo,
+  move,
+  parsePersisted,
+  removeAt,
+  retreat,
+  toggleShuffle,
+  toPersisted,
+  type PersistedQueue,
+  type QueueState,
+} from './queue';
 import { fetchStreamUrl, type FetchStreamUrl, type StreamUrl } from './stream-url';
 
 /**
@@ -48,7 +68,24 @@ export interface PlayerDependencies {
    * convenience — never the stream URL, which is never stored anywhere.
    */
   readonly volumeStorage?: VolumeStorage | undefined;
+  /** Where the queue is remembered — version ids only, never URLs (task `073`). */
+  readonly queueStorage?: QueueStorage | undefined;
+  /**
+   * Asks the server which of these versions this viewer may still play. A restored queue goes
+   * through it before anything is shown or played. `null` when the answer could not be had.
+   */
+  readonly authorizeVersions?:
+    ((versionIds: readonly string[]) => Promise<Track[] | null>) | undefined;
+  readonly random?: () => number;
 }
+
+export interface QueueStorage {
+  read(): unknown;
+  write(value: PersistedQueue): void;
+}
+
+/** How close to the end the next track's URL is fetched and its bytes warmed (task `073`). */
+export const PRELOAD_LEAD_SECONDS = 20;
 
 export interface VolumeStorage {
   read(): { volume: number; muted: boolean } | null;
@@ -80,9 +117,22 @@ export interface PlayerController {
   toggleMute(): void;
   /** Restart, or — with a queue (task `073`) — go back a track. */
   previous(): void;
-  /** The next queued track; nothing without a queue (task `073`). */
+  /** The next queued track (task `073`). */
   next(): void;
   readonly hasNext: () => boolean;
+  getQueue(): QueueState;
+  /** Replace the queue with these tracks and play from `startAt`. */
+  playQueue(tracks: readonly Track[], startAt?: number): Promise<void>;
+  queueNext(tracks: readonly Track[]): void;
+  queueLast(tracks: readonly Track[]): void;
+  removeFromQueue(orderPosition: number): void;
+  moveInQueue(from: number, to: number): void;
+  playFromQueue(orderPosition: number): Promise<void>;
+  cycleRepeat(): void;
+  toggleShuffle(): void;
+  clearQueue(): void;
+  /** Bring back last session's queue, re-authorized. Plays nothing by itself. */
+  restoreQueue(): Promise<void>;
 }
 
 export function createPlayer(dependencies: PlayerDependencies = {}): PlayerController {
@@ -102,6 +152,11 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
   let retryDelay = NETWORK_RETRY_INITIAL_MS;
   let loadToken = 0;
   let playReported = false;
+  let queue: QueueState = EMPTY_QUEUE;
+  /** The next track's URL, fetched — and so authorized — ahead of time, in memory only. */
+  let preloaded: { versionId: string; grant: StreamUrl } | null = null;
+  let preloading: string | null = null;
+  const random = dependencies.random ?? Math.random;
 
   function dispatch(event: PlayerEvent) {
     const next = transition(state, event);
@@ -209,7 +264,17 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
     fail('decode');
   }
 
-  async function load(
+  function setQueue(next: QueueState) {
+    queue = next;
+    try {
+      dependencies.queueStorage?.write(toPersisted(queue));
+    } catch {
+      // Storage refused: the queue still works for this session.
+    }
+    for (const listener of listeners) listener();
+  }
+
+  async function loadTrack(
     track: Track,
     options: { readonly autoplay?: boolean; readonly startAt?: number } = {},
   ) {
@@ -220,7 +285,22 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
     playReported = false;
     const startAt = Math.max(0, options.startAt ?? 0);
     dispatch({ type: 'load', track, autoplay: options.autoplay ?? true, startAt });
-    const fresh = await acquire(token);
+    // A URL fetched ahead of time for exactly this track is used as long as it has a while left;
+    // it was authorized when it was fetched, moments ago.
+    const ahead = preloaded;
+    preloaded = null;
+    const usable =
+      ahead !== null &&
+      ahead.versionId === track.versionId &&
+      ahead.grant.expiresAt.getTime() - now() > REFRESH_LEAD_MS * 2;
+    let fresh: StreamUrl | null;
+    if (usable) {
+      grant = ahead.grant;
+      scheduleRefresh(token);
+      fresh = ahead.grant;
+    } else {
+      fresh = await acquire(token);
+    }
     if (fresh === null || adapter === null || token !== loadToken) return;
     adapter.setSource(fresh.url, {
       startAt,
@@ -229,9 +309,62 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
     });
   }
 
+  /** Play one track on its own: the queue becomes just this track. */
+  async function load(
+    track: Track,
+    options: { readonly autoplay?: boolean; readonly startAt?: number } = {},
+  ) {
+    setQueue(buildQueue(queue, [track], 0, random));
+    await loadTrack(track, options);
+  }
+
+  async function goTo(next: QueueState | null) {
+    if (next === null) return false;
+    setQueue(next);
+    const track = currentOf(next);
+    if (track !== null) await loadTrack(track, { autoplay: true });
+    return true;
+  }
+
+  function onEnded() {
+    const next = advance(queue, 'auto');
+    if (next === null) return;
+    if (next.position === queue.position) {
+      // Repeat one.
+      dispatch({ type: 'seek', seconds: 0 });
+      adapter?.seek(0);
+      play();
+      return;
+    }
+    void goTo(next);
+  }
+
+  /** Fetch — and so authorize — the next track's URL shortly before this one ends. */
+  function maybePreload() {
+    const duration = state.durationSeconds;
+    if (duration === null || duration - state.positionSeconds > PRELOAD_LEAD_SECONDS) return;
+    const nextQueue = advance(queue, 'auto');
+    const next = nextQueue === null ? null : currentOf(nextQueue);
+    if (next === null || next.versionId === state.track?.versionId) return;
+    if (preloaded?.versionId === next.versionId || preloading === next.versionId) return;
+    preloading = next.versionId;
+    void fetchUrl(next.versionId).then((result) => {
+      preloading = null;
+      if (!result.ok) return; // Found out properly, with its own error, when it is loaded.
+      preloaded = { versionId: next.versionId, grant: result.grant };
+      // Warm the bytes without a second element taking audio focus (`docs/OPERATIONS.md` §9).
+      adapter?.preload?.(result.grant.url);
+    });
+  }
+
   function play() {
     const track = state.track;
-    if (track === null) return;
+    if (track === null) {
+      // A restored queue loads nothing until the listener asks for it.
+      const queued = currentOf(queue);
+      if (queued !== null) void loadTrack(queued, { autoplay: true });
+      return;
+    }
     const failed = state.status === 'error' ? state.error : null;
     dispatch({ type: 'play' });
     if (failed !== null) {
@@ -291,6 +424,8 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
         playReported = true;
         dependencies.onPlayStarted?.(state.track);
       }
+      if (event === 'timeupdate') maybePreload();
+      if (event === 'ended') onEnded();
     });
     const unsubscribeOnline =
       dependencies.onOnline?.(() => {
@@ -342,13 +477,88 @@ export function createPlayer(dependencies: PlayerDependencies = {}): PlayerContr
     },
     previous() {
       if (state.track === null) return;
-      dispatch({ type: 'seek', seconds: 0 });
-      adapter?.seek(0);
+      const restart = () => {
+        dispatch({ type: 'seek', seconds: 0 });
+        adapter?.seek(0);
+      };
+      if ((adapter?.currentTime ?? state.positionSeconds) > RESTART_THRESHOLD_SECONDS) {
+        restart();
+        return;
+      }
+      const previousQueue = retreat(queue);
+      if (previousQueue === null) restart();
+      else void goTo(previousQueue);
     },
     next() {
-      // No queue yet (task `073`): there is nothing after this track.
+      void goTo(advance(queue, 'next'));
     },
-    hasNext: () => false,
+    hasNext: () => queueHasNext(queue),
+    getQueue: () => queue,
+    async playQueue(tracks, startAt = 0) {
+      if (tracks.length === 0) return;
+      await goTo(buildQueue(queue, tracks, startAt, random));
+    },
+    queueNext(tracks) {
+      const wasEmpty = queue.items.length === 0;
+      setQueue(addNext(queue, tracks));
+      if (wasEmpty && state.track === null) void goTo(queue);
+    },
+    queueLast(tracks) {
+      const wasEmpty = queue.items.length === 0;
+      setQueue(addToEnd(queue, tracks));
+      if (wasEmpty && state.track === null) void goTo(queue);
+    },
+    removeFromQueue(orderPosition) {
+      const removingCurrent = orderPosition === queue.position;
+      const next = removeAt(queue, orderPosition);
+      setQueue(next);
+      if (!removingCurrent) return;
+      const track = currentOf(next);
+      if (track === null) {
+        loadToken += 1;
+        clearTimers();
+        grant = null;
+        adapter?.clearSource();
+        dispatch({ type: 'stop' });
+      } else {
+        void loadTrack(track, { autoplay: state.wantsToPlay });
+      }
+    },
+    moveInQueue(from, to) {
+      setQueue(move(queue, from, to));
+    },
+    async playFromQueue(orderPosition) {
+      await goTo(jumpTo(queue, orderPosition));
+    },
+    cycleRepeat() {
+      setQueue(cycleRepeat(queue));
+    },
+    toggleShuffle() {
+      setQueue(toggleShuffle(queue, random));
+    },
+    clearQueue() {
+      // Everything but what is playing.
+      const track = currentOf(queue);
+      setQueue(
+        track === null
+          ? { ...EMPTY_QUEUE, repeat: queue.repeat, shuffle: queue.shuffle }
+          : buildQueue({ ...queue, shuffle: false }, [track]),
+      );
+    },
+    async restoreQueue() {
+      let stored: PersistedQueue | null = null;
+      try {
+        stored = parsePersisted(dependencies.queueStorage?.read() ?? null);
+      } catch {
+        stored = null;
+      }
+      if (stored === null || stored.versionIds.length === 0) return;
+      // Never shown or played from storage: the server says what this viewer may still play.
+      const permitted = await dependencies.authorizeVersions?.(stored.versionIds);
+      if (permitted === null || permitted === undefined) return;
+      if (queue.items.length > 0) return; // Something was queued while we asked.
+      setQueue(fromPersisted(stored, permitted));
+    },
   };
 }
 
@@ -367,6 +577,33 @@ const localVolumeStorage: VolumeStorage = {
   },
 };
 
+const QUEUE_KEY = 'youandfriends.player.queue';
+
+const localQueueStorage: QueueStorage = {
+  read() {
+    const raw = window.localStorage.getItem(QUEUE_KEY);
+    return raw === null ? null : (JSON.parse(raw) as unknown);
+  },
+  write(value) {
+    window.localStorage.setItem(QUEUE_KEY, JSON.stringify(value));
+  },
+};
+
+async function authorizeVersions(versionIds: readonly string[]): Promise<Track[] | null> {
+  try {
+    const response = await fetch('/api/queue/resolve', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'versions', versionIds }),
+    });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { tracks?: Track[] };
+    return Array.isArray(body.tracks) ? body.tracks : null;
+  } catch {
+    return null;
+  }
+}
+
 let singleton: PlayerController | null = null;
 
 /** The app's one player. Created on first use in the browser; the shell attaches the element. */
@@ -379,6 +616,8 @@ export function getPlayer(): PlayerController {
         return () => window.removeEventListener('online', callback);
       },
       volumeStorage: localVolumeStorage,
+      queueStorage: localQueueStorage,
+      authorizeVersions,
     });
   }
   return singleton;
@@ -390,5 +629,14 @@ export function usePlayerState(): PlayerState {
     (listener) => getPlayer().subscribe(listener),
     () => getPlayer().getState(),
     () => INITIAL_STATE,
+  );
+}
+
+/** The queue, anywhere in the tree (task `073`). */
+export function useQueueState(): QueueState {
+  return React.useSyncExternalStore(
+    (listener) => getPlayer().subscribe(listener),
+    () => getPlayer().getQueue(),
+    () => EMPTY_QUEUE,
   );
 }

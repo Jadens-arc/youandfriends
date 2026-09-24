@@ -27,6 +27,11 @@ export interface MediaAdapter {
   pause(): void;
   seek(seconds: number): void;
   setVolume(volume: number, muted: boolean): void;
+  /**
+   * Warm the next track's bytes (task `073`) in a detached element that is never played, so it
+   * never takes audio focus — the one element that plays stays the only one.
+   */
+  preload?(url: string): void;
   readonly currentTime: number;
   readonly paused: boolean;
   /** `MediaError.code` of the last error, or `null`. */
@@ -61,6 +66,7 @@ const EVENTS: readonly (MediaEventName | 'error')[] = [
 export function createAudioElementAdapter(element: HTMLAudioElement): MediaAdapter {
   element.preload = 'auto';
   let pendingRestore: (() => void) | null = null;
+  let warm: HTMLAudioElement | null = null;
 
   return {
     setSource(url, { startAt, play, onPlayRejected }) {
@@ -89,6 +95,13 @@ export function createAudioElementAdapter(element: HTMLAudioElement): MediaAdapt
     setVolume(volume, muted) {
       element.volume = volume;
       element.muted = muted;
+    },
+    preload(url) {
+      warm ??= new Audio();
+      warm.preload = 'auto';
+      warm.muted = true;
+      warm.src = url;
+      warm.load();
     },
     get currentTime() {
       return element.currentTime;

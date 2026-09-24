@@ -7,6 +7,7 @@ import { EmptyFolderState, FirstRunState } from '@/components/library/empty-stat
 import { LibraryToolbar } from '@/components/library/library-toolbar';
 import { LibraryModules } from '@/components/library/modules';
 import { ProjectGrid } from '@/components/library/project-grid';
+import { QueueSourceButtons } from '@/components/player/queue-actions';
 import type { LibraryContext } from '@/lib/library/context';
 import { readProjectLibrary } from '@/lib/library/projects';
 import { sortProjects, type LibrarySort, type LibraryView } from '@/lib/library/sort';
@@ -81,6 +82,12 @@ export async function ProjectShelf({
             {folder?.name ?? 'Projects'}
           </h1>
           {mayCreateProject ? <NewProjectButton folderId={folder?.id ?? null} /> : null}
+          {folder !== null && projects.length > 0 ? (
+            <QueueSourceButtons
+              selection={{ kind: 'folder', folderId: folder.id }}
+              label={folder.name}
+            />
+          ) : null}
         </div>
         <LibraryToolbar view={view} sort={sort} count={projects.length} />
         {projects.length === 0 && folder !== null ? (

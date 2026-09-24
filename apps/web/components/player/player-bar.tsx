@@ -31,9 +31,10 @@ import { CoverArt } from '@/components/library/cover-art';
 import type { PlayerState } from '@/lib/player/machine';
 import { formatClock, spokenPosition } from '@/lib/player/format';
 import { PLAYER_SHORTCUTS } from '@/lib/player/shortcuts';
-import { getPlayer, usePlayerState } from '@/lib/player/store';
+import { getPlayer, usePlayerState, useQueueState } from '@/lib/player/store';
 
 import { describePlayer } from './now-playing';
+import { QueuePanel } from './queue-panel';
 import { Waveform } from './waveform/waveform';
 
 /**
@@ -263,6 +264,8 @@ export function ExpandedPlayer({ state }: { readonly state: PlayerState }) {
 export function PlayerBar() {
   const state = usePlayerState();
   const [expanded, setExpanded] = React.useState(false);
+  const [queueOpen, setQueueOpen] = React.useState(false);
+  const queue = useQueueState();
   const { detail } = describePlayer(state);
   return (
     <div className="flex w-full min-w-0 items-center gap-4">
@@ -277,13 +280,18 @@ export function PlayerBar() {
       <Progress state={state} />
       <Volume state={state} />
       <div className="flex shrink-0 items-center gap-1">
-        {/* The queue panel is task `073`; with nothing queued, there is nothing to open. */}
         <Button
           variant="onEspresso"
           size="icon"
           className="size-11"
-          aria-label="Queue — nothing queued"
-          disabled
+          aria-label={
+            queue.items.length === 0
+              ? 'Queue — nothing queued'
+              : `Queue — ${queue.items.length} ${queue.items.length === 1 ? 'track' : 'tracks'}`
+          }
+          aria-expanded={queueOpen}
+          disabled={queue.items.length === 0}
+          onClick={() => setQueueOpen(true)}
         >
           <ListMusic aria-hidden />
         </Button>
@@ -300,6 +308,7 @@ export function PlayerBar() {
         </Button>
         <Shortcuts />
       </div>
+      <QueuePanel open={queueOpen} onOpenChange={setQueueOpen} />
       <Sheet open={expanded} onOpenChange={setExpanded}>
         <SheetContent side="bottom" className="bg-espresso border-border-on-espresso">
           <SheetTitle className="sr-only">Player</SheetTitle>

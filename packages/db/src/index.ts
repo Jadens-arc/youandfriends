@@ -140,6 +140,11 @@ export {
   type RetryCandidateOptions,
 } from './queries/media-jobs';
 export {
+  listPlayableVersions,
+  type PlayableSelection,
+  type PlayableVersionRow,
+} from './queries/queue';
+export {
   getLiveAsset,
   listProjectAssets,
   workspaceTags,

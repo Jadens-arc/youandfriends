@@ -14,6 +14,7 @@ import {
   formatTruePeak,
 } from '@/lib/songs/format';
 import { PlayVersionButton } from '@/components/player/play-version-button';
+import { QueueSourceButtons } from '@/components/player/queue-actions';
 import { Waveform } from '@/components/player/waveform/waveform';
 import type { CoverSource } from '@/lib/library/covers';
 import type { SongCapabilities, SongVersion } from '@/lib/songs/workspace';
@@ -206,6 +207,13 @@ export function VersionDetails({
               cover={playback.cover}
               versionId={version.id}
               versionNumber={version.number}
+            />
+          ) : null}
+          {playback !== undefined && version.processingState === 'complete' ? (
+            <QueueSourceButtons
+              selection={{ kind: 'versions', versionIds: [version.id] }}
+              label={`${playback.songTitle}, ${versionName(version)}`}
+              play={false}
             />
           ) : null}
         </div>

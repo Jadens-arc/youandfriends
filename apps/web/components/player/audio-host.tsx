@@ -19,7 +19,11 @@ export function AudioHost() {
   React.useEffect(() => {
     const element = ref.current;
     if (element === null) return;
-    return getPlayer().attach(createAudioElementAdapter(element));
+    const player = getPlayer();
+    const detach = player.attach(createAudioElementAdapter(element));
+    // Last session's queue, re-authorized by the server before any of it is shown (task `073`).
+    void player.restoreQueue();
+    return detach;
   }, []);
 
   // The player's keyboard shortcuts, workspace-wide — except where the key belongs to whatever

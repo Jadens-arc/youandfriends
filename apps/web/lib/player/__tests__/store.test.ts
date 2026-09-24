@@ -62,6 +62,7 @@ class FakeMedia implements MediaAdapter {
   }
   volume = 1;
   muted = false;
+  preload?: (url: string) => void;
   setVolume(volume: number, muted: boolean) {
     this.volume = volume;
     this.muted = muted;
@@ -363,5 +364,157 @@ describe('the player controller (task 070)', () => {
     controller.previous();
     expect(media.currentTime).toBe(0);
     expect(controller.hasNext()).toBe(false);
+  });
+
+  describe('with a queue (task 073)', () => {
+    const second: Track = { ...TRACK, versionId: 'V2', title: 'Tail Lights' };
+    const third: Track = { ...TRACK, versionId: 'V3', title: 'Low Beams' };
+
+    function queuedPlayer(extra: Parameters<typeof createPlayer>[0] = {}) {
+      const controller = createPlayer({
+        now: () => clock,
+        setTimer: (callback, ms) => {
+          nextId += 1;
+          timers.push({ at: clock + ms, callback, id: nextId });
+          return nextId;
+        },
+        clearTimer: (handle) => {
+          timers = timers.filter((timer) => timer.id !== handle);
+        },
+        fetchStreamUrl: async (versionId) => {
+          requested.push(versionId);
+          return grant(`https://r2.example/${versionId}`);
+        },
+        ...extra,
+      });
+      controller.attach(media);
+      return controller;
+    }
+
+    it('plays through the queue as each track ends, and stops at the end', async () => {
+      const controller = queuedPlayer();
+      await controller.playQueue([TRACK, second]);
+      expect(controller.getState().track?.versionId).toBe('V1');
+      expect(controller.hasNext()).toBe(true);
+      media.emit('ended');
+      await flush();
+      expect(controller.getState()).toMatchObject({
+        status: 'playing',
+        track: { versionId: 'V2' },
+      });
+      expect(controller.hasNext()).toBe(false);
+      media.emit('ended');
+      await flush();
+      expect(controller.getState()).toMatchObject({ status: 'ended', track: { versionId: 'V2' } });
+    });
+
+    it('repeats one track on its own, and moves on when asked', async () => {
+      const controller = queuedPlayer();
+      await controller.playQueue([TRACK, second]);
+      controller.cycleRepeat();
+      controller.cycleRepeat();
+      expect(controller.getQueue().repeat).toBe('one');
+      media.currentTime = 187;
+      media.emit('ended');
+      await flush();
+      expect(controller.getState().track?.versionId).toBe('V1');
+      expect(media.currentTime).toBe(0);
+      controller.next();
+      await flush();
+      expect(controller.getState().track?.versionId).toBe('V2');
+    });
+
+    it('fetches — and so authorizes — the next track shortly before the end, and uses it', async () => {
+      const warmed: string[] = [];
+      media.preload = (url: string) => warmed.push(url);
+      const controller = queuedPlayer();
+      await controller.playQueue([TRACK, second]);
+      expect(requested).toEqual(['V1']);
+      media.currentTime = 170;
+      media.emit('timeupdate');
+      await flush();
+      expect(requested).toEqual(['V1', 'V2']);
+      expect(warmed).toEqual(['https://r2.example/V2']);
+      media.emit('ended');
+      await flush();
+      // No second request at the switch: the preloaded, already-authorized URL is used.
+      expect(requested).toEqual(['V1', 'V2']);
+      expect(media.sources.at(-1)?.url).toBe('https://r2.example/V2');
+    });
+
+    it('goes back a track from the start, and restarts from the middle', async () => {
+      const controller = queuedPlayer();
+      await controller.playQueue([TRACK, second], 1);
+      media.currentTime = 60;
+      controller.previous();
+      expect(controller.getState().track?.versionId).toBe('V2');
+      expect(media.currentTime).toBe(0);
+      controller.previous();
+      await flush();
+      expect(controller.getState().track?.versionId).toBe('V1');
+    });
+
+    it('removing the playing track moves on; removing the last one stops', async () => {
+      const controller = queuedPlayer();
+      await controller.playQueue([TRACK, second]);
+      controller.removeFromQueue(0);
+      await flush();
+      expect(controller.getState().track?.versionId).toBe('V2');
+      controller.removeFromQueue(0);
+      expect(controller.getState()).toMatchObject({ status: 'idle', track: null });
+    });
+
+    it('restores last session’s queue only through the server, dropping what it refuses', async () => {
+      const writes: unknown[] = [];
+      const asked: (readonly string[])[] = [];
+      const controller = queuedPlayer({
+        queueStorage: {
+          read: () => ({
+            versionIds: ['V1', 'V2', 'V3'],
+            order: [0, 1, 2],
+            position: 1,
+            repeat: 'all',
+            shuffle: false,
+          }),
+          write: (value) => writes.push(value),
+        },
+        authorizeVersions: async (versionIds) => {
+          asked.push(versionIds);
+          return [TRACK, third]; // V2 was revoked.
+        },
+      });
+      await controller.restoreQueue();
+      expect(asked).toEqual([['V1', 'V2', 'V3']]);
+      const queue = controller.getQueue();
+      expect(queue.items.map((item) => item.versionId)).toEqual(['V1', 'V3']);
+      expect(queue.order[queue.position]).toBe(1);
+      expect(queue.repeat).toBe('all');
+      // Nothing plays until asked, and nothing was fetched for playback.
+      expect(controller.getState().track).toBeNull();
+      expect(requested).toEqual([]);
+      controller.play();
+      await flush();
+      expect(controller.getState().track?.versionId).toBe('V3');
+      // What was written back holds ids, not URLs.
+      expect(JSON.stringify(writes)).not.toContain('https://');
+    });
+
+    it('restores nothing when the server cannot be asked', async () => {
+      const controller = queuedPlayer({
+        queueStorage: {
+          read: () => ({
+            versionIds: ['V1'],
+            order: [0],
+            position: 0,
+            repeat: 'off',
+            shuffle: false,
+          }),
+          write: () => undefined,
+        },
+        authorizeVersions: async () => null,
+      });
+      await controller.restoreQueue();
+      expect(controller.getQueue().items).toEqual([]);
+    });
   });
 });

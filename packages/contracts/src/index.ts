@@ -24,6 +24,7 @@ export * from './library';
 export * from './notifications';
 export * from './waveform';
 export * from './pagination';
+export * from './queue';
 export * from './result';
 export * from './serving';
 export * from './roles';
