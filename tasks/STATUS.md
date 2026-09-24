@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `064` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 47 of 95 iteration-one tasks are `complete`.
+Task `065` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 48 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -74,8 +74,8 @@ Task `064` is next. `016`, `029`, `045` are passed over until their dependencies
 | `060` | Media package, ffprobe validation, capability probe                    | Media pipeline                       | `050`, `003`                              | `complete` | `d783b17` | —       |
 | `061` | EBU R128 loudness and true peak analysis                               | Media pipeline                       | `060`                                     | `complete` | `3e3d092` | —       |
 | `062` | AAC streaming derivative                                               | Media pipeline                       | `060`, `061`                              | `complete` | `d4c37c7` | —       |
-| `063` | Multi-resolution waveform peak generation                              | Media pipeline                       | `060`, `062`                              | `complete` | —         | —       |
-| `064` | Trigger.dev job orchestration                                          | Media pipeline                       | `060`, `061`, `062`, `063`, `051`         | `pending`  | —         | —       |
+| `063` | Multi-resolution waveform peak generation                              | Media pipeline                       | `060`, `062`                              | `complete` | `bdabdaf` | —       |
+| `064` | Trigger.dev job orchestration                                          | Media pipeline                       | `060`, `061`, `062`, `063`, `051`         | `complete` | —         | —       |
 | `065` | Processing status and error surfacing                                  | Media pipeline                       | `064`, `056`                              | `pending`  | —         | —       |
 | `066` | Media pipeline fixture tests                                           | Media pipeline                       | `064`, `027`                              | `pending`  | —         | —       |
 | `067` | Serve stored bytes as the type we recorded                             | Media pipeline                       | `051`, `062`                              | `pending`  | —         | —       |

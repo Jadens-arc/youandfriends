@@ -32,6 +32,7 @@ export {
 
 export {
   classPrefix,
+  derivativeObjectKey,
   newObjectKey,
   OBJECT_CLASSES,
   parseObjectKey,
@@ -47,3 +48,12 @@ export {
   StorageNotConfiguredError,
   type R2Config,
 } from './r2';
+
+export {
+  assertOverwritable,
+  createR2Transfer,
+  limitBytes,
+  TransferLimitError,
+  type ObjectTransfer,
+  type TransferOptions,
+} from './transfer';

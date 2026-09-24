@@ -21,6 +21,7 @@
     "@youandfriends/config": "workspace:*",
     "@youandfriends/contracts": "workspace:*",
     "@youandfriends/db": "workspace:*",
+    "@youandfriends/jobs": "workspace:*",
     "@youandfriends/media": "workspace:*",
     "@youandfriends/storage": "workspace:*",
     "@youandfriends/ui": "workspace:*",

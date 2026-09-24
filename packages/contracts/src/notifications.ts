@@ -10,6 +10,10 @@ import { z } from 'zod';
  */
 export const NOTIFICATION_EVENTS = [
   'version.created',
+  // Task `064`: the media job finished a version, or gave up on it. The uploader is waiting on
+  // the first; the second is a recoverable error they should hear about (`docs/DESIGN.md` §9).
+  'version.processed',
+  'version.processing_failed',
   'comment.created',
   'voice_note.created',
   'comment.mentioned',

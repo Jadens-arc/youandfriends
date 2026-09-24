@@ -401,7 +401,14 @@ export async function setCurrentVersion(
   await withAuditedTransaction(context.db, auditContextOf(context), async ({ tx, audit }) => {
     await tx
       .update(songs)
-      .set({ currentVersionId: version.id })
+      .set({
+        currentVersionId: version.id,
+        // `songs.duration_ms` is the current version's (task `064`). Copied from the analysis,
+        // which may not have run yet — then null, and the job fills it in when it finishes.
+        durationMs: sql`(select av.duration_ms from mix_versions mv
+          join asset_versions av on av.id = mv.asset_version_id and av.workspace_id = mv.workspace_id
+          where mv.id = ${version.id} and mv.workspace_id = ${context.workspaceId})`,
+      })
       .where(and(eq(songs.id, songId), eq(songs.workspaceId, context.workspaceId)));
     await audit({
       action: 'song.updated',

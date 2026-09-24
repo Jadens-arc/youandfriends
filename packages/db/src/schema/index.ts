@@ -16,6 +16,7 @@ import { assets } from './assets';
 import { auditEvents } from './audit';
 import { derivatives, assetVersions, mixVersions } from './versions';
 import { favorites } from './favorites';
+import { mediaJobs } from './media-jobs';
 import { snapshotEntries, snapshots } from './snapshots';
 import { storageObjects } from './storage-objects';
 import { uploadParts, uploadSessions } from './uploads';
@@ -35,6 +36,7 @@ export * from './columns';
 export * from './favorites';
 export * from './folders';
 export * from './invitations';
+export * from './media-jobs';
 export * from './permissions';
 export * from './projects';
 export * from './recents';
@@ -69,6 +71,7 @@ export const schema = {
   assetVersions,
   mixVersions,
   derivatives,
+  mediaJobs,
   snapshots,
   snapshotEntries,
   users,

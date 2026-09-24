@@ -8,6 +8,7 @@ import {
   folders,
   recents,
   hasSoftDelete,
+  mediaJobs,
   mixVersions,
   permissionGrants,
   projects,
@@ -57,6 +58,8 @@ export const SCOPED_TABLES = {
   assetVersions,
   mixVersions,
   derivatives,
+  // Added in task `064`: the processing status a version view shows (task `065`).
+  mediaJobs,
   storageObjects,
   snapshots,
   snapshotEntries,

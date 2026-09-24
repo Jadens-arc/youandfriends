@@ -127,6 +127,17 @@ export {
   type RecentRow,
 } from './queries/personal';
 export {
+  ensureMediaJob,
+  listRetryableMediaJobs,
+  loadMediaJobSource,
+  recordMediaJobDispatched,
+  recordMediaJobDispatchFailed,
+  resetMediaJobForRetry,
+  type MediaJobRow,
+  type MediaJobSource,
+  type RetryCandidateOptions,
+} from './queries/media-jobs';
+export {
   getLiveAsset,
   listProjectAssets,
   workspaceTags,

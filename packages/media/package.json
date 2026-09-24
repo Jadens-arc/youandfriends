@@ -5,7 +5,8 @@
   "type": "module",
   "description": "ffprobe validation, loudness analysis, derivative recipes, waveform peaks, and job contracts.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/__tests__/index.ts"
   },
   "scripts": {
     "lint": "eslint .",

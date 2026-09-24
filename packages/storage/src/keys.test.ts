@@ -1,7 +1,13 @@
-import { isUlid } from '@youandfriends/contracts';
+import { isUlid, newUlid } from '@youandfriends/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { classPrefix, newObjectKey, parseObjectKey, workspacePrefix } from './keys';
+import {
+  classPrefix,
+  derivativeObjectKey,
+  newObjectKey,
+  parseObjectKey,
+  workspacePrefix,
+} from './keys';
 
 const WORKSPACE = '01J8XKQ2M3N4P5R6S7T8V9W0XY';
 
@@ -80,5 +86,24 @@ describe('object keys are opaque', () => {
     expect(
       newObjectKey(WORKSPACE, 'derivative').startsWith(classPrefix(WORKSPACE, 'derivative')),
     ).toBe(true);
+  });
+});
+
+describe('derivative keys (task `064`)', () => {
+  it('is the same key for the same row, so a retry overwrites rather than orphans', () => {
+    const workspace = newUlid();
+    const derivative = newUlid();
+    expect(derivativeObjectKey(workspace, derivative)).toBe(
+      derivativeObjectKey(workspace, derivative),
+    );
+    expect(parseObjectKey(derivativeObjectKey(workspace, derivative))).toEqual({
+      workspaceId: workspace,
+      objectClass: 'derivative',
+      id: derivative,
+    });
+  });
+
+  it('refuses an id that is not a server-issued ULID', () => {
+    expect(() => derivativeObjectKey(newUlid(), '../o/x')).toThrow(/ULID/);
   });
 });

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { libraryContext } from '@/lib/library/context';
+import { enqueueVersionProcessing } from '@/lib/media/enqueue';
 import { originalsDriver } from '@/lib/uploads/http';
 import type { WorkspaceContext } from '@/lib/workspace/current';
 
@@ -11,7 +12,12 @@ export function versionContextFor(
   context: WorkspaceContext,
   correlationId: string,
 ): VersionContext {
-  return { ...libraryContext(context), correlationId };
+  const library = libraryContext(context);
+  return {
+    ...library,
+    correlationId,
+    onVersionRecorded: enqueueVersionProcessing(library.workspaceId, correlationId),
+  };
 }
 
 export function downloadContextFor(context: WorkspaceContext, correlationId: string) {

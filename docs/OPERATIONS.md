@@ -115,20 +115,37 @@ WHERE state IN ('queued','running','failed')
 ```
 
 **Resolve.** The pipeline is idempotent and keyed on `asset_version_id`, so re-enqueueing is
-always safe — it will not create duplicate derivatives.
+always safe — it will not create duplicate derivatives. A derivative's object key is derived from
+its row, so a retry after a half-finished upload overwrites that object rather than leaving a
+second one behind.
 
 ```bash
 pnpm --filter @youandfriends/jobs ops:media:retry --version <assetVersionId>
-pnpm --filter @youandfriends/jobs ops:media:retry --all-failed
+pnpm --filter @youandfriends/jobs ops:media:retry --all-failed [--workspace <id>] [--limit <n>]
+pnpm --filter @youandfriends/jobs ops:media:retry --all-failed --stranded   # also stuck queued/running
+pnpm --filter @youandfriends/jobs ops:media:retry --all-failed --dry-run    # print the plan only
+pnpm --filter @youandfriends/jobs ops:media:retry --version <id> --inline   # run here, no queue
 ```
 
-If a job fails repeatedly on one file, the original is likely not valid media. Confirm with
-`ffprobe` against a downloaded copy. A non-media file uploaded as audio should be reclassified
-rather than retried — the original is preserved regardless, and reclassification never touches
-stored bytes.
+`--stranded` adds jobs `queued` for 15 minutes with nothing picking them up — the dispatcher
+was unreachable or unconfigured when the version was uploaded; `last_error` starts with
+`not dispatched:` — and jobs `running` for longer than any attempt can last (worker lost). A
+younger `running` job is never touched. Each retry is dispatched under a new idempotency key:
+Trigger.dev remembers the old one and would otherwise hand back the failed run.
 
-**Derivatives are disposable.** If derivatives are ever corrupt or a recipe changes, deleting
-the `derivatives` rows and re-enqueueing regenerates them from untouched originals.
+Without `TRIGGER_SECRET_KEY` (and without `--inline`) a retry resets the job to `queued` and says
+it was not dispatched. It never marks anything complete.
+
+If a job fails repeatedly on one file, the original is likely not valid media. Confirm with
+`ffprobe` against a downloaded copy. A file that is not audio is recorded as rejected on the first
+attempt (`last_error` starts with `rejected:`) and is not retried by the queue. A non-media file
+uploaded as audio should be reclassified rather than retried — the original is preserved
+regardless, and reclassification never touches stored bytes.
+
+**Derivatives are disposable.** If derivatives are ever corrupt or a recipe changes, they can be
+regenerated from untouched originals. `ops:media:retry` deliberately does not reprocess a
+`complete` job; doing so means deleting that version's `derivatives` rows and setting its
+`media_jobs.state` back to `failed` before retrying, which is a deliberate operator action.
 
 ## 4. Migrations
 

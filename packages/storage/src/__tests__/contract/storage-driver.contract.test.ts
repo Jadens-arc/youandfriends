@@ -1,9 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { newUlid } from '@youandfriends/contracts';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { StorageDriver, UploadedPart } from '../../driver';
 import { assertBucketPrivate, createR2Driver } from '../../r2';
+import { newObjectKey } from '../../keys';
+import { createR2Transfer } from '../../transfer';
 import { createMinioHarness } from '../minio-harness';
 
 const harness = await createMinioHarness();
@@ -248,6 +255,34 @@ describeMinio('StorageDriver contract against MinIO', () => {
     expect(
       (await fetch(uploadPart.url, { method: 'PUT', body: new Uint8Array([7, 8, 9]) })).status,
     ).toBe(403);
+  });
+
+  it('writes a derivative from a file, replaces it on a retry, and reads it back to a file (task `064`)', async () => {
+    const transfer = createR2Transfer(harness.config);
+    const dir = await mkdtemp(join(tmpdir(), 'yf-transfer-'));
+    try {
+      const key = newObjectKey(newUlid(), 'derivative');
+      await writeFile(join(dir, 'first'), 'first attempt');
+      await writeFile(join(dir, 'second'), 'second attempt, longer');
+      await transfer.uploadFile(key, join(dir, 'first'), 'audio/mp4');
+      // The retry writes the same key: what makes a partly finished job safe to run again.
+      await transfer.uploadFile(key, join(dir, 'second'), 'audio/mp4');
+      expect(await driver.head(key)).toMatchObject({ contentType: 'audio/mp4', sizeBytes: 22 });
+
+      const size = await transfer.downloadToFile(key, join(dir, 'back'), { maxBytes: 1024 });
+      expect(size).toBe(22);
+      expect(await readFile(join(dir, 'back'), 'utf8')).toBe('second attempt, longer');
+
+      await expect(
+        transfer.downloadToFile(key, join(dir, 'capped'), { maxBytes: 4 }),
+      ).rejects.toThrow(/limit/);
+      await expect(
+        transfer.uploadFile(newObjectKey(newUlid(), 'original'), join(dir, 'first'), 'audio/mp4'),
+      ).rejects.toThrow(/originals/);
+      await driver.delete([key]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('confirms the contract bucket has no bucket policy', async () => {
