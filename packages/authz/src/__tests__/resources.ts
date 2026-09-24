@@ -20,6 +20,7 @@ import {
   recents,
   folders,
   loopRegions,
+  lyricsDocuments,
   mediaJobs,
   mixVersions,
   permissionGrants,
@@ -390,10 +391,20 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
   // Not yet created. Each is converted to `live` by the task that builds its table; the
   // completeness check below fails if one of these quietly appears without being converted.
   {
-    status: 'pending',
+    status: 'live',
     name: 'lyrics_documents',
-    tableName: 'lyrics_documents',
-    task: '081',
+    table: lyricsDocuments,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      await db.insert(lyricsDocuments).values({
+        id: testId(),
+        workspaceId,
+        songId: song.id,
+        document: { type: 'doc', content: [] },
+        plainText: 'Unpublished line',
+      });
+    },
     why: 'Unpublished words, which are as sensitive as unreleased audio.',
   },
   {

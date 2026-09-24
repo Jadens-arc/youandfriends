@@ -123,10 +123,10 @@ which requires workspace ownership, so an unguarded read of it is not one call a
 | `media_jobs`            | covered    | Names every version being processed and why one failed — upload activity, by the minute.                                         |
 | `snapshots`             | covered    | A captured project folder: what someone’s working directory looked like.                                                         |
 | `snapshot_entries`      | covered    | The file listing inside a snapshot. Reveals structure and naming even without bytes.                                             |
+| `lyrics_documents`      | covered    | Unpublished words, which are as sensitive as unreleased audio.                                                                   |
 | `upload_sessions`       | covered    | An in-flight session is a writable handle to storage.                                                                            |
 | `upload_parts`          | covered    | Each row names a part already in the bucket, with its ETag. Reading another workspace’s parts is half of hijacking their upload. |
 | `invitations`           | covered    | An email address plus a role plus a scope — exactly who is being brought in, and to what.                                        |
-| `lyrics_documents`      | task `081` | Unpublished words, which are as sensitive as unreleased audio.                                                                   |
 | `lyrics_revisions`      | task `083` | Every earlier draft of the same.                                                                                                 |
 | `comment_threads`       | task `090` | Private discussion between collaborators.                                                                                        |
 | `comments`              | task `090` | The same, at message granularity.                                                                                                |

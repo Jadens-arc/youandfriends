@@ -21,6 +21,7 @@ export * from './uploads';
 export * from './versions';
 export * from './snapshots';
 export * from './library';
+export * from './lyrics';
 export * from './notifications';
 export * from './waveform';
 export * from './pagination';

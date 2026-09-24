@@ -51,13 +51,19 @@ Lyrics rank second in the asset priority list. Every read and write runs through
 
 ## Acceptance criteria
 
-- [ ] Canonical document, plain text, and Yjs state are stored per song.
-- [ ] Autosave debounces on idle and fires on blur, page hide, and navigation.
-- [ ] The plain-text projection is regenerated from the canonical document on every save.
-- [ ] Save state is clearly indicated as saved, saving, offline, or conflict.
-- [ ] A stale-version save is detected as a conflict, never a silent overwrite.
-- [ ] A GIN-indexed tsvector column supports search.
-- [ ] Every read and write is authorized; a revoked user's autosave is refused.
+- [x] Canonical document, plain text, and Yjs state are stored per song. (`lyrics_documents`: the validated Tiptap-shaped JSON (`packages/contracts/src/lyrics.ts`), `plain_text`, `yjs_state bytea` (written when the realtime layer sends it, task `082`), and a `version` counter; one row per song, a composite foreign key keeps it in the song's own workspace, and it goes with the song on purge.)
+- [x] Autosave debounces on idle and fires on blur, page hide, and navigation. (`createAutosave`: 1.5 s idle debounce; `LyricsPanel` flushes on blur, `visibilitychange` → hidden and `pagehide` with a `keepalive` request, on unmount (navigating inside the app), and on `online`. Not `beforeunload`.)
+- [x] The plain-text projection is regenerated from the canonical document on every save. (`lyricsPlainText` runs server-side on every save; the client never sends plain text. Tested: replaced words disappear from search.)
+- [x] Save state is clearly indicated as saved, saving, offline, or conflict. (`SaveStateIndicator`, a `role="status"` line in words with an icon — also "Unsaved changes" and "You can no longer edit these lyrics". Offline keeps the edit in memory, retries every 15 s and on `online`, and never says "Saved". Nothing is written to `localStorage`.)
+- [x] A stale-version save is detected as a conflict, never a silent overwrite. (The row is locked `FOR UPDATE` and the base version compared; 409. Two racing saves on one version produce one save and one conflict — tested. The panel offers "Load the newer version" and keeps the user's own text beside it.)
+- [x] A GIN-indexed tsvector column supports search. (`search`, generated always as `to_tsvector('simple', plain_text)`, GIN-indexed; queried by task `045`.)
+- [x] Every read and write is authorized; a revoked user's autosave is refused. (Read is `view`, write is `edit` through `packages/authz` on every save; a member demoted mid-session is refused 404-shaped — tested — and the panel then stops sending and says the change was not saved. `lyrics_documents` is in `SCOPED_TABLES` and its cross-workspace IDOR entry is live.)
+
+**Also.** Autosave writes every few seconds, so the audit log records an editing session: a save by the same person within 15 minutes of their last is not a new `lyrics.updated` entry. The service measured that window against the database clock at first; the coalescing test caught it, and `updated_at` is now written from the service's clock.
+
+**Interim editing surface.** Until the structured editor (task `081`) lands, the lyrics tab is a plain-text editor with bracketed section headings (`[Chorus]`) that round-trips losslessly to the section structure.
+
+**Not verified here.** Manual QA 1–3 need a browser; none is available in this environment (task `120`).
 
 ## Tests and validation commands
 
@@ -79,7 +85,7 @@ Additive. Reverting loses lyrics persistence — do not revert once lyrics exist
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

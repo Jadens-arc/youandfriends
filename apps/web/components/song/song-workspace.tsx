@@ -1,5 +1,6 @@
 import { cn } from '@youandfriends/ui';
 
+import { LyricsPanel } from '@/components/lyrics/lyrics-panel';
 import type { ActivityItem } from '@/lib/library/projects';
 import type { SongWorkspace as SongWorkspaceData } from '@/lib/songs/workspace';
 
@@ -123,9 +124,7 @@ export function SongWorkspaceView({
                     />
                   </div>
                 ),
-                lyrics: (
-                  <p className="text-body text-muted-foreground font-sans italic">No lyrics yet.</p>
-                ),
+                lyrics: <LyricsPanel songId={workspace.song.id} songTitle={workspace.song.title} />,
                 files: (
                   <div className="flex flex-col gap-4">
                     {workspace.capabilities.edit ? (

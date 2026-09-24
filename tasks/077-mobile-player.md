@@ -86,4 +86,4 @@ Mobile UI only. Reverting degrades mobile playback to the desktop bar.
 
 ## Commit
 
-_(not yet)_
+`a6bbeaa`

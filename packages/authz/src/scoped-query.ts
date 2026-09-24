@@ -9,6 +9,7 @@ import {
   recents,
   hasSoftDelete,
   loopRegions,
+  lyricsDocuments,
   mediaJobs,
   mixVersions,
   permissionGrants,
@@ -63,6 +64,8 @@ export const SCOPED_TABLES = {
   mediaJobs,
   // Added in task `074`: one person's loop region on a song, tenant-owned like `recents`.
   loopRegions,
+  // Added in task `080`: a song's lyrics.
+  lyricsDocuments,
   storageObjects,
   snapshots,
   snapshotEntries,
