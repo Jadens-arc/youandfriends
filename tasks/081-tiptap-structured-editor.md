@@ -85,4 +85,4 @@ UI only. Reverting loses the editor; stored lyrics remain intact.
 
 ## Commit
 
-_(not yet)_
+`5c6f80a`

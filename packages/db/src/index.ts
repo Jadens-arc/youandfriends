@@ -187,3 +187,12 @@ export {
   type UpsertGrantInput,
   type UpsertGrantResult,
 } from './queries/permissions';
+export {
+  listSearchScope,
+  searchWorkspace,
+  SNIPPET_START,
+  SNIPPET_STOP,
+  type SearchInput,
+  type SearchRows,
+  type SearchScopeRows,
+} from './queries/search';

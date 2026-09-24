@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandEntry } from '../command-entry';
 import { NavigationRail } from '../navigation-rail';
@@ -7,7 +7,10 @@ import { PLAYER_HEIGHT, PlayerRegion } from '../player-region';
 
 // `usePathname` needs a router context that does not exist in a unit test.
 const mockPathname = vi.hoisted(() => ({ current: '/library' }));
-vi.mock('next/navigation', () => ({ usePathname: () => mockPathname.current }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => mockPathname.current,
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
 
 describe('NavigationRail', () => {
   it('exposes every destination as a named link', () => {
@@ -77,6 +80,29 @@ describe('PlayerRegion', () => {
 });
 
 describe('CommandEntry', () => {
+  // The palette asks for recent items when it opens.
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              query: '',
+              projects: [],
+              songs: [],
+              lyrics: [],
+              files: [],
+              recent: [],
+            }),
+          ),
+      ),
+    );
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const palette = () => screen.queryByRole('dialog', { name: 'Search and commands' });
+
   it('advertises its keyboard shortcut to assistive technology', () => {
     render(<CommandEntry />);
     const button = screen.getByRole('button', { name: /Search/ });
@@ -85,27 +111,28 @@ describe('CommandEntry', () => {
 
   it('is reachable by click as well as by shortcut', () => {
     render(<CommandEntry />);
-    expect(screen.getByRole('button', { name: /Search/ })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: /Search/ }));
+    expect(palette()).toBeInTheDocument();
   });
 
   it('opens on Meta+K and on Control+K', () => {
     render(<CommandEntry />);
 
     fireEvent.keyDown(document, { key: 'k', metaKey: true });
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(palette()).toBeInTheDocument();
 
     // Toggles closed again, so the same chord dismisses it.
     fireEvent.keyDown(document, { key: 'k', metaKey: true });
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(palette()).not.toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: 'K', ctrlKey: true });
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(palette()).toBeInTheDocument();
   });
 
   it('ignores a bare k, so typing in a field does not open it', () => {
     render(<CommandEntry />);
     fireEvent.keyDown(document, { key: 'k' });
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(palette()).not.toBeInTheDocument();
   });
 
   it('removes its listener on unmount', () => {

@@ -49,6 +49,16 @@ workspace's log, and nothing is read from it. Workspace settings and the member 
 belong to no scope a grant can attach to, are authorized from the membership row alone
 (`canInWorkspace`); member management is owner-only.
 
+**Search is bounded before it matches** (task `045`). Search is the most direct route to a leak:
+an unfiltered `ILIKE` across songs returns other people's titles, and an unfiltered lyrics match
+reveals words. `/api/search` first resolves, from ids and scope chains alone, which projects and
+songs this person may open (the library's resolver, grants and denies included); the search
+query then runs with those ids in its `WHERE`, so a hidden song is never matched, counted,
+ranked, or named — not even as the project around a song shared on its own. The first step
+costs the same whatever is typed. Lyrics are matched through the GIN-indexed `tsvector` from
+tokens of letters and digits only, so nothing typed reaches the `tsquery` parser as syntax.
+Tested with a populated hidden project whose words appear nowhere else.
+
 **The Clerk webhook is public and authenticated by signature** (`/api/webhooks/clerk`). The
 Svix signature and timestamp are verified with `CLERK_WEBHOOK_SECRET` before the body is
 parsed, so a forged or replayed delivery cannot write an audit row or provision a user. A

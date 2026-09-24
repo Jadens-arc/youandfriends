@@ -52,13 +52,17 @@ Search is a top IDOR risk (T1). Filtering happens in the query through `scopedQu
 
 ## Acceptance criteria
 
-- [ ] The palette opens by keyboard shortcut and by click.
-- [ ] Search covers project names, song titles, file names, and lyrics text.
-- [ ] Lyrics search uses a GIN-indexed tsvector, not a scan.
-- [ ] Results are authorization-filtered in the query.
-- [ ] A collaborator cannot find content they lack access to, proven by test.
-- [ ] Actions are available and execute correctly.
-- [ ] Input is debounced and superseded requests are cancelled.
+- [x] The palette opens by keyboard shortcut and by click. (⌘K / Ctrl+K and the shell's Search button open `CommandPalette`; the mobile Search destination renders the same body as a page.)
+- [x] Search covers project names, song titles, file names, and lyrics text. (`GET /api/search?q=` → `lib/search/service.ts` → `searchWorkspace` in `packages/db/src/queries/search.ts`. Names, titles, and file names by escaped `ILIKE`; each hit links to its project, song, or the song's Lyrics or Files tab.)
+- [x] Lyrics search uses a GIN-indexed tsvector, not a scan. (`lyrics_documents.search @@ to_tsquery('simple', …)` over the column and index task `080` added — no new migration was needed. Prefix matching, so words match while still being typed; `ts_headline` snippets with the matched words marked, rendered as text.)
+- [x] Results are authorization-filtered in the query. (Visible project and song ids are resolved first from ids and scope chains only, by the library's resolver; every clause of the search — and the join that names a hit's project — is bounded by them in SQL. Nothing is fetched and then hidden.)
+- [x] A collaborator cannot find content they lack access to, proven by test. (`apps/web/lib/search/__tests__/service.test.ts`: a one-song collaborator and a member denied one project get nothing for words that exist only in the hidden project — no hits in any group, so no count — and a song shared on its own does not name its project. Widening the visible set, or unbounding the project-name join, fails these tests.)
+- [x] Actions are available and execute correctly. (Create project — the library's own dialog; Upload files to the page's song or project — offered only where that page accepts a drop; Play/Pause the loaded track; Go to Library, Recent, Favorites, Shared with me, Settings. Recent items when the query is empty.)
+- [x] Input is debounced and superseded requests are cancelled. (180 ms debounce; every superseded request is aborted, and a late answer to an old query is never shown — tested by releasing answers out of order. Loading, empty, and unreachable states are said in words in a `role="status"` line.)
+
+**Where the negative test lives.** Search is composed in the web layer (db query + authz resolver), so its negative tests sit with the service rather than in the `packages/authz` IDOR registry; they run against a real database with the real resolver.
+
+**Not verified here.** Manual QA 1–3 need a browser; none is available in this environment (task `120`).
 
 ## Tests and validation commands
 
@@ -80,7 +84,7 @@ Additive. Reverting loses search. The search indexes are additive migrations.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

@@ -5,7 +5,7 @@ import { Search } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '../lib/cn';
-import { Dialog, DialogContent } from './dialog';
+import { Dialog, DialogContent, DialogTitle } from './dialog';
 
 /**
  * Command palette (task `045`).
@@ -33,12 +33,23 @@ export const Command = React.forwardRef<
 
 export function CommandDialog({
   children,
+  title = 'Command palette',
+  commandProps,
   ...props
-}: React.ComponentPropsWithoutRef<typeof Dialog>) {
+}: React.ComponentPropsWithoutRef<typeof Dialog> & {
+  /** The dialog's accessible name; visually hidden, the input says what to do. */
+  readonly title?: string;
+  /** Passed to the inner `Command` — `shouldFilter={false}` when results come from a server. */
+  readonly commandProps?: React.ComponentPropsWithoutRef<typeof Command>;
+}) {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0">
-        <Command>{children}</Command>
+      <DialogContent
+        className="top-[12vh] translate-y-0 overflow-hidden p-0"
+        aria-describedby={undefined}
+      >
+        <DialogTitle className="sr-only">{title}</DialogTitle>
+        <Command {...commandProps}>{children}</Command>
       </DialogContent>
     </Dialog>
   );

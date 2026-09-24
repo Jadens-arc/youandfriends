@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `045` is next. `016`, `029` are passed over until their dependencies are `complete`. 63 of 95 iteration-one tasks are `complete`.
+Task `082` is next. `016`, `029` are passed over until their dependencies are `complete`. 64 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -59,7 +59,7 @@ Task `045` is next. `016`, `029` are passed over until their dependencies are `c
 | `042` | Song workspace and tabs                                                | Library navigation                   | `041`, `026`                              | `complete` | `564a54c` | —       |
 | `043` | Song and project metadata editing                                      | Library navigation                   | `042`, `024`                              | `complete` | `315d389` | —       |
 | `044` | Favorites, recents, and activity                                       | Library navigation                   | `042`, `024`                              | `complete` | `1838e8c` | —       |
-| `045` | Command palette and search                                             | Library navigation                   | `041`, `080`                              | `pending`  | —         | —       |
+| `045` | Command palette and search                                             | Library navigation                   | `041`, `080`                              | `complete` | —         | —       |
 | `046` | Create projects and songs                                              | Library navigation                   | `041`, `042`, `024`                       | `complete` | `1e5bfe5` | —       |
 | `050` | Storage package and R2 driver                                          | Upload, storage, versions            | `002`, `003`                              | `complete` | `683c0ca` | —       |
 | `051` | Upload session API                                                     | Upload, storage, versions            | `050`, `026`, `023`                       | `complete` | `3221a64` | —       |
@@ -90,7 +90,7 @@ Task `045` is next. `016`, `029` are passed over until their dependencies are `c
 | `076` | Media Session and background playback                                  | Persistent player                    | `070`, `073`                              | `complete` | `0e3e2dd` | —       |
 | `077` | Mobile mini-player and expanded player                                 | Persistent player                    | `071`, `072`, `074`, `075`, `014`         | `complete` | `a6bbeaa` | —       |
 | `080` | Lyrics schema, plain-text projection, and autosave                     | Collaborative lyrics                 | `026`, `042`                              | `complete` | `68e9988` | —       |
-| `081` | Tiptap structured lyrics editor                                        | Collaborative lyrics                 | `080`, `011`                              | `complete` | —         | —       |
+| `081` | Tiptap structured lyrics editor                                        | Collaborative lyrics                 | `080`, `011`                              | `complete` | `5c6f80a` | —       |
 | `082` | Real-time collaboration, presence, and cursors                         | Collaborative lyrics                 | `081`, `080`, `023`                       | `pending`  | —         | —       |
 | `083` | Lyric timestamp anchors                                                | Collaborative lyrics                 | `081`, `072`                              | `pending`  | —         | —       |
 | `084` | Revision snapshots and restoration                                     | Collaborative lyrics                 | `080`, `082`                              | `pending`  | —         | —       |
