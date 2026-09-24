@@ -83,3 +83,30 @@
     pointer-events: none;
   }
 }
+
+/* Collaborators' cursors in the lyrics editor (task `082`): a bar and a name, in their colour. */
+@layer components {
+  .lyrics-caret {
+    position: relative;
+    margin-inline: -1px;
+    border-inline: 1px solid;
+    pointer-events: none;
+    word-break: normal;
+  }
+
+  .lyrics-caret-label {
+    position: absolute;
+    inset-block-end: 100%;
+    inset-inline-start: -1px;
+    padding: 0.05rem 0.35rem;
+    border-radius: 3px 3px 3px 0;
+    color: var(--color-paper);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.6875rem;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    user-select: none;
+  }
+}

@@ -88,4 +88,4 @@ Additive. Reverting loses search. The search indexes are additive migrations.
 
 ## Commit
 
-_(not yet)_
+`b1db9fd`

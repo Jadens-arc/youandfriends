@@ -1,6 +1,9 @@
 'use client';
 
+import Collaboration from '@tiptap/extension-collaboration';
+import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import { Placeholder } from '@tiptap/extensions';
+import { ySyncPluginKey } from '@tiptap/y-tiptap';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import {
   SECTION_KINDS,
@@ -20,12 +23,17 @@ import {
 } from '@youandfriends/ui';
 import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Trash2 } from 'lucide-react';
 import * as React from 'react';
+import type { Awareness } from 'y-protocols/awareness';
+import type * as Y from 'yjs';
+
+import { LYRICS_FRAGMENT } from '@/lib/lyrics/yjs';
 
 import {
   currentSection,
   fromEditorContent,
   LYRICS_SHORTCUTS,
   lyricsExtensions,
+  lyricsSchemaExtensions,
   toEditorContent,
 } from './schema';
 
@@ -37,6 +45,32 @@ import {
  * are real buttons outside the editable surface, so they are reachable by Tab and named for
  * screen readers. Headings are derived from order (`sectionHeadings`) and never typed.
  */
+
+/** Editing together (task `082`): the shared document and the awareness that carries cursors. */
+export interface EditorCollaboration {
+  readonly doc: Y.Doc;
+  readonly awareness: Awareness;
+  readonly user: { readonly name: string; readonly color: string };
+}
+
+/**
+ * A collaborator's cursor: a bar and their name, in their colour — the name in words, so colour
+ * never identifies anyone alone. Hidden from assistive technology, which hears joins and leaves
+ * from the presence list instead of every cursor movement (`docs/DESIGN.md` §12).
+ */
+function renderCaret(user: Record<string, unknown>): HTMLElement {
+  const color = typeof user.color === 'string' ? user.color : 'var(--color-secondary)';
+  const caret = document.createElement('span');
+  caret.className = 'lyrics-caret';
+  caret.setAttribute('aria-hidden', 'true');
+  caret.style.borderColor = color;
+  const label = document.createElement('span');
+  label.className = 'lyrics-caret-label';
+  label.style.backgroundColor = color;
+  label.textContent = typeof user.name === 'string' ? user.name : 'Someone';
+  caret.append(label);
+  return caret;
+}
 
 export interface LyricsEditorHandle {
   /** Replace the whole document without it counting as an edit (loading a newer version). */
@@ -99,8 +133,13 @@ export const LyricsEditor = React.forwardRef<
     readonly describedBy?: string;
     readonly onChange: (document: LyricsDocument) => void;
     readonly onBlur?: () => void;
+    /** Present when editing together; the document then comes from `collaboration.doc`. */
+    readonly collaboration?: EditorCollaboration | null;
   }
->(function LyricsEditor({ document, editable, label, describedBy, onChange, onBlur }, ref) {
+>(function LyricsEditor(
+  { document, editable, label, describedBy, onChange, onBlur, collaboration = null },
+  ref,
+) {
   const change = React.useRef(onChange);
   const blur = React.useRef(onBlur);
   // The editor is created once; it reads the latest handlers through these.
@@ -109,31 +148,52 @@ export const LyricsEditor = React.forwardRef<
     blur.current = onBlur;
   });
 
-  const editor = useEditor({
-    extensions: [
-      ...lyricsExtensions,
-      Placeholder.configure({
-        includeChildren: true,
-        placeholder: ({ node }) => (node.type.name === 'lyricsLine' ? 'Write a line…' : ''),
-      }),
-    ],
-    content: toEditorContent(document),
-    editable,
-    // Rendered on the client only: the document arrives by fetch, never in the server HTML.
-    immediatelyRender: false,
-    editorProps: {
-      attributes: {
-        role: 'textbox',
-        'aria-multiline': 'true',
-        'aria-label': label,
-        ...(describedBy === undefined ? {} : { 'aria-describedby': describedBy }),
-        spellcheck: 'true',
-        class: 'lyrics-editor-surface font-lyric',
-      },
-    },
-    onUpdate: ({ editor: current }) => change.current(fromEditorContent(current.getJSON())),
-    onBlur: () => blur.current?.(),
+  const placeholder = Placeholder.configure({
+    includeChildren: true,
+    placeholder: ({ node }) => (node.type.name === 'lyricsLine' ? 'Write a line…' : ''),
   });
+  const editor = useEditor(
+    {
+      extensions:
+        collaboration === null
+          ? [...lyricsExtensions, placeholder]
+          : [
+              ...lyricsSchemaExtensions,
+              placeholder,
+              Collaboration.configure({ document: collaboration.doc, field: LYRICS_FRAGMENT }),
+              CollaborationCaret.configure({
+                provider: { awareness: collaboration.awareness },
+                user: collaboration.user,
+                render: renderCaret,
+              }),
+            ],
+      // Together, the shared document is the content; alone, the stored one.
+      ...(collaboration === null ? { content: toEditorContent(document) } : {}),
+      editable,
+      // Rendered on the client only: the document arrives by fetch, never in the server HTML.
+      immediatelyRender: false,
+      editorProps: {
+        attributes: {
+          role: 'textbox',
+          'aria-multiline': 'true',
+          'aria-label': label,
+          ...(describedBy === undefined ? {} : { 'aria-describedby': describedBy }),
+          spellcheck: 'true',
+          class: 'lyrics-editor-surface font-lyric',
+        },
+      },
+      onUpdate: ({ editor: current, transaction }) => {
+        // Someone else's edit arriving through the room is theirs to save, not this tab's.
+        const sync = transaction.getMeta(ySyncPluginKey) as
+          { isChangeOrigin?: boolean } | undefined;
+        if (sync?.isChangeOrigin === true) return;
+        change.current(fromEditorContent(current.getJSON()));
+      },
+      onBlur: () => blur.current?.(),
+    },
+    // A new shared document (a fresh session after an access change) is a new editor.
+    [collaboration?.doc],
+  );
 
   React.useEffect(() => {
     editor?.setEditable(editable, false);
@@ -143,10 +203,12 @@ export const LyricsEditor = React.forwardRef<
     ref,
     () => ({
       replace(next) {
+        // Together there is nothing to replace: the room is already the newest version.
+        if (collaboration !== null) return;
         editor?.commands.setContent(toEditorContent(next), { emitUpdate: false });
       },
     }),
-    [editor],
+    [editor, collaboration],
   );
 
   const section = useEditorState({

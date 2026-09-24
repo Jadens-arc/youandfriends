@@ -38,7 +38,7 @@ function stubFetch(
     if (method === 'PUT') return put();
     const next = reads[Math.min(read, reads.length - 1)];
     read += 1;
-    return json({ ...next, updatedAt: null });
+    return json({ ...next, updatedAt: null, yjsState: '', collaboration: null });
   });
   vi.stubGlobal('fetch', fetchMock);
   return calls;
@@ -47,7 +47,7 @@ function stubFetch(
 async function mountLoaded(audio: React.ReactNode = null) {
   render(<LyricsPanel songId="S1" songTitle="Headlights" audio={audio} />);
   await act(async () => {
-    await vi.runAllTimersAsync();
+    await vi.advanceTimersByTimeAsync(2_000);
   });
 }
 
@@ -123,7 +123,7 @@ describe('LyricsPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Load the newer version' }));
     await act(async () => {
-      await vi.runAllTimersAsync();
+      await vi.advanceTimersByTimeAsync(2_000);
     });
     expect(surface().element).toHaveTextContent('BridgeTheir line');
     expect(screen.getByLabelText('Your text before loading the newer version')).toHaveValue(
@@ -141,7 +141,7 @@ describe('LyricsPanel', () => {
       surface().editor.commands.blur();
     });
     await act(async () => {
-      await vi.runAllTimersAsync();
+      await vi.advanceTimersByTimeAsync(2_000);
     });
     expect(screen.getByRole('status')).toHaveTextContent('were not saved');
     expect(surface().element).toHaveAttribute('contenteditable', 'false');

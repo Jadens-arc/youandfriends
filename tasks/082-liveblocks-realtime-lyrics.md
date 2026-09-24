@@ -54,15 +54,19 @@ Room access is a T6 control. Authorization is server-side, per room, role-scoped
 
 ## Acceptance criteria
 
-- [ ] Two users editing simultaneously converge without lost text.
-- [ ] Room tokens are minted server-side after an authz check, scoped to one room and role.
-- [ ] Viewers and commenters cannot write to the document.
-- [ ] Presence and cursors show names and colors.
-- [ ] Reconnection after disconnect merges cleanly, tested with a real disconnection.
-- [ ] Snapshots persist to Postgres on debounce and lifecycle events.
-- [ ] Demotion mid-session revokes write access promptly, proven by test.
-- [ ] Liveblocks unavailability degrades to single-player autosave with a visible state.
-- [ ] Presence announcements do not flood assistive technology.
+- [x] Two users editing simultaneously converge without lost text. (Two real Tiptap editors on their own Yjs documents converge through concurrent typing and restructuring — `components/lyrics/__tests__/collaboration.test.ts`. Persistence converges too: collaborative saves carry Yjs state that the server **merges** (ADR 0011), in any order or twice, re-deriving the document through the lyrics schema — `lib/lyrics/__tests__/collaboration.test.ts`.)
+- [x] Room tokens are minted server-side after an authz check, scoped to one room and role. (`POST /api/liveblocks/auth` → `roomAccess` → `mintRoomToken`: one room, `room:write` for editors, `room:read` + own presence otherwise; 404-shaped for strangers, other workspaces, trashed songs, and non-lyrics rooms. Tested through the route and the service.)
+- [x] Viewers and commenters cannot write to the document. (Read-only room tokens; the editor is not editable and shows no section controls; the save path refuses them — tested.)
+- [x] Presence and cursors show names and colors. (`CollaborationCaret` with a name label on every cursor, and a "Also here" list with names in words beside a colour; colours from the palette, resolved from the tokens at runtime — tested with two editors.)
+- [x] Reconnection after disconnect merges cleanly, tested with a real disconnection. (Through an in-memory room whose disconnection is genuine — nothing crosses in either direction while apart, then state-vector resync — with both sides typing and restructuring meanwhile; the editors converge and the server-side merge of each side's saves equals the converged document. **Not** tested against Liveblocks' own servers: there are no Liveblocks credentials in this environment; see below.)
+- [x] Snapshots persist to Postgres on debounce and lifecycle events. (Collaborative editing uses task `080`'s autosave — idle debounce, blur, page hide, navigation — sending the shared Yjs state. Remote edits are saved by their author's tab, not re-saved by everyone's. A second path, the signed `ydocUpdated` webhook at `/api/webhooks/liveblocks`, merges the room's copy — tested with a delivery signed the way Liveblocks signs one and verified by the real `WebhookHandler`.)
+- [x] Demotion mid-session revokes write access promptly, proven by test. (The next token is read-only; the next save is refused; an open editor re-checks its access every 30 s, on focus, and after any refused save, and on a change stops accepting input and rejoins read-only — each tested, and each mutation-checked. **Residual gap, recorded in `docs/THREAT_MODEL.md`:** Liveblocks cannot recall an already-issued token, so a _modified_ client could keep writing into the room until its token expires.)
+- [x] Liveblocks unavailability degrades to single-player autosave with a visible state. (Without `LIVEBLOCKS_SECRET_KEY` the editor is single-player, exactly as in `080`/`081`. With it but unreachable, the editor keeps working on its local Yjs document and keeps saving to Postgres, saying "Working alone — live editing is unreachable, your changes still save" — tested.)
+- [x] Presence announcements do not flood assistive technology. (A polite live region says who joined or left; cursor movement, which changes awareness constantly, announces nothing and does not re-render the list — tested. Cursors themselves are `aria-hidden`.)
+
+**Decisions recorded.** ADR 0011 (collaborative saves merge Yjs state; deterministic seeds; single-player saves clear stale Yjs state). `LIVEBLOCKS_WEBHOOK_SECRET` added to the environment schema and `.env.example`. T6 in `docs/THREAT_MODEL.md` rewritten to what is actually enforced.
+
+**Not verified here.** No Liveblocks credentials exist in this environment, so the real transport (`liveblocksSession`, the SDK's token call, and the REST fetch in the webhook) is implemented behind configuration and exercised only with the SDK's REST client substituted; Manual QA 1–4 need two browsers and a Liveblocks project (task `120`).
 
 ## Tests and validation commands
 
@@ -84,7 +88,7 @@ Additive over task `080`'s canonical persistence. Reverting loses collaboration 
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

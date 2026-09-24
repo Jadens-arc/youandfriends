@@ -127,9 +127,23 @@ A user joins a lyrics room for a song they cannot read, or retains write access 
 demotion.
 
 **Controls.** Room tokens are minted server-side by `/api/liveblocks/auth` after the standard
-authz check, scoped to one room with a role-appropriate capability set. Tokens are short-lived
-so demotion takes effect on renewal; task `082` tests permission change mid-session
-explicitly.
+authz check on the song the room names (`lyrics:<songId>`), for that one room only: `room:write`
+for an editor, `room:read` plus their own presence for a commenter or viewer, and a 404-shaped
+refusal for anyone else, a room in another workspace, a trashed song, or anything that is not a
+lyrics room (task `082`). The client never states its own role.
+
+Demotion is enforced in layers, because Liveblocks cannot recall a token it has already issued:
+
+- **Postgres rejects it at once.** Every save re-checks `edit`; the demoted person's next save is
+  refused 404-shaped and nothing of theirs is stored after that point.
+- **The editor stops at once.** An open editor re-asks for its access every 30 seconds and on
+  return to the tab, and after any refused save; on a change it stops accepting input and
+  rejoins the room, which mints a new token at the new access.
+- **The record is derived, not trusted.** A collaborative save sends Yjs state, which the server
+  merges into what is stored and re-derives the document from through the lyrics schema, so
+  anything outside that schema is dropped rather than stored.
+
+The residual gap is written down under "Residual risks accepted".
 
 ### T7 — Sync token compromise
 
@@ -306,6 +320,15 @@ Stated plainly so they are not mistaken for oversights:
   credentials, which can read every workspace's originals. The version floor, short-lived
   processes, and container limits narrow this; a seccomp profile or a container per job would
   close more of it and is a deployment change deliberately left out of iteration one.
+- **A demoted collaborator's already-issued room token keeps working until it expires**
+  (T6, task `082`). Liveblocks offers no per-user revocation of an access token, and its lifetime
+  is set by Liveblocks, not by us. An honest client stops within seconds (above); a _modified_
+  client could keep sending edits into the room for the rest of that token's life, and an
+  editor's autosave or the webhook would then merge them into Postgres. Everything merged stays
+  in the Yjs history and in revisions (task `084`), so it can be seen and reverted, not hidden.
+  Closing this fully means either moving to ID tokens with room-level permissions that
+  Liveblocks re-checks, or relaying updates through our own server; both are larger than
+  iteration one and are a decision for the product owner.
 - A compromised owner account exposes the workspace.
 - Presigned URLs are bearer credentials for their TTL; a URL shared within its window works.
 - **No rate limiting on invitation-token acceptance attempts** (task `032`). The task file's own

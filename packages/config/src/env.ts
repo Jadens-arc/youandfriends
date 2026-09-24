@@ -44,6 +44,8 @@ const serverSchema = z.object({
   R2_ENDPOINT: z.string().url().optional(),
 
   LIVEBLOCKS_SECRET_KEY: z.string().min(1).optional(),
+  // Signs Liveblocks webhook deliveries (task `082`); without it the webhook refuses everything.
+  LIVEBLOCKS_WEBHOOK_SECRET: z.string().min(1).optional(),
 
   TRIGGER_SECRET_KEY: z.string().min(1).optional(),
   TRIGGER_PROJECT_ID: z.string().min(1).optional(),

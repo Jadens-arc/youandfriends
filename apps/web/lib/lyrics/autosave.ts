@@ -149,15 +149,22 @@ export function createAutosave(options: AutosaveOptions): Autosave {
   };
 }
 
-/** The real save: `PUT /api/songs/:songId/lyrics`, sorted into outcomes. */
-export function httpSave(songId: string): SaveLyrics {
+/**
+ * The real save: `PUT /api/songs/:songId/lyrics`, sorted into outcomes. Editing together, the
+ * shared Yjs state goes with it (`yjsState`), and the server merges rather than version-checks.
+ */
+export function httpSave(songId: string, yjsState?: () => string): SaveLyrics {
   return async (document, baseVersion, { keepalive }) => {
     let response: Response;
     try {
       response = await fetch(`/api/songs/${encodeURIComponent(songId)}/lyrics`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ document, baseVersion }),
+        body: JSON.stringify({
+          document,
+          baseVersion,
+          ...(yjsState === undefined ? {} : { yjsState: yjsState() }),
+        }),
         // On page hide the page may be gone before the response; `keepalive` lets the request
         // finish anyway (bodies up to 64 KB — a long lyric sheet, comfortably).
         keepalive,

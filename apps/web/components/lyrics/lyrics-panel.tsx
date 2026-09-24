@@ -4,11 +4,19 @@ import type { LyricsDocument } from '@youandfriends/contracts';
 import { Button, cn } from '@youandfriends/ui';
 import { AlertTriangle, Check, CloudOff, Loader2, Lock, PencilLine } from 'lucide-react';
 import * as React from 'react';
+import * as Y from 'yjs';
 
 import { createAutosave, httpSave, type Autosave, type SaveState } from '@/lib/lyrics/autosave';
+import {
+  SessionFactoryContext,
+  type CollaborationSession,
+  type ConnectionStatus,
+} from '@/lib/lyrics/collaboration-client';
 import { lyricsToText } from '@/lib/lyrics/text-format';
+import { fromBase64, toBase64 } from '@/lib/lyrics/yjs';
 
 import { LyricsEditor, type LyricsEditorHandle } from './editor/lyrics-editor';
+import { PresenceList } from './presence/presence-list';
 
 /**
  * The song's lyrics (tasks `080`, `081`): the structured editor, autosaving, with its save state
@@ -60,6 +68,32 @@ interface Loaded {
   readonly document: LyricsDocument;
   readonly version: number;
   readonly canEdit: boolean;
+  readonly yjsState: string;
+  /** Present when live collaboration is configured (task `082`). */
+  readonly collaboration: {
+    readonly room: string;
+    readonly self: { readonly name: string; readonly color: string };
+  } | null;
+}
+
+/** How often an open editor re-asks whether this person may still write (task `082`). */
+export const ACCESS_RECHECK_MS = 30_000;
+
+/**
+ * A palette colour as the value it resolves to. The cursor layer (y-prosemirror) accepts only
+ * six-digit hex, so the `var(--color-…)` the server names is resolved from the page's own tokens
+ * — the palette stays in one place.
+ */
+function resolveColor(color: string): string {
+  const variable = /^var\((--[a-z0-9-]+)\)$/.exec(color)?.[1];
+  if (variable === undefined || typeof window === 'undefined') return color;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
+  return value === '' ? color : value;
+}
+
+interface Together {
+  readonly doc: Y.Doc;
+  readonly session: CollaborationSession;
 }
 
 async function fetchLyrics(songId: string): Promise<Loaded | null> {
@@ -86,6 +120,11 @@ export function LyricsPanel({
   const autosave = React.useRef<Autosave | null>(null);
   const editor = React.useRef<LyricsEditorHandle>(null);
   const current = React.useRef<LyricsDocument | null>(null);
+  const createSession = React.useContext(SessionFactoryContext);
+  const [together, setTogether] = React.useState<Together | null>(null);
+  const [connection, setConnection] = React.useState<ConnectionStatus>('connecting');
+  // Bumped when access changes: a fresh session asks for a fresh room token.
+  const [sessionKey, setSessionKey] = React.useState(0);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -103,14 +142,77 @@ export function LyricsPanel({
     };
   }, [songId]);
 
+  // Editing together: one shared document per loaded song, carried through its room. The room
+  // token is minted server-side at this person's current access; a new session asks again.
+  const room = loaded !== null && loaded !== 'error' ? (loaded.collaboration ?? null) : null;
+  const seed = loaded !== null && loaded !== 'error' ? loaded.yjsState : null;
+  const shared = React.useRef<Y.Doc | null>(null);
+  React.useEffect(() => {
+    if (room === null || seed === null) return;
+    if (shared.current === null) {
+      shared.current = new Y.Doc();
+      Y.applyUpdate(shared.current, fromBase64(seed));
+    }
+    const doc = shared.current;
+    const session = createSession(room.room, doc);
+    session.awareness.setLocalStateField('user', {
+      name: room.self.name,
+      color: resolveColor(room.self.color),
+    });
+    setConnection(session.status());
+    const unsubscribe = session.onStatus(setConnection);
+    setTogether({ doc, session });
+    return () => {
+      unsubscribe();
+      session.destroy();
+      setTogether(null);
+    };
+  }, [room, seed, createSession, sessionKey]);
+
+  // Access can change while the page is open. Re-ask on a cadence and on return to the tab; a
+  // change takes effect at once — the editor stops accepting input, and the room is rejoined
+  // with a token at the new access.
+  const canEdit = loaded !== null && loaded !== 'error' ? loaded.canEdit : null;
+  React.useEffect(() => {
+    if (canEdit === null) return;
+    let cancelled = false;
+    const recheck = async () => {
+      const latest = await fetchLyrics(songId);
+      if (cancelled || latest === null || latest.canEdit === canEdit) return;
+      setLoaded((previous) =>
+        previous === null || previous === 'error'
+          ? previous
+          : { ...previous, canEdit: latest.canEdit },
+      );
+      setSessionKey((key) => key + 1);
+    };
+    const timer = setInterval(() => void recheck(), ACCESS_RECHECK_MS);
+    const focus = () => void recheck();
+    window.addEventListener('focus', focus);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      window.removeEventListener('focus', focus);
+    };
+  }, [songId, canEdit]);
+
   // One autosave per loaded document, flushed on every way out of the page.
   const baseVersion = loaded !== null && loaded !== 'error' ? loaded.version : null;
+  const collaborative = room !== null;
   React.useEffect(() => {
     if (baseVersion === null) return;
     const saver = createAutosave({
       version: baseVersion,
-      save: httpSave(songId),
-      onChange: (next) => setState(next),
+      save: collaborative
+        ? httpSave(songId, () =>
+            shared.current === null ? '' : toBase64(Y.encodeStateAsUpdate(shared.current)),
+          )
+        : httpSave(songId),
+      onChange: (next) => {
+        setState(next);
+        // A refused save means access was lost: rejoin the room at whatever access remains.
+        if (next === 'refused') setSessionKey((key) => key + 1);
+      },
     });
     autosave.current = saver;
     const hide = () => {
@@ -133,7 +235,7 @@ export function LyricsPanel({
       autosave.current = null;
     };
     // `loaded` is replaced wholesale on "load latest"; the version is what identifies it.
-  }, [songId, baseVersion]);
+  }, [songId, baseVersion, collaborative]);
 
   async function loadLatest() {
     if (current.current !== null) setKept(lyricsToText(current.current));
@@ -151,6 +253,8 @@ export function LyricsPanel({
     body = (
       <p className="text-body text-muted-foreground font-sans">The lyrics could not be loaded.</p>
     );
+  } else if (room !== null && together === null) {
+    body = <p className="text-body text-muted-foreground font-sans">Loading lyrics…</p>;
   } else {
     const editable = loaded.canEdit && state !== 'refused';
     body = (
@@ -160,6 +264,9 @@ export function LyricsPanel({
             <SaveStateIndicator state={state} />
           ) : (
             <p className="text-caption text-muted-foreground font-sans">View only</p>
+          )}
+          {together === null ? null : (
+            <PresenceList awareness={together.session.awareness} status={connection} />
           )}
           {state === 'conflict' ? (
             <Button variant="secondary" size="sm" onClick={() => void loadLatest()}>
@@ -177,6 +284,15 @@ export function LyricsPanel({
             autosave.current?.edit(document);
           }}
           onBlur={() => void autosave.current?.flush()}
+          collaboration={
+            together === null || room === null
+              ? null
+              : {
+                  doc: together.doc,
+                  awareness: together.session.awareness,
+                  user: { name: room.self.name, color: resolveColor(room.self.color) },
+                }
+          }
         />
         {kept === null ? null : (
           <details className="text-caption font-sans">

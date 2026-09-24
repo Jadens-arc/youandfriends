@@ -484,14 +484,17 @@ const LyricsSections = Extension.create({
   },
 });
 
-export const lyricsExtensions = [
+/** The schema and section behaviour, shared by single-player and collaborative editing. */
+export const lyricsSchemaExtensions = [
   LyricsDoc,
   LyricsText,
   LyricsLine,
   LyricsSection,
   LyricsSections,
-  UndoRedo,
 ];
+
+/** Single-player editing: the schema plus local undo history. Collaboration brings its own. */
+export const lyricsExtensions = [...lyricsSchemaExtensions, UndoRedo];
 
 /** Stored document → editor content. The editor always has a section to type into. */
 export function toEditorContent(document: LyricsDocument): JSONContent {

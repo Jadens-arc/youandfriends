@@ -53,7 +53,9 @@ const sha256 = async (path: string) =>
     .update(await readFile(path))
     .digest('hex');
 
-describeWithFfmpeg('transcoding the streaming derivative', () => {
+// Real ffmpeg transcodes: under a full parallel `pnpm test` one can take several seconds, which
+// the 5-second default mistook for a hang. The fixtures are seconds of generated tone.
+describeWithFfmpeg('transcoding the streaming derivative', { timeout: 30_000 }, () => {
   let files: Scratch;
   let recipe: DerivativeRecipe;
 
