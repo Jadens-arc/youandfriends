@@ -121,6 +121,8 @@ describeWithPrerequisites('the cover art job', () => {
   it('routes each kind to the work it needs', () => {
     expect(operationsFor('mix')).toEqual(['probe', 'loudness', 'stream_derivative', 'waveform']);
     expect(operationsFor('stem')).toEqual(operationsFor('mix'));
+    // A voice note (task `093`) is music's pipeline, not a second one: stream, waveform, loudness.
+    expect(operationsFor('voice_note')).toEqual(operationsFor('mix'));
     expect(operationsFor('artwork')).toEqual(['artwork']);
     expect(operationsFor('project_file')).toBeNull();
   });

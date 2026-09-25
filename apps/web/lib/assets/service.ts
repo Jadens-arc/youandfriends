@@ -102,6 +102,10 @@ async function loadEditableAsset(context: LibraryContext, assetId: string) {
   if (!isUlid(assetId)) refuse('asset id is not a ULID');
   const asset = await getLiveAsset(context.db, context.workspaceId, assetId);
   if (asset === null) refuse(`asset ${assetId} is not live`);
+  // A voice note belongs to its comment (task `093`): it is not a file to rename, re-tag, or
+  // trash here. Deleting the comment trashes it — trashing it here would leave a live comment
+  // pointing at a recording the purge then cannot remove.
+  if (asset.kind === 'voice_note') refuse(`asset ${assetId} is a voice note`);
   await context.authz.assertCan(context.subject, 'edit', {
     workspaceId: context.workspaceId,
     scopeType: asset.songId === null ? 'project' : 'song',

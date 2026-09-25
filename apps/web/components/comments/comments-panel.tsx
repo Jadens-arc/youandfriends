@@ -15,6 +15,9 @@ import {
 } from '@/lib/comments/store';
 import { formatClock } from '@/lib/player/format';
 
+import { VoiceNotePlayer } from './voice-note/voice-note-player';
+import { VoiceRecorder } from './voice-note/voice-recorder';
+
 /**
  * The conversation on a song (task `090`): threads of plain-text comments, open ones first,
  * resolved ones folded away below. Bodies are rendered as text — React escapes them — never as
@@ -115,10 +118,12 @@ export function Composer({
 
 function Comment({
   comment,
+  songId,
   base,
   onChanged,
 }: {
   readonly comment: CommentView;
+  readonly songId: string;
   readonly base: string;
   readonly onChanged: () => Promise<void>;
 }) {
@@ -153,11 +158,14 @@ function Comment({
             return ok;
           }}
         />
-      ) : (
+      ) : comment.body === '' ? null : (
         // Plain text, whitespace kept: React escapes it, so markup in a comment stays text.
         <p className="text-body text-foreground font-sans break-words whitespace-pre-wrap">
           {comment.body}
         </p>
+      )}
+      {comment.voiceNote == null ? null : (
+        <VoiceNotePlayer songId={songId} voiceNote={comment.voiceNote} author={comment.author} />
       )}
       {!editing && (comment.canEdit || comment.canDelete) ? (
         <div className="flex gap-1">
@@ -197,6 +205,9 @@ function threadName(thread: ThreadView): string {
   const first = thread.comments[0];
   if (first === undefined || first.deleted) return 'Thread whose first comment was deleted';
   const words = first.body.replace(/\s+/g, ' ').trim();
+  if (words === '' && first.voiceNote != null) {
+    return `Thread: a voice note by ${first.author ?? 'someone'}`;
+  }
   return `Thread: ${words.length > 60 ? `${words.slice(0, 57)}…` : words}`;
 }
 
@@ -272,7 +283,13 @@ export function Thread({
       {lead}
       <ol className="flex flex-col gap-3">
         {thread.comments.map((comment) => (
-          <Comment key={comment.id} comment={comment} base={base} onChanged={onChanged} />
+          <Comment
+            key={comment.id}
+            comment={comment}
+            songId={songId}
+            base={base}
+            onChanged={onChanged}
+          />
         ))}
       </ol>
       {resolved ? (
@@ -306,19 +323,32 @@ export function Thread({
         </div>
       ) : null}
       {replying ? (
-        <Composer
-          label="Your reply"
-          submitLabel="Reply"
-          onCancel={() => setReplying(false)}
-          onSubmit={async (body) => {
-            const ok = await send(`${base}/replies`, 'POST', { body });
-            if (ok) {
-              setReplying(false);
-              await onChanged();
-            }
-            return ok;
-          }}
-        />
+        <>
+          <Composer
+            label="Your reply"
+            submitLabel="Reply"
+            onCancel={() => setReplying(false)}
+            onSubmit={async (body) => {
+              const ok = await send(`${base}/replies`, 'POST', { body });
+              if (ok) {
+                setReplying(false);
+                await onChanged();
+              }
+              return ok;
+            }}
+          />
+          <VoiceRecorder
+            songId={songId}
+            onRecorded={async (voiceNoteAssetId) => {
+              const ok = await send(`${base}/replies`, 'POST', { voiceNoteAssetId });
+              if (ok) {
+                setReplying(false);
+                await onChanged();
+              }
+              return ok;
+            }}
+          />
+        </>
       ) : null}
     </article>
   );
@@ -360,6 +390,16 @@ export function CommentsPanel({
           submitLabel="Comment"
           onSubmit={async (body) => {
             const ok = await send(base, 'POST', { anchor: { kind: 'general' }, body });
+            if (ok) await load();
+            return ok;
+          }}
+        />
+      ) : null}
+      {loaded.canComment ? (
+        <VoiceRecorder
+          songId={songId}
+          onRecorded={async (voiceNoteAssetId) => {
+            const ok = await send(base, 'POST', { anchor: { kind: 'general' }, voiceNoteAssetId });
             if (ok) await load();
             return ok;
           }}

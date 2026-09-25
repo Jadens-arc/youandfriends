@@ -16,6 +16,8 @@ import {
   type ResolveThreadRequest,
 } from '@youandfriends/contracts';
 import {
+  assets,
+  assetVersions,
   comments,
   commentThreads,
   mixVersions,
@@ -29,6 +31,8 @@ import type { z } from 'zod';
 
 import type { LibraryContext } from '@/lib/library/context';
 import type { NotificationSink } from '@/lib/library/metadata';
+
+import { assertAttachableVoiceNote, type VoiceNoteView } from './voice-notes';
 
 /**
  * The conversation on a song (task `090`).
@@ -53,8 +57,10 @@ type Tx = Parameters<Parameters<DirectDatabase['transaction']>[0]>[0];
 export interface CommentView {
   readonly id: string;
   readonly author: string | null;
-  /** Empty for a deleted comment. */
+  /** Empty for a deleted comment — and may be empty when a voice note says it instead. */
   readonly body: string;
+  /** The recording this comment carries (task `093`). */
+  readonly voiceNote: VoiceNoteView | null;
   readonly createdAt: Date;
   readonly editedAt: Date | null;
   readonly deleted: boolean;
@@ -175,6 +181,7 @@ export async function listThreads(context: LibraryContext, songId: string): Prom
       createdAt: comments.createdAt,
       editedAt: comments.editedAt,
       tombstonedAt: comments.tombstonedAt,
+      voiceNoteAssetId: comments.voiceNoteAssetId,
     })
     .from(comments)
     .leftJoin(users, eq(users.id, comments.authorId))
@@ -189,6 +196,12 @@ export async function listThreads(context: LibraryContext, songId: string): Prom
     )
     .orderBy(asc(comments.createdAt), asc(comments.id));
 
+  const voiceNotes = await voiceNotesOf(
+    context,
+    rows.flatMap((row) =>
+      row.voiceNoteAssetId === null || row.tombstonedAt !== null ? [] : [row.voiceNoteAssetId],
+    ),
+  );
   const byThread = new Map<string, CommentView[]>();
   for (const row of rows) {
     const deleted = row.tombstonedAt !== null;
@@ -198,6 +211,10 @@ export async function listThreads(context: LibraryContext, songId: string): Prom
       id: row.id,
       author: row.author ?? null,
       body: deleted ? '' : row.body,
+      voiceNote:
+        deleted || row.voiceNoteAssetId === null
+          ? null
+          : (voiceNotes.get(row.voiceNoteAssetId) ?? null),
       createdAt: row.createdAt,
       editedAt: row.editedAt,
       deleted,
@@ -237,7 +254,7 @@ export async function createThread(
   songId: string,
   input: CreateThreadRequest,
 ): Promise<{ readonly threadId: string; readonly commentId: string }> {
-  const { anchor, body } = parse(createThreadSchema, input);
+  const { anchor, body, voiceNoteAssetId } = parse(createThreadSchema, input);
   await requireAccess(context, songId, 'comment');
   if (anchor.kind === 'timestamp') {
     // The moment belongs to the song; the version records what was playing when it was heard.
@@ -283,12 +300,16 @@ export async function createThread(
         createdAt: at,
         updatedAt: at,
       });
+      if (voiceNoteAssetId !== undefined) {
+        await assertAttachableVoiceNote(tx, context, songId, voiceNoteAssetId);
+      }
       await tx.insert(comments).values({
         id: commentId,
         workspaceId: context.workspaceId,
         threadId,
         authorId: context.userId,
         body,
+        voiceNoteAssetId: voiceNoteAssetId ?? null,
         createdAt: at,
       });
       await audit({
@@ -337,7 +358,7 @@ export async function reply(
   threadId: string,
   input: ReplyRequest,
 ): Promise<{ readonly commentId: string }> {
-  const { body } = parse(replySchema, input);
+  const { body, voiceNoteAssetId } = parse(replySchema, input);
   await requireAccess(context, songId, 'comment');
   const newId = context.newId ?? newUlid;
   const created = await withAuditedTransaction(
@@ -345,6 +366,9 @@ export async function reply(
     auditContext(context),
     async ({ tx, audit }) => {
       await lockThread(tx, context, songId, threadId);
+      if (voiceNoteAssetId !== undefined) {
+        await assertAttachableVoiceNote(tx, context, songId, voiceNoteAssetId);
+      }
       const commentId = newId();
       const at = (context.now ?? (() => new Date()))();
       await tx.insert(comments).values({
@@ -353,6 +377,7 @@ export async function reply(
         threadId,
         authorId: context.userId,
         body,
+        voiceNoteAssetId: voiceNoteAssetId ?? null,
         createdAt: at,
       });
       await touch(tx, threadId, at);
@@ -381,6 +406,7 @@ async function lockComment(tx: Tx, context: LibraryContext, threadId: string, co
       id: comments.id,
       authorId: comments.authorId,
       tombstonedAt: comments.tombstonedAt,
+      voiceNoteAssetId: comments.voiceNoteAssetId,
     })
     .from(comments)
     .where(
@@ -442,8 +468,18 @@ export async function deleteComment(
     const at = (context.now ?? (() => new Date()))();
     await tx
       .update(comments)
-      .set({ body: '', tombstonedAt: at, tombstonedBy: context.userId })
+      .set({ body: '', voiceNoteAssetId: null, tombstonedAt: at, tombstonedBy: context.userId })
       .where(eq(comments.id, commentId));
+    // A voice note's words are the recording: it goes to the trash with the comment, and the
+    // trash's purge removes the audio for good (task `028`).
+    if (comment.voiceNoteAssetId !== null) {
+      await tx
+        .update(assets)
+        .set({ deletedAt: at, deletedBy: context.userId })
+        .where(
+          and(eq(assets.id, comment.voiceNoteAssetId), eq(assets.workspaceId, context.workspaceId)),
+        );
+    }
     await touch(tx, threadId, at);
     await audit({
       action: 'comment.deleted',
@@ -452,6 +488,41 @@ export async function deleteComment(
       metadata: { threadId, commentId, byAuthor: comment.authorId === context.userId },
     });
   });
+}
+
+/** Each voice note's duration and whether it can be played yet, from its recording. */
+async function voiceNotesOf(
+  context: LibraryContext,
+  assetIds: readonly string[],
+): Promise<Map<string, VoiceNoteView>> {
+  const views = new Map<string, VoiceNoteView>();
+  if (assetIds.length === 0) return views;
+  const rows = await context.db
+    .select({
+      assetId: assetVersions.assetId,
+      durationMs: assetVersions.durationMs,
+      processingState: assetVersions.processingState,
+    })
+    .from(assetVersions)
+    .where(
+      and(
+        eq(assetVersions.workspaceId, context.workspaceId),
+        inArray(assetVersions.assetId, [...assetIds]),
+      ),
+    );
+  for (const row of rows) {
+    views.set(row.assetId, {
+      assetId: row.assetId,
+      durationMs: row.durationMs,
+      state:
+        row.processingState === 'complete'
+          ? 'ready'
+          : row.processingState === 'failed'
+            ? 'failed'
+            : 'processing',
+    });
+  }
+  return views;
 }
 
 /** Resolve or reopen a thread — anyone who may comment. */

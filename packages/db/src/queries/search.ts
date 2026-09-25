@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import { alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
 
 import type { Database } from '../client';
@@ -188,6 +188,9 @@ export async function searchWorkspace(db: Database, input: SearchInput): Promise
             and(isNull(assets.songId), within(assets.projectId, input.projectIds)),
           ),
           sql`${assets.name} ilike ${pattern}`,
+          // A voice note is part of a comment, not a file (task `093`) — and an unposted one is
+          // nobody's business but its maker's.
+          ne(assets.kind, 'voice_note'),
         ),
       )
       .orderBy(desc(assets.updatedAt), asc(assets.id))

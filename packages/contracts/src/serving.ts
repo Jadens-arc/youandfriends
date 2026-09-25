@@ -20,6 +20,8 @@ export const SERVABLE_CONTENT_TYPES = [
   'audio/mpeg',
   'audio/mp4',
   'audio/ogg',
+  // Browser voice notes (task `093`).
+  'audio/webm',
   // Cover renditions (task `069`) — JPEG, produced by the worker. Never SVG.
   'image/jpeg',
 ] as const;

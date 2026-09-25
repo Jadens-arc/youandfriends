@@ -73,6 +73,9 @@ const SIGNATURES: readonly Signature[] = [
   { contentType: 'audio/mp4', at: [{ offset: 4, bytes: 'ftypM4B ' }] },
   { contentType: 'video/mp4', at: [{ offset: 4, bytes: 'ftyp' }] },
   { contentType: 'audio/ogg', at: [{ offset: 0, bytes: 'OggS' }] },
+  // Chrome and Firefox record voice notes (task `093`) as WebM/Opus: an EBML header. Safari
+  // records MP4/AAC, which the `ftyp` rows above already name.
+  { contentType: 'audio/webm', at: [{ offset: 0, bytes: '\x1a\x45\xdf\xa3' }] },
 
   // Cover art (task `069`). Only these three: they are what the artwork pipeline will decode,
   // and none of them can carry script. SVG is deliberately absent — it is a document, not an

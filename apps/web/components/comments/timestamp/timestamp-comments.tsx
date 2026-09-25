@@ -71,7 +71,12 @@ export function TimestampComments({
               ms: thread.anchor.ms,
               versionId: thread.anchor.versionId,
               author: first?.author ?? null,
-              excerpt: first === undefined || first.deleted ? '(deleted)' : first.body,
+              excerpt:
+                first === undefined || first.deleted
+                  ? '(deleted)'
+                  : first.body === '' && first.voiceNote != null
+                    ? '(voice note)'
+                    : first.body,
             },
           ];
         });

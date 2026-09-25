@@ -59,14 +59,35 @@ export const commentAnchorSchema = z.discriminatedUnion('kind', [
 ]);
 export type CommentAnchor = z.infer<typeof commentAnchorSchema>;
 
-export const createThreadSchema = z.object({
-  anchor: commentAnchorSchema,
-  body: commentBodySchema,
-});
-export type CreateThreadRequest = z.infer<typeof createThreadSchema>;
+/** Words that may be empty — when a voice note carries the comment instead (task `093`). */
+const optionalBodySchema = z
+  .string()
+  .trim()
+  .max(COMMENT_MAX_CHARACTERS, `Keep it under ${COMMENT_MAX_CHARACTERS} characters.`)
+  .refine((value) => !hasForbiddenCharacter(value), {
+    message: 'Comments may not contain control characters.',
+  })
+  .default('');
 
-export const replySchema = z.object({ body: commentBodySchema });
-export type ReplyRequest = z.infer<typeof replySchema>;
+/** A comment says something: words, a voice note, or both — never neither. */
+const saysSomething = (value: { body: string; voiceNoteAssetId?: string | undefined }) =>
+  value.body !== '' || value.voiceNoteAssetId !== undefined;
+const NOTHING_SAID = { message: 'Write something first, or record a voice note.', path: ['body'] };
+
+export const createThreadSchema = z
+  .object({
+    anchor: commentAnchorSchema,
+    body: optionalBodySchema,
+    /** A recorded voice note (task `093`), uploaded before the comment is made. */
+    voiceNoteAssetId: ulidSchema.optional(),
+  })
+  .refine(saysSomething, NOTHING_SAID);
+export type CreateThreadRequest = z.input<typeof createThreadSchema>;
+
+export const replySchema = z
+  .object({ body: optionalBodySchema, voiceNoteAssetId: ulidSchema.optional() })
+  .refine(saysSomething, NOTHING_SAID);
+export type ReplyRequest = z.input<typeof replySchema>;
 
 export const editCommentSchema = z.object({ body: commentBodySchema });
 export type EditCommentRequest = z.infer<typeof editCommentSchema>;

@@ -109,6 +109,15 @@ ZIPs are stored and checksummed but **never expanded server-side**, which remove
 class entirely. Content type is derived from magic bytes for media, never trusted from the
 client. Orphan sweeps are documented in `docs/OPERATIONS.md`.
 
+**Voice notes (task `093`)** are the one upload a commenter may make, so they are held tighter
+than files, not looser: the asset records its maker, and only that person may open an upload
+session into it, record the upload as its version, or attach it to a comment — each checked
+again with `comment` on the song at that moment. One recording per voice note (no second session
+or version), a 25 MB ceiling, and no reuse across comments (a unique index). A voice note is not a
+file: the generic rename, re-tag, and trash paths and file search refuse or omit it. It is
+streamed only to someone who may view the song, and only while a live comment carries it;
+deleting the comment detaches and trashes the recording.
+
 ### T5 — Share-link abuse
 
 Enumeration of opaque link IDs, brute-forcing a link password, or a link outliving its

@@ -8,10 +8,18 @@ import * as React from 'react';
  * posted in one place appears in the other without a second fetch deciding otherwise.
  */
 
+export interface VoiceNoteView {
+  readonly assetId: string;
+  readonly durationMs: number | null;
+  readonly state: 'processing' | 'ready' | 'failed';
+}
+
 export interface CommentView {
   readonly id: string;
   readonly author: string | null;
   readonly body: string;
+  /** A recording carried by the comment (task `093`); absent from older responses. */
+  readonly voiceNote?: VoiceNoteView | null;
   readonly createdAt: string;
   readonly editedAt: string | null;
   readonly deleted: boolean;

@@ -85,4 +85,4 @@ Additive. Reverting loses lyric anchoring; comments remain as general threads.
 
 ## Commit
 
-_(not yet)_
+`6e74861`

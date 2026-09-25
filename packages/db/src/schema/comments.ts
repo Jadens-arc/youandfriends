@@ -82,6 +82,12 @@ export const comments = pgTable(
     threadId: reference('thread_id').notNull(),
     authorId: reference('author_id').references(() => users.id, { onDelete: 'set null' }),
     body: text('body').notNull(),
+    /**
+     * A voice note (task `093`): the `voice_note` asset holding the recording. Its words are the
+     * audio, so a comment may be a voice note with no text. Composite with the workspace in the
+     * migration; not cascading — deleting the comment trashes the asset instead.
+     */
+    voiceNoteAssetId: reference('voice_note_asset_id'),
     createdAt: createdAt(),
     editedAt: timestamp('edited_at', { withTimezone: true }),
     tombstonedAt: timestamp('tombstoned_at', { withTimezone: true }),
@@ -89,8 +95,19 @@ export const comments = pgTable(
   },
   (table) => [
     index('comments_thread_idx').on(table.workspaceId, table.threadId, table.createdAt),
+    // One recording, one comment: two comments racing to claim a voice note cannot both win.
+    uniqueIndex('comments_voice_note_key')
+      .on(table.voiceNoteAssetId)
+      .where(sql`voice_note_asset_id is not null`),
     check('comments_body_length', sql`length(body) <= 5000`),
     check('comments_tombstone_erases', sql`tombstoned_at is null or body = ''`),
-    check('comments_live_has_words', sql`tombstoned_at is not null or length(trim(body)) > 0`),
+    check(
+      'comments_live_has_words',
+      sql`tombstoned_at is not null or length(trim(body)) > 0 or voice_note_asset_id is not null`,
+    ),
+    check(
+      'comments_tombstone_drops_voice',
+      sql`tombstoned_at is null or voice_note_asset_id is null`,
+    ),
   ],
 );
