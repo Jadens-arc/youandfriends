@@ -15,7 +15,14 @@ import {
   type ReplyRequest,
   type ResolveThreadRequest,
 } from '@youandfriends/contracts';
-import { comments, commentThreads, songs, users, type DirectDatabase } from '@youandfriends/db';
+import {
+  comments,
+  commentThreads,
+  mixVersions,
+  songs,
+  users,
+  type DirectDatabase,
+} from '@youandfriends/db';
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { z } from 'zod';
@@ -224,12 +231,26 @@ export async function createThread(
   input: CreateThreadRequest,
 ): Promise<{ readonly threadId: string; readonly commentId: string }> {
   const { anchor, body } = parse(createThreadSchema, input);
-  // Timestamp and lyric anchors arrive with tasks `091` and `092`; the shape is ready, the
-  // behaviour (checking the version, resolving the range) is not.
-  if (anchor.kind !== 'general') {
-    throw validationFailed([{ path: 'anchor', message: 'Only general comments for now.' }]);
+  // Lyric anchors arrive with task `092`; the shape is ready, the behaviour is not.
+  if (anchor.kind === 'lyric') {
+    throw validationFailed([{ path: 'anchor', message: 'Lyric comments are not available yet.' }]);
   }
   await requireAccess(context, songId, 'comment');
+  if (anchor.kind === 'timestamp') {
+    // The moment belongs to the song; the version records what was playing when it was heard.
+    // It must be one of this song's — never another song's, or another workspace's.
+    const [version] = await context.db
+      .select({ id: mixVersions.id })
+      .from(mixVersions)
+      .where(
+        and(
+          eq(mixVersions.id, anchor.versionId),
+          eq(mixVersions.songId, songId),
+          eq(mixVersions.workspaceId, context.workspaceId),
+        ),
+      );
+    if (version === undefined) refuse(`version ${anchor.versionId} is not on song ${songId}`);
+  }
   const newId = context.newId ?? newUlid;
   const created = await withAuditedTransaction(
     context.db,
@@ -242,7 +263,10 @@ export async function createThread(
         id: threadId,
         workspaceId: context.workspaceId,
         songId,
-        anchorKind: 'general',
+        anchorKind: anchor.kind,
+        ...(anchor.kind === 'timestamp'
+          ? { anchorVersionId: anchor.versionId, anchorMs: anchor.ms }
+          : {}),
         createdBy: context.userId,
         createdAt: at,
         updatedAt: at,

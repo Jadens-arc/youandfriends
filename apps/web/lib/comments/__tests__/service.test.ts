@@ -10,6 +10,10 @@ import {
 import {
   addMember,
   createTestDatabase,
+  makeAsset,
+  makeAssetVersion,
+  makeMixVersion,
+  makeStorageObject,
   makeProject,
   makeSong,
   makeTenant,
@@ -48,7 +52,14 @@ describeWithDatabase('comments', () => {
   let clock = new Date('2026-09-24T12:00:00Z');
   const people = {} as Record<'owner' | 'editor' | 'sam' | 'alex' | 'viewer' | 'stranger', string>;
   const ids = {} as Record<
-    'song' | 'otherThread' | 'trashed' | 'trashedThread' | 'foreignThread' | 'foreignSong',
+    | 'song'
+    | 'otherThread'
+    | 'otherVersion'
+    | 'trashed'
+    | 'trashedThread'
+    | 'foreignThread'
+    | 'foreignSong'
+    | 'foreignVersion',
     string
   >;
 
@@ -86,6 +97,14 @@ describeWithDatabase('comments', () => {
     return id;
   }
 
+  /** A mix version of `songId`, with the storage rows it needs. */
+  async function versionOf(songId: string, workspace = workspaceId) {
+    const asset = await makeAsset(db, workspace, { songId }, { kind: 'mix' });
+    const object = await makeStorageObject(db, workspace);
+    const assetVersion = await makeAssetVersion(db, workspace, asset.id, object.id, 1);
+    return (await makeMixVersion(db, workspace, songId, assetVersion.id, 1)).id;
+  }
+
   const general = (body: string) => ({ anchor: { kind: 'general' as const }, body });
 
   beforeAll(async () => {
@@ -109,6 +128,7 @@ describeWithDatabase('comments', () => {
     ids.song = (await makeSong(db, workspaceId, project.id, 'Headlights')).id;
     const other = await makeSong(db, workspaceId, project.id, 'Tail Lights');
     ids.otherThread = await threadRow(workspaceId, other.id);
+    ids.otherVersion = await versionOf(other.id);
     ids.trashed = (await makeSong(db, workspaceId, project.id, 'Thrown Away')).id;
     ids.trashedThread = await threadRow(workspaceId, ids.trashed);
     await db
@@ -121,6 +141,7 @@ describeWithDatabase('comments', () => {
       await makeSong(db, foreign.workspace.id, foreignProject.id, 'Unreleased')
     ).id;
     ids.foreignThread = await threadRow(foreign.workspace.id, ids.foreignSong);
+    ids.foreignVersion = await versionOf(ids.foreignSong, foreign.workspace.id);
   }, 60_000);
 
   afterAll(async () => {
@@ -147,14 +168,33 @@ describeWithDatabase('comments', () => {
     expect((await listThreads(contextFor(people.sam), ids.song)).canComment).toBe(true);
   });
 
-  it('accepts only general anchors until timestamp and lyric anchors land', async () => {
-    const error = await refusal(
+  it('anchors a thread to a moment of one of this song’s versions, and no other', async () => {
+    const mine = await versionOf(ids.song);
+    const { threadId } = await createThread(contextFor(people.sam), ids.song, {
+      anchor: { kind: 'timestamp', versionId: mine, ms: 102_000 },
+      body: 'The snare here is too loud.',
+    });
+    const thread = (await listThreads(contextFor(people.viewer), ids.song)).threads.find(
+      (candidate) => candidate.id === threadId,
+    );
+    expect(thread?.anchor).toEqual({ kind: 'timestamp', versionId: mine, ms: 102_000 });
+    // Another song's version, another workspace's, or none at all: 404-shaped.
+    for (const versionId of [ids.otherVersion, ids.foreignVersion, testId()]) {
+      const error = await refusal(
+        createThread(contextFor(people.sam), ids.song, {
+          anchor: { kind: 'timestamp', versionId, ms: 1_000 },
+          body: 'at 0:01',
+        }),
+      );
+      expect(error.publicCode).toBe('not_found');
+    }
+    const lyric = await refusal(
       createThread(contextFor(people.sam), ids.song, {
-        anchor: { kind: 'timestamp', versionId: testId(), ms: 1_000 },
-        body: 'at 0:01',
+        anchor: { kind: 'lyric', range: {} },
+        body: 'this line',
       }),
     );
-    expect(error.publicCode).toBe('validation_failed');
+    expect(lyric.publicCode).toBe('validation_failed');
   });
 
   it('keeps replies in order and brings the busiest thread to the top', async () => {

@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `091` is next. `016`, `029` are passed over until their dependencies are `complete`. 69 of 95 iteration-one tasks are `complete`.
+Task `092` is next. `016`, `029` are passed over until their dependencies are `complete`. 70 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -95,8 +95,8 @@ Task `091` is next. `016`, `029` are passed over until their dependencies are `c
 | `083` | Lyric timestamp anchors                                                | Collaborative lyrics                 | `081`, `072`                              | `complete` | `f526fde` | —       |
 | `084` | Revision snapshots and restoration                                     | Collaborative lyrics                 | `080`, `082`                              | `complete` | `3a7b93b` | —       |
 | `085` | Mobile lyrics experience                                               | Collaborative lyrics                 | `081`, `082`, `083`, `014`                | `complete` | `667147c` | —       |
-| `090` | Comment schema, threads, and general comments                          | Comments, voice notes, notifications | `042`, `026`                              | `complete` | —         | —       |
-| `091` | Timestamped audio comments                                             | Comments, voice notes, notifications | `090`, `072`, `071`                       | `pending`  | —         | —       |
+| `090` | Comment schema, threads, and general comments                          | Comments, voice notes, notifications | `042`, `026`                              | `complete` | `3f3af07` | —       |
+| `091` | Timestamped audio comments                                             | Comments, voice notes, notifications | `090`, `072`, `071`                       | `complete` | —         | —       |
 | `092` | Lyric-anchored comments                                                | Comments, voice notes, notifications | `090`, `081`, `082`                       | `pending`  | —         | —       |
 | `093` | Voice notes                                                            | Comments, voice notes, notifications | `090`, `053`, `063`                       | `pending`  | —         | —       |
 | `094` | Mentions, reactions, and thread resolution                             | Comments, voice notes, notifications | `090`, `032`                              | `pending`  | —         | —       |

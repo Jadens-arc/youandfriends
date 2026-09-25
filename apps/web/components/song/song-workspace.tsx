@@ -6,6 +6,7 @@ import type { ActivityItem } from '@/lib/library/projects';
 import type { SongWorkspace as SongWorkspaceData } from '@/lib/songs/workspace';
 
 import { CommentsPanel } from '@/components/comments/comments-panel';
+import { songPlayback } from '@/lib/comments/playback';
 import { ActivityFeed } from '@/components/library/activity-feed';
 import { InlineField } from '@/components/metadata/inline-field';
 import { DropZone, UploadFilesButton } from '@/components/upload/drop-zone';
@@ -166,7 +167,17 @@ export function SongWorkspaceView({
                 ),
                 activity: (
                   <div className="flex flex-col gap-8">
-                    <CommentsPanel songId={workspace.song.id} />
+                    <CommentsPanel
+                      songId={workspace.song.id}
+                      playback={songPlayback({
+                        songId: workspace.song.id,
+                        songTitle: workspace.song.title,
+                        artist: workspace.artist,
+                        cover: workspace.cover,
+                        album: workspace.project?.name ?? null,
+                        versions: workspace.versions,
+                      })}
+                    />
                     <section
                       aria-labelledby="song-activity-heading"
                       className="flex flex-col gap-2"

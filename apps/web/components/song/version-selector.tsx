@@ -26,6 +26,8 @@ import { ABControls } from './versions/ab-controls';
 import { UploadVersion } from './versions/upload-version';
 import { VersionActions } from './versions/version-actions';
 import { WaveformRegion } from './waveform-region';
+import { TimestampComments } from '@/components/comments/timestamp/timestamp-comments';
+import { songPlayback } from '@/lib/comments/playback';
 
 /**
  * What the waveform region says until the waveform itself is drawn (task `072`): the honest
@@ -350,6 +352,17 @@ export function VersionPanel({
           <WaveformStatus version={selected} />
         )}
       </WaveformRegion>
+      <TimestampComments
+        playback={songPlayback({
+          songId,
+          songTitle,
+          artist: artist ?? null,
+          cover: cover ?? null,
+          album,
+          versions,
+        })}
+        durationMs={selected?.durationMs ?? null}
+      />
       <LoopControls songId={songId} />
       <ABControls
         songId={songId}

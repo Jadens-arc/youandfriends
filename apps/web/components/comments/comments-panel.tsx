@@ -5,35 +5,23 @@ import { Button, cn, focusRing } from '@youandfriends/ui';
 import { CheckCircle2, MessageSquare, RotateCcw } from 'lucide-react';
 import * as React from 'react';
 
+import { playAtMoment, type SongPlayback } from '@/lib/comments/playback';
+import {
+  refreshComments,
+  useSongComments,
+  type CommentsData,
+  type CommentView,
+  type ThreadView,
+} from '@/lib/comments/store';
+import { formatClock } from '@/lib/player/format';
+
 /**
  * The conversation on a song (task `090`): threads of plain-text comments, open ones first,
  * resolved ones folded away below. Bodies are rendered as text — React escapes them — never as
  * markup. Everything a person may not do is simply not offered; the server refuses it anyway.
  */
 
-interface CommentView {
-  readonly id: string;
-  readonly author: string | null;
-  readonly body: string;
-  readonly createdAt: string;
-  readonly editedAt: string | null;
-  readonly deleted: boolean;
-  readonly canEdit: boolean;
-  readonly canDelete: boolean;
-}
-
-interface ThreadView {
-  readonly id: string;
-  readonly anchor: { readonly kind: string };
-  readonly resolvedAt: string | null;
-  readonly resolvedBy: string | null;
-  readonly comments: readonly CommentView[];
-}
-
-interface Loaded {
-  readonly threads: readonly ThreadView[];
-  readonly canComment: boolean;
-}
+type Loaded = CommentsData;
 
 const when = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -46,7 +34,7 @@ async function send(url: string, method: string, body?: unknown): Promise<boolea
   return response.ok;
 }
 
-function Composer({
+export function Composer({
   label,
   submitLabel,
   initial = '',
@@ -212,16 +200,50 @@ function threadName(thread: ThreadView): string {
   return `Thread: ${words.length > 60 ? `${words.slice(0, 57)}…` : words}`;
 }
 
+/** A thread's moment (task `091`): the time in mono, tabular figures, and a press plays it. */
+function MomentChip({
+  anchor,
+  playback,
+}: {
+  readonly anchor: Extract<ThreadView['anchor'], { kind: 'timestamp' }>;
+  readonly playback: SongPlayback | null;
+}) {
+  const clock = formatClock(anchor.ms / 1000);
+  const version = playback?.versions.find((candidate) => candidate.id === anchor.versionId);
+  const heard = version === undefined ? '' : ` in version ${version.number}`;
+  return (
+    <button
+      type="button"
+      disabled={playback === null}
+      onClick={() =>
+        playback === null ? undefined : playAtMoment(playback, anchor.versionId, anchor.ms)
+      }
+      aria-label={`Play from ${clock}${heard}`}
+      className={cn(
+        'border-border-subtle text-caption text-foreground tabular w-fit rounded-sm border px-1.5 font-mono max-md:min-h-11',
+        focusRing,
+      )}
+    >
+      {clock}
+      {heard === '' ? null : (
+        <span className="text-muted-foreground font-sans"> · v{version?.number}</span>
+      )}
+    </button>
+  );
+}
+
 function Thread({
   thread,
   songId,
   canComment,
   onChanged,
+  playback,
 }: {
   readonly thread: ThreadView;
   readonly songId: string;
   readonly canComment: boolean;
   readonly onChanged: () => Promise<void>;
+  readonly playback: SongPlayback | null;
 }) {
   const [replying, setReplying] = React.useState(false);
   const base = `/api/songs/${encodeURIComponent(songId)}/comments/${encodeURIComponent(thread.id)}`;
@@ -231,6 +253,9 @@ function Thread({
       aria-label={threadName(thread)}
       className="border-border-subtle bg-card flex flex-col gap-3 rounded-md border p-3"
     >
+      {thread.anchor.kind === 'timestamp' ? (
+        <MomentChip anchor={thread.anchor} playback={playback} />
+      ) : null}
       <ol className="flex flex-col gap-3">
         {thread.comments.map((comment) => (
           <Comment key={comment.id} comment={comment} base={base} onChanged={onChanged} />
@@ -285,25 +310,18 @@ function Thread({
   );
 }
 
-export function CommentsPanel({ songId }: { readonly songId: string }) {
-  const [loaded, setLoaded] = React.useState<Loaded | null | 'error'>(null);
+export function CommentsPanel({
+  songId,
+  playback = null,
+}: {
+  readonly songId: string;
+  /** For playing a comment's moment (task `091`); null where there is no audio to play. */
+  readonly playback?: SongPlayback | null;
+}) {
+  const state = useSongComments(songId);
+  const loaded: Loaded | null | 'error' = state === 'loading' ? null : state;
   const base = `/api/songs/${encodeURIComponent(songId)}/comments`;
-
-  const load = React.useCallback(async () => {
-    const response = await fetch(base, { cache: 'no-store' });
-    setLoaded(response.ok ? ((await response.json()) as Loaded) : 'error');
-  }, [base]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    void fetch(base, { cache: 'no-store' }).then(async (response) => {
-      if (cancelled) return;
-      setLoaded(response.ok ? ((await response.json()) as Loaded) : 'error');
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [base]);
+  const load = React.useCallback(() => refreshComments(songId), [songId]);
 
   if (loaded === null)
     return <p className="text-body text-muted-foreground font-sans">Loading comments…</p>;
@@ -343,6 +361,7 @@ export function CommentsPanel({ songId }: { readonly songId: string }) {
           songId={songId}
           canComment={loaded.canComment}
           onChanged={load}
+          playback={playback}
         />
       ))}
       {resolved.length === 0 ? null : (
@@ -363,6 +382,7 @@ export function CommentsPanel({ songId }: { readonly songId: string }) {
                 songId={songId}
                 canComment={loaded.canComment}
                 onChanged={load}
+                playback={playback}
               />
             ))}
           </div>

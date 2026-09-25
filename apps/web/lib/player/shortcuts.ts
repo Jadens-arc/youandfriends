@@ -15,6 +15,7 @@ export const PLAYER_SHORTCUTS = [
   { keys: 'U', action: 'Clear the loop' },
   { keys: 'A', action: 'Flip to the other version (A/B)' },
   { keys: 'V', action: 'Next version of this song' },
+  { keys: 'C', action: 'Comment at this moment (on the song’s page)' },
 ] as const;
 
 /**
