@@ -86,11 +86,14 @@ new surface is a decoder running against whatever someone uploads.
 
 ## Acceptance criteria
 
-- [ ] `docs/THREAT_MODEL.md` has a T11 section covering decoder exploitation, external-reference
-      demuxers, resource exhaustion, orphaned children, and scratch-space disclosure.
-- [ ] Each threat names its control and where that control is enforced.
-- [ ] A minimum ffmpeg version is recorded and asserted at startup, with a test.
-- [ ] `docs/OPERATIONS.md` names the deployment-owned limits.
+- [x] `docs/THREAT_MODEL.md` has a T11 section covering decoder exploitation, external-reference demuxers, resource exhaustion, orphaned children, and scratch-space disclosure. (Numbered **T12**: T11 was taken by invitation abuse, task `032`. It also covers command injection, a payload naming another object, and tool output reaching a person. The unsandboxed decoder is recorded as a residual risk.)
+- [x] Each threat names its control and where that control is enforced. (A table: threat, control, the file that enforces it, the test that proves it.)
+- [x] A minimum ffmpeg version is recorded and asserted at startup, with a test. (`MINIMUM_FFMPEG_VERSION` = 6.1 in `packages/media/src/capabilities.ts`; `assertCapabilities` reads both binaries' `-version` and refuses an older build or an unversioned git snapshot; README prerequisites say 6.1. Tested with a stand-in ffmpeg reporting 4.4.2, 6.0 and a git snapshot, and with an old ffprobe alone; mutation-checked.)
+- [x] `docs/OPERATIONS.md` names the deployment-owned limits. (§3: memory per worker, disk, concurrency, maximum duration, ffmpeg version.)
+
+**A gap found while writing the model, and closed.** Only `probeAudio` passed `-protocol_whitelist file`; the loudness, derivative and waveform invocations did not, so the model would have named a control that three of four call sites lacked. All four now build their input with `untrustedInput()` in `packages/media/src/run.ts`, which also refuses a relative path. Tested, along with the 0700 mode of scratch directories, which was previously a property of `mkdtemp` that nothing asserted.
+
+**Manual QA** 1 is the automated test above: `YOUANDFRIENDS_FFMPEG_PATH` pointed at a stub reporting an old version is refused.
 
 ## Tests and validation commands
 
@@ -109,8 +112,8 @@ Documentation plus one startup assertion. Reverting loses the model and the vers
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`1562f13`

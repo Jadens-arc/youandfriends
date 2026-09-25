@@ -50,3 +50,41 @@ export const audioMetadataSchema = z.object({
   truePeakDbtp: z.number().nullable(),
 });
 export type AudioMetadata = z.infer<typeof audioMetadataSchema>;
+
+/**
+ * Why processing failed, as a person should read it (task `065`). The pipeline stores one of
+ * these in `asset_versions.processing_error`; the tool output and paths behind it go to the job's
+ * own log (`media_jobs.last_error`), never to the page. "ffprobe exited 1" is not an explanation.
+ */
+export const PROCESSING_FAILURE_MESSAGES = {
+  not_media: 'This file doesn’t appear to be audio we can process.',
+  no_audio_stream: 'This file doesn’t contain any audio.',
+  no_duration: 'This file has no audio in it — it may be empty or cut short.',
+  too_long: 'This recording is longer than the six-hour limit.',
+  not_image: 'This file doesn’t appear to be a JPEG, PNG, or WebP image.',
+  image_too_large: 'This image is too large to use as cover art.',
+  unreadable: 'This file doesn’t appear to be audio we can process.',
+  gave_up: 'We couldn’t finish processing this version.',
+} as const;
+export type ProcessingFailureKind = keyof typeof PROCESSING_FAILURE_MESSAGES;
+
+/**
+ * Cover art (task `069`): the image types an artwork original may be, and the square widths it
+ * is rendered at. Renditions are JPEG derivatives named `cover-<width>`; the original is never
+ * served into a page.
+ */
+export const ARTWORK_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export const COVER_RENDITION_WIDTHS = [128, 256, 512] as const;
+export const COVER_RENDITION_TYPE = 'image/jpeg';
+
+export function coverVariant(width: number): string {
+  return `cover-${width}`;
+}
+
+/** `cover-256` → 256; anything else → null. */
+export function coverWidthOf(variant: string): number | null {
+  const match = /^cover-(\d+)$/.exec(variant);
+  if (match === null) return null;
+  const width = Number(match[1]);
+  return (COVER_RENDITION_WIDTHS as readonly number[]).includes(width) ? width : null;
+}

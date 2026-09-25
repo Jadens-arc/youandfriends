@@ -23,8 +23,7 @@
     },
     "lint": {
       "dependsOn": ["^lint"],
-      "outputs": [],
-      "inputs": ["src/**", "app/**", "eslint.config.mjs", "package.json"]
+      "outputs": []
     },
     "typecheck": {
       "dependsOn": ["^build"],
@@ -32,8 +31,7 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": [],
-      "inputs": ["src/**", "app/**", "vitest.config.ts", "package.json"]
+      "outputs": []
     },
     "test:watch": {
       "cache": false,

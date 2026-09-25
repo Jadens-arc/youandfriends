@@ -1,4 +1,4 @@
-import { newUlid } from '@youandfriends/contracts';
+import { isUlid, newUlid } from '@youandfriends/contracts';
 
 /**
  * Object keys.
@@ -35,6 +35,20 @@ export type ObjectClass = keyof typeof OBJECT_CLASSES;
  */
 export function newObjectKey(workspaceId: string, objectClass: ObjectClass): string {
   return `w/${workspaceId}/${OBJECT_CLASSES[objectClass]}/${newUlid()}`;
+}
+
+/**
+ * The key of one derivative row's object: `w/<workspaceId>/d/<derivativeId>` (task `064`).
+ *
+ * Deterministic where {@link newObjectKey} is random, and only for derivatives. A media job that
+ * uploads and then dies before recording what it uploaded must, on retry, write the *same* key —
+ * a fresh one each attempt would leave an unreferenced object behind for every failure. The
+ * derivative row's id is stable across retries (one row per version, kind and variant), so it
+ * names the object. Still opaque: the id is a server-generated ULID, never a user value.
+ */
+export function derivativeObjectKey(workspaceId: string, derivativeId: string): string {
+  if (!isUlid(derivativeId)) throw new Error(`derivative id ${derivativeId} is not a ULID`);
+  return `w/${workspaceId}/${OBJECT_CLASSES.derivative}/${derivativeId}`;
 }
 
 /** The prefix covering everything a workspace owns, for a listing or a lifecycle rule. */

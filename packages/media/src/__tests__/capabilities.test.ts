@@ -8,8 +8,11 @@ import {
   AAC_ENCODERS,
   assertCapabilities,
   capabilitiesFrom,
+  meetsMinimum,
+  MINIMUM_FFMPEG_VERSION,
   MissingCapabilityError,
   parseNames,
+  parseToolVersion,
   probeCapabilities,
   REQUIRED_ENCODERS,
   REQUIRED_FILTERS,
@@ -21,6 +24,12 @@ import { announceSkip, unavailableReason } from './prerequisite';
  * matter most are the ones where a build is *present but inadequate* — the case that otherwise
  * produces a silent, broken derivative nobody notices until playback.
  */
+/** What a supported build prints for `-version`; the listing tests are not about versions. */
+const GOOD_VERSIONS = {
+  ffmpeg: 'ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers',
+  ffprobe: 'ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers',
+};
+
 const reason = unavailableReason();
 const describeWithFfmpeg = reason === null ? describe : describe.skip;
 if (reason !== null) announceSkip('media capability tests', reason);
@@ -103,7 +112,7 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
         '',
       ].join('\n');
 
-      expect(capabilitiesFrom(encoders, goodFilters).ok).toBe(true);
+      expect(capabilitiesFrom(encoders, goodFilters, GOOD_VERSIONS).ok).toBe(true);
     });
 
     it('accepts libfdk_aac in place of the native encoder, as ADR 0004 allows', () => {
@@ -120,7 +129,7 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
         '',
       ].join('\n');
 
-      const capabilities = capabilitiesFrom(encoders, goodFilters);
+      const capabilities = capabilitiesFrom(encoders, goodFilters, GOOD_VERSIONS);
       expect(capabilities.ok).toBe(true);
       // And it reports which one, so task `062` names what exists rather than assuming.
       expect(capabilities.aacEncoder).toBe('libfdk_aac');
@@ -136,7 +145,7 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
         '',
       ].join('\n');
 
-      expect(capabilitiesFrom(encoders, goodFilters).aacEncoder).toBe('aac');
+      expect(capabilitiesFrom(encoders, goodFilters, GOOD_VERSIONS).aacEncoder).toBe('aac');
     });
 
     it('refuses a build with no AAC encoder at all', () => {
@@ -150,7 +159,7 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
         '',
       ].join('\n');
 
-      const capabilities = capabilitiesFrom(encoders, goodFilters);
+      const capabilities = capabilitiesFrom(encoders, goodFilters, GOOD_VERSIONS);
       expect(capabilities.ok).toBe(false);
       expect(capabilities.aacEncoder).toBeNull();
       expect(capabilities.missingEncoders.join(' ')).toMatch(/AAC encoder/);
@@ -165,7 +174,7 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
         '',
       ].join('\n');
 
-      const capabilities = capabilitiesFrom(encoders, goodFilters);
+      const capabilities = capabilitiesFrom(encoders, goodFilters, GOOD_VERSIONS);
       expect(capabilities.ok).toBe(false);
       expect(capabilities.missingEncoders).toEqual(['libopus']);
     });
@@ -180,7 +189,7 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
       ].join('\n');
       const filters = ['Filters:', ' ------', ' ..C loudnorm  A->A  normalization', ''].join('\n');
 
-      const capabilities = capabilitiesFrom(encoders, filters);
+      const capabilities = capabilitiesFrom(encoders, filters, GOOD_VERSIONS);
       expect(capabilities.ok).toBe(false);
       expect(capabilities.missingFilters).toEqual(['ebur128']);
       // `loudnorm` is present and is not a substitute: it normalizes, it does not measure.
@@ -188,7 +197,7 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
     });
 
     it('refuses an empty listing rather than treating it as satisfied', () => {
-      const capabilities = capabilitiesFrom('', '');
+      const capabilities = capabilitiesFrom('', '', GOOD_VERSIONS);
       expect(capabilities.ok).toBe(false);
       expect(capabilities.missingEncoders).toContain('libopus');
       expect(capabilities.missingEncoders.join(' ')).toMatch(/AAC encoder/);
@@ -227,7 +236,11 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
      * binary. It exists because the interesting build is one this machine does not have, and
      * degrading the system ffmpeg is not something a test may do.
      */
-    async function fakeFfmpeg(encoderListing: string, filterListing: string): Promise<string> {
+    async function fakeFfmpeg(
+      encoderListing: string,
+      filterListing: string,
+      version = '6.1.1',
+    ): Promise<string> {
       const dir = await mkdtemp(join(tmpdir(), 'fake-ffmpeg-'));
       const path = join(dir, 'ffmpeg');
       await writeFile(
@@ -237,6 +250,7 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
           'for arg in "$@"; do',
           `  if [ "$arg" = "-encoders" ]; then printf '%s' ${shellQuote(encoderListing)}; exit 0; fi`,
           `  if [ "$arg" = "-filters" ]; then printf '%s' ${shellQuote(filterListing)}; exit 0; fi`,
+          `  if [ "$arg" = "-version" ]; then printf '%s' ${shellQuote(`ffmpeg version ${version} Copyright (c) the FFmpeg developers\n`)}; exit 0; fi`,
           'done',
           'exit 0',
           '',
@@ -317,6 +331,21 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
       });
     }, 30_000);
 
+    it('refuses a build older than the minimum version (task `068`)', async () => {
+      const encoders = [
+        'Encoders:',
+        ' ------',
+        ' A....D aac      AAC (Advanced Audio Coding)',
+        ' A....D libopus  libopus Opus (codec opus)',
+      ].join('\n');
+      for (const version of ['4.4.2-0ubuntu0.22.04.1', '6.0', 'N-113348-g0a5f8c8e4a']) {
+        const fake = await fakeFfmpeg(encoders, adequateFilters, version);
+        await withFfmpeg(fake, async () => {
+          await expect(assertCapabilities()).rejects.toThrow(/version 6\.1 or later/);
+        });
+      }
+    }, 30_000);
+
     it('refuses to start when ffprobe is missing, even though ffmpeg is fine', async () => {
       // **Half the toolchain was never checked.** The gate only ever executed ffmpeg, so a worker
       // with a good ffmpeg and a mis-pointed `YOUANDFRIENDS_FFPROBE_PATH` started, consumed the
@@ -363,6 +392,9 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
       // Constructed rather than probed: removing an encoder from a system ffmpeg is not
       // something a test may do, and the message is what an operator reads at 3am.
       const error = new MissingCapabilityError({
+        ffmpegVersion: [6, 1, 1],
+        ffprobeVersion: [6, 1, 1],
+        versionOk: true,
         encoders: ['flac'],
         filters: [],
         aacEncoder: null,
@@ -406,5 +438,42 @@ describeWithFfmpeg('reading what an ffmpeg build can do', () => {
     expect(REQUIRED_FILTERS).toContain('ebur128');
     // AAC is required as a capability rather than as one name, per ADR 0004.
     expect(AAC_ENCODERS).toEqual(['aac', 'libfdk_aac']);
+  });
+});
+
+describe('the minimum ffmpeg version (task `068`)', () => {
+  it('reads distribution, release and static-build version lines', () => {
+    expect(parseToolVersion(GOOD_VERSIONS.ffmpeg)).toEqual([6, 1, 1]);
+    expect(parseToolVersion('ffmpeg version n7.0.2 Copyright')).toEqual([7, 0, 2]);
+    expect(parseToolVersion('ffmpeg version 7.1-static https://johnvansickle.com')).toEqual([
+      7, 1, 0,
+    ]);
+    expect(parseToolVersion('ffprobe version 6.1 Copyright')).toEqual([6, 1, 0]);
+  });
+
+  it('cannot read a git snapshot or garbage, and so refuses it', () => {
+    expect(parseToolVersion('ffmpeg version N-113348-g0a5f8c8e4a Copyright')).toBeNull();
+    expect(parseToolVersion('')).toBeNull();
+    expect(meetsMinimum(null)).toBe(false);
+  });
+
+  it('compares against the floor', () => {
+    expect(MINIMUM_FFMPEG_VERSION).toEqual([6, 1]);
+    expect(meetsMinimum([6, 1, 0])).toBe(true);
+    expect(meetsMinimum([7, 0, 0])).toBe(true);
+    expect(meetsMinimum([6, 0, 9])).toBe(false);
+    expect(meetsMinimum([5, 9, 0])).toBe(false);
+  });
+
+  it('makes an old ffprobe alone enough to refuse', () => {
+    const listing = ['Encoders:', ' ------', ' A....D aac x', ' A....D libopus y'].join('\n');
+    const filters = ['Filters:', ' ------', ' ... ebur128 A->N x'].join('\n');
+    const capabilities = capabilitiesFrom(listing, filters, {
+      ffmpeg: GOOD_VERSIONS.ffmpeg,
+      ffprobe: 'ffprobe version 5.1.2 Copyright',
+    });
+    expect(capabilities.ok).toBe(false);
+    expect(new MissingCapabilityError(capabilities).message).toContain('ffprobe 5.1.2');
+    expect(capabilitiesFrom(listing, filters, GOOD_VERSIONS).ok).toBe(true);
   });
 });

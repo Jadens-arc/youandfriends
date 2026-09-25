@@ -62,6 +62,14 @@ const GATES = [
     command: 'pnpm --filter @youandfriends/storage test:contract:managed',
     skipReason: minioSkipReason,
   },
+  {
+    // Registered by task `066`. Every fixture class through the real pipeline — real ffmpeg, real
+    // Postgres — plus the golden waveform file. Runs inside `unit` as well; listed so a machine
+    // without ffmpeg reports this gate as SKIPPED by name instead of a quietly shorter test run.
+    name: 'media fixtures (ffmpeg)',
+    command: 'pnpm --filter @youandfriends/media test && pnpm --filter @youandfriends/jobs test',
+    skipReason: ffmpegSkipReason,
+  },
   { name: 'build', command: 'pnpm build' },
   {
     // Registered by task `020`. `docs/OPERATIONS.md` §4 requires a dry run before every
@@ -83,11 +91,22 @@ const GATES = [
 
 /** Gates a later task will register. Listed so their absence is visible, not forgotten. */
 const PENDING_GATES = [
-  ['media fixtures (ffmpeg)', 'task 066'],
   ['rust clippy + tests', 'task 118'],
   ['playwright (desktop + iPhone)', 'task 120'],
   ['secret scan', 'task 122'],
 ];
+
+function ffmpegSkipReason() {
+  const missing = ['ffmpeg', 'ffprobe'].filter(
+    (tool) =>
+      spawnSync(process.env[`YOUANDFRIENDS_${tool.toUpperCase()}_PATH`] ?? tool, ['-version'], {
+        stdio: 'ignore',
+      }).status !== 0,
+  );
+  return missing.length === 0
+    ? null
+    : `${missing.join(' and ')} not installed, so the media fixture suite cannot run`;
+}
 
 function minioSkipReason() {
   const probe = spawnSync('docker', ['info'], { stdio: 'ignore' });

@@ -22,6 +22,7 @@ import {
 } from '@youandfriends/db';
 
 import type { LibraryContext } from './context';
+import { resolveCovers, type CoverSource } from './covers';
 
 /**
  * Use cases behind the project library (task `041`): the project cards and the secondary
@@ -52,11 +53,11 @@ export interface ProjectCard {
   readonly createdAt: Date;
   readonly lastActivityAt: Date;
   /**
-   * Cover art for the card. Always `null` in task `041`: no path yet produces a sized, served
-   * image from a stored original (task `069`), and serving full-resolution originals into a
-   * grid is the performance mistake the task notes name. Cards render the designed placeholder.
+   * Cover art for the card: presigned renditions of the project's chosen cover (task `069`), or
+   * `null` — no cover chosen, not rendered yet, or no derivatives bucket — for the designed
+   * placeholder. Never the original.
    */
-  readonly cover: null;
+  readonly cover: CoverSource | null;
   /** Everyone the project is open to, owners first by join order. */
   readonly collaborators: readonly Collaborator[];
 }
@@ -253,6 +254,7 @@ export async function readProjectLibrary(
     activityRows,
     sharedSongRows,
     storage,
+    covers,
   ] = await Promise.all([
     // Only visible projects are ever passed: who works on a project is itself information.
     loadProjectCollaborators(context.db, context.workspaceId, inScope, now),
@@ -271,6 +273,11 @@ export async function readProjectLibrary(
     ),
     listSongsByIds(context.db, context.workspaceId, access.directlySharedSongIds),
     readStorage(context, options.quotaBytes, now),
+    // One query for the page's covers — only projects that already passed the filter above.
+    resolveCovers(
+      context,
+      inScope.map((project) => project.id),
+    ),
   ]);
 
   const nameOf = new Map(members.map((member) => [member.userId, member.displayName]));
@@ -282,7 +289,7 @@ export async function readProjectLibrary(
     songCount: project.songCount,
     createdAt: project.createdAt,
     lastActivityAt: project.lastActivityAt,
-    cover: null,
+    cover: covers.get(project.id) ?? null,
     collaborators: (collaboratorIds.get(project.id) ?? []).flatMap((userId) => {
       const displayName = nameOf.get(userId);
       return displayName === undefined ? [] : [{ userId, displayName }];

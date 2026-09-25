@@ -73,6 +73,24 @@ Without `ExposeHeaders: ["ETag"]` every upload fails at its first part with "Sto
 return an ETag", and the uploader does not retry it — it is configuration, not a network blip.
 Add each preview deployment's origin as needed; never `*`.
 
+The derivatives bucket needs the same rule with `GET` and `HEAD` only: the player fetches
+waveform peaks cross-origin (task `072`).
+
+### What a presigned read serves (task `067`)
+
+Every signed read sets `response-content-type` and `response-content-disposition` itself: the
+recorded type when it is on the allowlist in `packages/contracts/src/serving.ts`, otherwise
+`application/octet-stream`; `inline` only for a streamed audio derivative, `attachment` for
+everything else, every original included. The object's own metadata is not trusted.
+
+`X-Content-Type-Options: nosniff` **cannot** be set through a presigned URL — S3's response
+overrides are a fixed list without it. If the buckets are ever served from a custom domain (and
+especially a `youandfriends.org` subdomain, which would be same-site with the app), add it there
+with a Cloudflare Transform Rule (_Rules → Transform Rules → Modify Response Header_, set
+`X-Content-Type-Options: nosniff` for the bucket's hostname). The `r2.cloudflarestorage.com`
+presigned host is a different site from the app, and the opaque type plus `attachment` is what
+holds there.
+
 ## 2. Stuck uploads
 
 **Symptom:** an upload shows progress but never finalizes, or `upload_sessions` rows sit in
@@ -115,20 +133,52 @@ WHERE state IN ('queued','running','failed')
 ```
 
 **Resolve.** The pipeline is idempotent and keyed on `asset_version_id`, so re-enqueueing is
-always safe — it will not create duplicate derivatives.
+always safe — it will not create duplicate derivatives. A derivative's object key is derived from
+its row, so a retry after a half-finished upload overwrites that object rather than leaving a
+second one behind.
 
 ```bash
 pnpm --filter @youandfriends/jobs ops:media:retry --version <assetVersionId>
-pnpm --filter @youandfriends/jobs ops:media:retry --all-failed
+pnpm --filter @youandfriends/jobs ops:media:retry --all-failed [--workspace <id>] [--limit <n>]
+pnpm --filter @youandfriends/jobs ops:media:retry --all-failed --stranded   # also stuck queued/running
+pnpm --filter @youandfriends/jobs ops:media:retry --all-failed --dry-run    # print the plan only
+pnpm --filter @youandfriends/jobs ops:media:retry --version <id> --inline   # run here, no queue
 ```
 
-If a job fails repeatedly on one file, the original is likely not valid media. Confirm with
-`ffprobe` against a downloaded copy. A non-media file uploaded as audio should be reclassified
-rather than retried — the original is preserved regardless, and reclassification never touches
-stored bytes.
+`--stranded` adds jobs `queued` for 15 minutes with nothing picking them up — the dispatcher
+was unreachable or unconfigured when the version was uploaded; `last_error` starts with
+`not dispatched:` — and jobs `running` for longer than any attempt can last (worker lost). A
+younger `running` job is never touched. Each retry is dispatched under a new idempotency key:
+Trigger.dev remembers the old one and would otherwise hand back the failed run.
 
-**Derivatives are disposable.** If derivatives are ever corrupt or a recipe changes, deleting
-the `derivatives` rows and re-enqueueing regenerates them from untouched originals.
+Without `TRIGGER_SECRET_KEY` (and without `--inline`) a retry resets the job to `queued` and says
+it was not dispatched. It never marks anything complete.
+
+If a job fails repeatedly on one file, the original is likely not valid media. Confirm with
+`ffprobe` against a downloaded copy. A file that is not audio is recorded as rejected on the first
+attempt (`last_error` starts with `rejected:`) and is not retried by the queue. A non-media file
+uploaded as audio should be reclassified rather than retried — the original is preserved
+regardless, and reclassification never touches stored bytes.
+
+**Derivatives are disposable.** If derivatives are ever corrupt or a recipe changes, they can be
+regenerated from untouched originals. `ops:media:retry` deliberately does not reprocess a
+`complete` job; doing so means deleting that version's `derivatives` rows and setting its
+`media_jobs.state` back to `failed` before retrying, which is a deliberate operator action.
+
+### Deployment-owned limits for the media worker (`docs/THREAT_MODEL.md` T12)
+
+The pipeline bounds what it can — every tool's time, its own output buffers, its scratch disk —
+but some limits only the deployment can set. Keep them:
+
+| Limit             | Setting                                                                                                       | Why                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Memory per worker | Trigger.dev machine `medium-1x` (`apps/jobs/src/trigger/process-audio.ts`); raise the preset, never remove it | ffmpeg's own memory is not bounded by the pipeline; the container limit is what kills a decoder that balloons |
+| Disk per worker   | at least 3 GB of ephemeral disk                                                                               | the scratch budget is 2 GB per job; a worker running two jobs shares one disk                                 |
+| Concurrency       | `queue.concurrencyLimit: 2` on the task                                                                       | bounds simultaneous decoders per deployment, and so the memory and disk above                                 |
+| Maximum duration  | `maxDuration` 55 min + 5 (task) / 3600 s (project)                                                            | the platform's hard stop, above the pipeline's own deadline                                                   |
+| ffmpeg version    | 6.1 or later — `ffmpeg({ version: '7' })` in `apps/jobs/trigger.config.ts`                                    | older builds are refused by the capability probe at every job's start                                         |
+
+Changing any of these is a threat-model change, not only a cost one.
 
 ## 4. Migrations
 
@@ -380,14 +430,26 @@ Documented honestly rather than worked around dishonestly:
   the same browser (task `053`). For large or recurring folders, the Mac app is the reliable path.
 - **Background audio** works through native `<audio>` and Media Session, but a fully custom
   Web Audio graph can be suspended when backgrounded. This is why playback uses native audio
-  elements (ADR 0004).
+  elements (ADR 0004). The lock screen and Control Centre get title, artist, project, artwork at
+  128, 256 and 512 px, play/pause/seek/previous — and next only when something is queued — with
+  the position re-sent on every seek and speed change (task `076`). Each action is feature-detected;
+  a browser that rejects one simply does not show that control.
+- **Song titles on the lock screen.** Media Session hands the operating system the playing song's
+  title, artist and artwork, and a locked phone shows them to anyone who can see it — an
+  unreleased title included. That is what the feature is; it is accepted, not hidden.
 - **Storage eviction.** Safari may evict Cache Storage under pressure. Offline downloads must
   therefore always show real state and re-download gracefully — never assume a cached file is
   still present.
 - **No true gapless playback** is guaranteed on Safari. We preload the next queue item for
-  best-effort continuity and do not claim gapless where the browser cannot deliver it.
-- **AirPlay** is exposed through native media controls only. We do not present a custom
-  AirPlay picker, because the web platform does not offer reliable control of one.
+  best-effort continuity and do not claim gapless where the browser cannot deliver it. Concretely
+  (task `073`): twenty seconds before a track ends, the next one's stream URL is fetched — and so
+  authorized — and its first bytes are warmed in a detached, never-played element; on `ended`,
+  the one playing element switches to that URL. This shortens the gap everywhere and removes none
+  of it on Safari, where a source change always costs a moment.
+- **AirPlay** is exposed through native media controls only — the element is marked
+  `x-webkit-airplay="allow"`, and Control Centre or the lock screen offers the route. We do not
+  present a custom AirPlay picker, because the web platform does not offer reliable control of
+  one.
 - **No install prompt on iOS.** Safari has no `beforeinstallprompt` and no programmatic
   install. The app shows written Add-to-Home-Screen steps there instead of a button — a button
   that does nothing when tapped is worse than no button, and is the common shape. iPadOS is

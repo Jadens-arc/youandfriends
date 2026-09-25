@@ -43,3 +43,144 @@
     outline-color: var(--color-ring-on-espresso);
   }
 }
+
+/*
+ * The lyrics editor (task `081`): a notebook page. The typewriter face, line height, and measure
+ * come from `.font-lyric`; section headings are in the editorial serif, derived and never typed.
+ */
+@layer components {
+  .lyrics-editor-surface {
+    outline: none;
+    margin-inline: auto;
+    min-block-size: 20rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .lyrics-section + .lyrics-section {
+    margin-block-start: 1.75rem;
+  }
+
+  .lyrics-section-heading {
+    margin: 0 0 0.25rem;
+    font-family: var(--font-serif);
+    font-size: 0.9375rem;
+    font-style: italic;
+    color: var(--color-muted-foreground);
+    user-select: none;
+  }
+
+  .lyrics-line {
+    margin: 0;
+    min-block-size: calc(var(--text-lyric) * var(--text-lyric--line-height));
+  }
+
+  .lyrics-line.is-empty::before {
+    content: attr(data-placeholder);
+    float: inline-start;
+    block-size: 0;
+    color: var(--color-muted-foreground);
+    pointer-events: none;
+  }
+}
+
+/* Collaborators' cursors in the lyrics editor (task `082`): a bar and a name, in their colour. */
+@layer components {
+  .lyrics-caret {
+    position: relative;
+    margin-inline: -1px;
+    border-inline: 1px solid;
+    pointer-events: none;
+    word-break: normal;
+  }
+
+  .lyrics-caret-label {
+    position: absolute;
+    inset-block-end: 100%;
+    inset-inline-start: -1px;
+    padding: 0.05rem 0.35rem;
+    border-radius: 3px 3px 3px 0;
+    color: var(--color-paper);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.6875rem;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    user-select: none;
+  }
+}
+
+/* Lyric timestamps and follow-along (task `083`). */
+@layer components {
+  .lyrics-timestamp {
+    margin-inline-end: 0.625rem;
+    padding: 0 0.3rem;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    background: var(--color-card);
+    color: var(--color-muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-style: normal;
+    font-variant-numeric: tabular-nums lining-nums;
+    line-height: 1.5;
+    vertical-align: 0.1em;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .lyrics-timestamp:hover {
+    color: var(--color-foreground);
+    border-color: var(--color-foreground);
+  }
+
+  /* The playing line: a bar at its start and a tint — never colour alone. */
+  .lyrics-line--current {
+    margin-inline-start: -0.75rem;
+    padding-inline-start: calc(0.75rem - 3px);
+    border-inline-start: 3px solid var(--color-foreground);
+    background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  }
+}
+
+/*
+ * Lyric comments (task `092`): a quiet dotted underline and the faintest tint — the lyric sheet
+ * stays a writing surface — and a small marker button where each commented range ends.
+ */
+@layer components {
+  .lyrics-comment-anchor {
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: var(--color-muted-foreground);
+    text-underline-offset: 0.2em;
+    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  }
+
+  .lyrics-comment-anchor--active {
+    text-decoration-style: solid;
+    background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  }
+
+  .lyrics-comment-marker {
+    display: inline-flex;
+    margin-inline-start: 0.25rem;
+    padding: 0.1rem;
+    border-radius: 3px;
+    color: var(--color-muted-foreground);
+    vertical-align: 0.05em;
+    cursor: pointer;
+  }
+
+  .lyrics-comment-marker:hover {
+    color: var(--color-foreground);
+  }
+
+  .lyrics-comment-marker-icon {
+    width: 0.8rem;
+    height: 0.8rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+  }
+}

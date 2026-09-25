@@ -4,12 +4,11 @@ import { Button, cn } from '@youandfriends/ui';
 import { Search } from 'lucide-react';
 import * as React from 'react';
 
+import { CommandPalette } from '@/components/command/command-palette';
+
 /**
- * Command and search entry (docs/DESIGN.md §4: "always available").
- *
- * The palette itself — search across projects, songs, lyrics, and files — is task `045`.
- * This is the always-present entry point and its keyboard shortcut, which belong to the
- * shell rather than to the search feature.
+ * Command and search entry (docs/DESIGN.md §4: "always available"): the shell's search button
+ * and ⌘K / Ctrl+K, opening the command palette (task `045`).
  */
 export function CommandEntry() {
   const [open, setOpen] = React.useState(false);
@@ -38,11 +37,7 @@ export function CommandEntry() {
         <span>Search…</span>
         <kbd className="text-caption ml-auto font-mono tracking-widest">⌘K</kbd>
       </Button>
-      {open ? (
-        <p role="status" className="sr-only">
-          Command palette opens in task 045.
-        </p>
-      ) : null}
+      <CommandPalette open={open} onOpenChange={setOpen} />
     </>
   );
 }

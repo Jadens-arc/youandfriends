@@ -18,6 +18,8 @@ export const audioOperationSchema = z.enum([
   'stream_derivative',
   /** Waveform peaks for the player (task `063`). */
   'waveform',
+  /** Square JPEG renditions of cover art (task `069`). Only for artwork; never with the above. */
+  'artwork',
 ]);
 export type AudioOperation = z.infer<typeof audioOperationSchema>;
 

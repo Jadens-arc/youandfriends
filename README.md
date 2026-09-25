@@ -50,13 +50,16 @@ Rationale for each significant choice is in [`docs/adr/`](docs/adr/).
 Tasks whose prerequisites are absent **skip loudly** in the test suite — they never pass
 silently.
 
-> **ffmpeg** — `apt install ffmpeg`, `brew install ffmpeg`, or the image's own package. Any build
-> is not enough: the pipeline needs the `aac` and `libopus` encoders and the `ebur128` filter, and
+> **ffmpeg 6.1 or later** — `apt install ffmpeg`, `brew install ffmpeg`, or the image's own
+> package. Older builds, and unversioned git snapshots, are refused at startup: the version is part
+> of the media threat model (`docs/THREAT_MODEL.md` T12). Any build of a recent version is not
+> enough either: the pipeline needs the `aac` and `libopus` encoders and the `ebur128` filter, and
 > a build missing one runs every command successfully while producing a derivative that is silent
 > or empty. `assertCapabilities()` from `@youandfriends/media` checks this at worker startup and
 > refuses to start otherwise (ADR 0002, ADR 0004). Check yours with:
 >
 > ```bash
+> ffmpeg -version | head -1
 > ffmpeg -hide_banner -encoders | grep -E ' (aac|libopus) '
 > ffmpeg -hide_banner -filters  | grep ' ebur128 '
 > ```

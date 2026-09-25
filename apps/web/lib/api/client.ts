@@ -8,6 +8,8 @@ export class RequestFailed extends Error {
     message: string,
     readonly status: number,
     readonly fields: readonly { readonly path: string; readonly message: string }[] = [],
+    /** The server's correlation id, for "quote this reference" (task `065`). */
+    readonly correlationId: string | null = null,
   ) {
     super(message);
     this.name = 'RequestFailed';
@@ -29,11 +31,13 @@ export async function postJson<T>(path: string, body?: unknown, method = 'POST')
     const payload = (await response.json().catch(() => ({}))) as {
       message?: string;
       fields?: { path: string; message: string }[];
+      correlationId?: string;
     };
     throw new RequestFailed(
       payload.fields?.[0]?.message ?? payload.message ?? 'Something went wrong. Try again.',
       response.status,
       payload.fields ?? [],
+      payload.correlationId ?? null,
     );
   }
   if (response.status === 204) return undefined as T;

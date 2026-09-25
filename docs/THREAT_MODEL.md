@@ -49,6 +49,16 @@ workspace's log, and nothing is read from it. Workspace settings and the member 
 belong to no scope a grant can attach to, are authorized from the membership row alone
 (`canInWorkspace`); member management is owner-only.
 
+**Search is bounded before it matches** (task `045`). Search is the most direct route to a leak:
+an unfiltered `ILIKE` across songs returns other people's titles, and an unfiltered lyrics match
+reveals words. `/api/search` first resolves, from ids and scope chains alone, which projects and
+songs this person may open (the library's resolver, grants and denies included); the search
+query then runs with those ids in its `WHERE`, so a hidden song is never matched, counted,
+ranked, or named — not even as the project around a song shared on its own. The first step
+costs the same whatever is typed. Lyrics are matched through the GIN-indexed `tsvector` from
+tokens of letters and digits only, so nothing typed reaches the `tsquery` parser as syntax.
+Tested with a populated hidden project whose words appear nowhere else.
+
 **The Clerk webhook is public and authenticated by signature** (`/api/webhooks/clerk`). The
 Svix signature and timestamp are verified with `CLERK_WEBHOOK_SECRET` before the body is
 parsed, so a forged or replayed delivery cannot write an audit row or provision a user. A
@@ -99,6 +109,15 @@ ZIPs are stored and checksummed but **never expanded server-side**, which remove
 class entirely. Content type is derived from magic bytes for media, never trusted from the
 client. Orphan sweeps are documented in `docs/OPERATIONS.md`.
 
+**Voice notes (task `093`)** are the one upload a commenter may make, so they are held tighter
+than files, not looser: the asset records its maker, and only that person may open an upload
+session into it, record the upload as its version, or attach it to a comment — each checked
+again with `comment` on the song at that moment. One recording per voice note (no second session
+or version), a 25 MB ceiling, and no reuse across comments (a unique index). A voice note is not a
+file: the generic rename, re-tag, and trash paths and file search refuse or omit it. It is
+streamed only to someone who may view the song, and only while a live comment carries it;
+deleting the comment detaches and trashes the recording.
+
 ### T5 — Share-link abuse
 
 Enumeration of opaque link IDs, brute-forcing a link password, or a link outliving its
@@ -117,9 +136,23 @@ A user joins a lyrics room for a song they cannot read, or retains write access 
 demotion.
 
 **Controls.** Room tokens are minted server-side by `/api/liveblocks/auth` after the standard
-authz check, scoped to one room with a role-appropriate capability set. Tokens are short-lived
-so demotion takes effect on renewal; task `082` tests permission change mid-session
-explicitly.
+authz check on the song the room names (`lyrics:<songId>`), for that one room only: `room:write`
+for an editor, `room:read` plus their own presence for a commenter or viewer, and a 404-shaped
+refusal for anyone else, a room in another workspace, a trashed song, or anything that is not a
+lyrics room (task `082`). The client never states its own role.
+
+Demotion is enforced in layers, because Liveblocks cannot recall a token it has already issued:
+
+- **Postgres rejects it at once.** Every save re-checks `edit`; the demoted person's next save is
+  refused 404-shaped and nothing of theirs is stored after that point.
+- **The editor stops at once.** An open editor re-asks for its access every 30 seconds and on
+  return to the tab, and after any refused save; on a change it stops accepting input and
+  rejoins the room, which mints a new token at the new access.
+- **The record is derived, not trusted.** A collaborative save sends Yjs state, which the server
+  merges into what is stored and re-derives the document from through the lyrics schema, so
+  anything outside that schema is dropped rather than stored.
+
+The residual gap is written down under "Residual risks accepted".
 
 ### T7 — Sync token compromise
 
@@ -255,6 +288,30 @@ path rather than a resolution bug. Proven end to end against a real database in
 `packages/authz/src/__tests__/scope-limited-membership.test.ts`, not only in the pure resolver
 matrix.
 
+### T12 — Media processing of untrusted files
+
+Tasks `060`–`066`, `068`. The media worker (`apps/jobs`) runs **ffmpeg and ffprobe — two large C
+programs — against bytes anyone with upload access chose**, in a process that holds database and
+storage credentials and briefly has a decoded copy of someone's unreleased master on disk.
+
+**Assets.** Every workspace's originals and derivatives (the worker can read one and write the
+other), the worker's credentials, and the decoded audio in its scratch space.
+
+**Boundary.** The uploaded bytes are untrusted until the pipeline has finished with them; the job
+payload is untrusted too (a queue message can outlive a deploy, or be written by whoever can write
+to the queue). The worker trusts only the database rows it reads for itself.
+
+| Threat                                                                                                              | Control                                                                                                                                                                                                                                                                                                                                                                                                                            | Enforced in                                                                                                                 | Tested in                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Decoder or demuxer exploitation** — a malformed container is the classic memory-safety target                     | A **minimum ffmpeg version** (6.1), asserted with the encoders and filters at every job's start — a build with known-fixed demuxer bugs refuses to work; the process is a short-lived child with no shell; container memory and disk limits are deployment-owned (`docs/OPERATIONS.md` §3). Sandboxing the decoder per job is not done in iteration one (see residual risks).                                                      | `packages/media/src/capabilities.ts` (`MINIMUM_FFMPEG_VERSION`, `assertCapabilities`)                                       | `packages/media/src/__tests__/capabilities.test.ts` (a stand-in ffmpeg reporting 4.4, 6.0, or a git snapshot is refused) |
+| **External-reference demuxers** — HLS playlists, concat lists, QuickTime data references naming other files or URLs | Every ffmpeg and ffprobe invocation passes **`-protocol_whitelist file`** before `-i`, so no input can make the decoder open a network URL, whatever the build's defaults; input paths must be **absolute**, so a name cannot be read as an option or a protocol                                                                                                                                                                   | `untrustedInput()` in `packages/media/src/run.ts`, used by probe, loudness, derivative and waveform                         | `packages/media/src/__tests__/run.test.ts`                                                                               |
+| **Command injection**                                                                                               | Tools are run from an **argument vector, never a shell string** (`execFile`/`spawn` with `shell: false`); nothing a user named — filenames included — reaches an argument except as an opaque scratch path                                                                                                                                                                                                                         | `packages/media/src/run.ts`                                                                                                 | `run.test.ts`                                                                                                            |
+| **Resource exhaustion** — a file that decodes forever, a huge output, a decompression bomb                          | A **whole-job deadline** (55 min) feeding every tool's timeout; **bounded parent buffers** (`maxOutputBytes`); a **scratch-space budget** checked between stages; a size ceiling checked before download and during it (the download stops at the recorded size); duration over six hours rejected. The child's own memory is bounded by the container limit, which is deployment-owned. ZIPs are never expanded server-side (T4). | `apps/jobs/src/pipeline.ts`, `packages/media/src/run.ts`, `workspace.ts`, `validate.ts`, `packages/storage/src/transfer.ts` | `apps/jobs/src/__tests__/pipeline.test.ts` (timeout), `workspace.test.ts`, `transfer.test.ts`                            |
+| **Orphaned children** — a job outliving its timeout                                                                 | **`SIGKILL` on timeout**, not `SIGTERM`, so a child that ignores signals still dies; the queue's own `maxDuration` sits above the job deadline                                                                                                                                                                                                                                                                                     | `packages/media/src/run.ts`; `apps/jobs/src/trigger/process-audio.ts`                                                       | `run.test.ts` ("kills a child that ignores SIGTERM")                                                                     |
+| **Scratch-space disclosure** — a co-tenant reading the decoded copy of a master                                     | Scratch directories come from `mkdtemp`, **mode 0700**, with a validated prefix, and are removed on every exit path including failure                                                                                                                                                                                                                                                                                              | `packages/media/src/workspace.ts`, `withTempWorkspace` in the pipeline                                                      | `workspace.test.ts` (0700), `pipeline.test.ts` (cleanup after success, rejection and failure)                            |
+| **A payload naming someone else's object**                                                                          | The worker reads the object key **from the version's own row** and refuses a payload whose key differs; derivatives are written only to keys derived from their own row, and the transfer refuses to write any original's key                                                                                                                                                                                                      | `apps/jobs/src/pipeline.ts` (`beginAttempt`), `packages/storage/src/transfer.ts`                                            | `pipeline.test.ts`, `transfer.test.ts`                                                                                   |
+| **Tool output reaching a person** — paths, codec internals, stderr                                                  | People see a sentence from `PROCESSING_FAILURE_MESSAGES`; tool output stays in `media_jobs.last_error`, sanitized of scratch paths and URLs                                                                                                                                                                                                                                                                                        | `apps/jobs/src/pipeline.ts`, `packages/contracts/src/assets.ts`                                                             | `pipeline.test.ts`                                                                                                       |
+
 ## Explicit non-goals for iteration one
 
 Stated plainly so they are not mistaken for oversights:
@@ -268,6 +325,19 @@ Stated plainly so they are not mistaken for oversights:
 ## Residual risks accepted
 
 - Provider compromise (Clerk, Neon, R2, Liveblocks, Trigger.dev) exposes data.
+- **The decoder is not sandboxed per job** (T12). A working ffmpeg exploit runs with the worker's
+  credentials, which can read every workspace's originals. The version floor, short-lived
+  processes, and container limits narrow this; a seccomp profile or a container per job would
+  close more of it and is a deployment change deliberately left out of iteration one.
+- **A demoted collaborator's already-issued room token keeps working until it expires**
+  (T6, task `082`). Liveblocks offers no per-user revocation of an access token, and its lifetime
+  is set by Liveblocks, not by us. An honest client stops within seconds (above); a _modified_
+  client could keep sending edits into the room for the rest of that token's life, and an
+  editor's autosave or the webhook would then merge them into Postgres. Everything merged stays
+  in the Yjs history and in revisions (task `084`), so it can be seen and reverted, not hidden.
+  Closing this fully means either moving to ID tokens with room-level permissions that
+  Liveblocks re-checks, or relaying updates through our own server; both are larger than
+  iteration one and are a decision for the product owner.
 - A compromised owner account exposes the workspace.
 - Presigned URLs are bearer credentials for their TTL; a URL shared within its window works.
 - **No rate limiting on invitation-token acceptance attempts** (task `032`). The task file's own

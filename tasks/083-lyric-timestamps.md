@@ -51,13 +51,17 @@ Timestamps are lyric metadata with the same sensitivity as lyrics themselves. No
 
 ## Acceptance criteria
 
-- [ ] Blocks and lines can carry optional timestamps.
-- [ ] Timestamps can be set from the current playhead in one action.
-- [ ] Clicking a timestamped line seeks the player.
-- [ ] Follow-along highlighting tracks the current line without fighting user scroll.
-- [ ] Timestamps survive edits to surrounding text, proven by test.
-- [ ] Timestamps render in monospace with tabular figures.
-- [ ] Reduced motion disables auto-scroll animation.
+- [x] Blocks and lines can carry optional timestamps. (`timestampMs` on the section and line nodes, as the contract already allowed — `components/lyrics/timestamps/extension.ts`. They travel with the document, through Yjs as node attributes when editing together.)
+- [x] Timestamps can be set from the current playhead in one action. (Mod-Alt-T times the line with the cursor; Mod-Alt-Shift-T its section; "Time this line" / "Time <section>" in the section toolbar. Taken from the player's own playhead, and only when **this** song is the one loaded — otherwise nothing is set and the editor says "Play this song first".)
+- [x] Clicking a timestamped line seeks the player. (Each timestamp is a button at the start of its line, or beside its section heading, named "Play Verse 2 from 1:23": it seeks and plays the loaded song, or loads the song's current playable version there. Viewers can use them too.)
+- [x] Follow-along highlighting tracks the current line without fighting user scroll. (The line whose moment has most recently passed — by time, not document order, so an out-of-order chorus works — is marked `aria-current` with a bar and a tint. It is scrolled into view only when the person has not wheeled, swiped, or pressed a scrolling key in the last 4 seconds — tested both ways.)
+- [x] Timestamps survive edits to surrounding text, proven by test. (Typing above, adding lines above, retyping the stamped line, splitting it — the stamp stays on the original, not the continuation — and moving its section; mutation-checked.)
+- [x] Timestamps render in monospace with tabular figures. (`.lyrics-timestamp`: the mono face and `tabular-nums`.)
+- [x] Reduced motion disables auto-scroll animation. (`behavior: 'auto'` under `prefers-reduced-motion` — tested.)
+
+**Versions.** Timestamps belong to the song, not a version; the shortcut list says that on a version with different timing they are approximate.
+
+**Not verified here.** Manual QA 1–3 need a browser and real audio (task `120`).
 
 ## Tests and validation commands
 
@@ -77,8 +81,8 @@ Additive. Reverting loses timestamps; lyrics text is unaffected.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`f526fde`

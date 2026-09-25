@@ -23,7 +23,11 @@ export interface StubDriver extends StorageDriver {
   readonly aborted: string[];
   readonly completed: string[];
   /** Every download URL signed, with the filename it was signed for. */
-  readonly signedDownloads: { key: string; filename: string | undefined }[];
+  readonly signedDownloads: {
+    key: string;
+    filename: string | undefined;
+    contentType: string | null;
+  }[];
   parts: UploadedPart[];
   head_: ObjectHead | null;
   /** The bytes `readPrefix` hands back. Defaults to a real WAV header. */
@@ -39,7 +43,11 @@ export function stubDriver(overrides: Partial<StubDriver> = {}): StubDriver {
   const signed: { key: string; partNumber: number }[] = [];
   const aborted: string[] = [];
   const completed: string[] = [];
-  const signedDownloads: { key: string; filename: string | undefined }[] = [];
+  const signedDownloads: {
+    key: string;
+    filename: string | undefined;
+    contentType: string | null;
+  }[] = [];
 
   const driver: StubDriver = {
     created,
@@ -81,11 +89,11 @@ export function stubDriver(overrides: Partial<StubDriver> = {}): StubDriver {
     async abortMultipart(key) {
       aborted.push(key);
     },
-    async signDownload({ key, filename }) {
-      signedDownloads.push({ key, filename });
+    async signDownload({ key, filename, contentType }) {
+      signedDownloads.push({ key, filename, contentType });
       return { url: `https://bucket.example/${key}`, expiresAt: new Date() };
     },
-    async signStream(key) {
+    async signStream({ key }) {
       return { url: `https://bucket.example/${key}`, expiresAt: new Date() };
     },
     async readPrefix(key, length) {

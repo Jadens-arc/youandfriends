@@ -68,11 +68,14 @@ served as themselves; everything else is an attachment.
 
 ## Acceptance criteria
 
-- [ ] `signStream` and `signDownload` set `ResponseContentType` from the recorded type.
-- [ ] Originals are served `attachment`, never `inline`.
-- [ ] A type outside the media allowlist is served as `application/octet-stream` regardless of
-      what `storage_objects.content_type` holds.
-- [ ] A test proves an HTML-bodied object cannot be served renderable.
+- [x] `signStream` and `signDownload` set `ResponseContentType` from the recorded type. (Both now take `contentType` — `storage_objects.content_type` — alongside the key; `readOverrides` in `packages/storage/src/r2.ts` sets `ResponseContentType` and `ResponseContentDisposition` on every presigned GET. The version download passes the recorded type.)
+- [x] Originals are served `attachment`, never `inline`. (`inline` is granted only when streaming, only for a key in the derivative class, and only for an allowlisted type. A key the product did not issue is treated like an original.)
+- [x] A type outside the media allowlist is served as `application/octet-stream` regardless of what `storage_objects.content_type` holds. (`servableContentType` in `packages/contracts/src/serving.ts`; parameters and case cannot smuggle a type through. The allowlist lives in contracts so storage and media share it, and a media test holds every audio type the sniffer recognises inside it.)
+- [x] A test proves an HTML-bodied object cannot be served renderable. (`packages/storage/src/serving.test.ts` signs reads for `text/html`, `image/svg+xml`, a charset-suffixed HTML type and a missing type, and every URL carries `application/octet-stream` and `attachment`; runs without a server. The MinIO contract suite adds the same case against a real server — it skips loudly here, as MinIO cannot be pulled in this environment.)
+
+**Not settable here.** `X-Content-Type-Options: nosniff` is not among S3's presigned response overrides. `docs/OPERATIONS.md` §1 says how to add it at the bucket's custom domain if one is ever used.
+
+**Manual QA** (streaming a derivative in a browser, downloading an original) was not run: the player arrives with task `070`, and there is no R2 bucket in this environment.
 
 ## Tests and validation commands
 
@@ -93,8 +96,8 @@ breaks streaming.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`2c19915`

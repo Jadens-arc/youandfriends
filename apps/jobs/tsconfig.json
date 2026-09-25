@@ -1,0 +1,4 @@
+{
+  "extends": "@youandfriends/config/tsconfig/library.json",
+  "include": ["src/**/*.ts", "trigger.config.ts"]
+}

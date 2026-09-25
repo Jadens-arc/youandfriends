@@ -8,6 +8,12 @@ import {
   folders,
   recents,
   hasSoftDelete,
+  loopRegions,
+  lyricsDocuments,
+  lyricsRevisions,
+  commentThreads,
+  comments,
+  mediaJobs,
   mixVersions,
   permissionGrants,
   projects,
@@ -57,6 +63,17 @@ export const SCOPED_TABLES = {
   assetVersions,
   mixVersions,
   derivatives,
+  // Added in task `064`: the processing status a version view shows (task `065`).
+  mediaJobs,
+  // Added in task `074`: one person's loop region on a song, tenant-owned like `recents`.
+  loopRegions,
+  // Added in task `080`: a song's lyrics.
+  lyricsDocuments,
+  // Added in task `084`: their earlier drafts.
+  lyricsRevisions,
+  // Added in task `090`: the conversation on a song.
+  commentThreads,
+  comments,
   storageObjects,
   snapshots,
   snapshotEntries,

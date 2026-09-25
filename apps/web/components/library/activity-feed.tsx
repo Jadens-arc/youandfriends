@@ -14,6 +14,7 @@ export const ACTIVITY_VERB: Readonly<Record<ContentActivityAction, string>> = {
   'folder.updated': 'updated',
   'folder.moved': 'moved',
   'lyrics.updated': 'edited lyrics for',
+  'lyrics.revision_restored': 'restored an earlier draft of the lyrics for',
   'comment.created': 'commented on',
 };
 

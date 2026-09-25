@@ -13,12 +13,21 @@ import {
   formatSampleRate,
   formatTruePeak,
 } from '@/lib/songs/format';
+import { LoopControls } from '@/components/player/loop-controls';
+import { PlayVersionButton } from '@/components/player/play-version-button';
+import { QueueSourceButtons } from '@/components/player/queue-actions';
+import { Waveform } from '@/components/player/waveform/waveform';
+import type { CoverSource } from '@/lib/library/covers';
 import type { SongCapabilities, SongVersion } from '@/lib/songs/workspace';
 
+import { ProcessingPoller, ProcessingStatus } from './processing-status';
 import { ProcessingBadge } from './status-badge';
+import { ABControls } from './versions/ab-controls';
 import { UploadVersion } from './versions/upload-version';
 import { VersionActions } from './versions/version-actions';
 import { WaveformRegion } from './waveform-region';
+import { TimestampComments } from '@/components/comments/timestamp/timestamp-comments';
+import { songPlayback } from '@/lib/comments/playback';
 
 /**
  * What the waveform region says until the waveform itself is drawn (task `072`): the honest
@@ -144,9 +153,15 @@ export function VersionSelector({
                 {version.note === null ? null : ` · ${version.note}`}
               </span>
             </span>
-            <span className="text-caption text-muted-foreground tabular shrink-0 font-mono">
-              {formatDuration(version.durationMs)}
-            </span>
+            {version.processingState === 'complete' ? (
+              <span className="text-caption text-muted-foreground tabular shrink-0 font-mono">
+                {formatDuration(version.durationMs)}
+              </span>
+            ) : (
+              <span className="shrink-0">
+                <ProcessingBadge state={version.processingState} />
+              </span>
+            )}
           </button>
         );
       })}
@@ -164,18 +179,52 @@ function Fact({ term, value }: { readonly term: string; readonly value: React.Re
 }
 
 /** Everything `docs/DESIGN.md` §4 lists for a version, for the selected one. */
-export function VersionDetails({ version }: { readonly version: SongVersion }) {
+export function VersionDetails({
+  version,
+  songId,
+  canRetry,
+  playback,
+}: {
+  readonly version: SongVersion;
+  readonly songId: string;
+  /** Editors may send a failed version back for processing (task `065`). */
+  readonly canRetry: boolean;
+  /** What the player shows for this song (task `071`). Absent, no play button is offered. */
+  readonly playback?:
+    | {
+        readonly songTitle: string;
+        readonly artist: string | null;
+        readonly cover: CoverSource | null;
+        readonly album?: string | null;
+      }
+    | undefined;
+}) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-heading text-foreground font-serif">{versionName(version)}</h3>
-        <ProcessingBadge state={version.processingState} />
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-heading text-foreground font-serif">{versionName(version)}</h3>
+          {playback !== undefined && version.processingState === 'complete' ? (
+            <PlayVersionButton
+              songId={songId}
+              songTitle={playback.songTitle}
+              artist={playback.artist}
+              cover={playback.cover}
+              album={playback.album ?? null}
+              versionId={version.id}
+              versionNumber={version.number}
+            />
+          ) : null}
+          {playback !== undefined && version.processingState === 'complete' ? (
+            <QueueSourceButtons
+              selection={{ kind: 'versions', versionIds: [version.id] }}
+              label={`${playback.songTitle}, ${versionName(version)}`}
+              play={false}
+            />
+          ) : null}
+        </div>
+        <ProcessingStatus songId={songId} version={version} canRetry={canRetry} />
       </div>
-      {version.processingState === 'failed' && version.processingError !== null ? (
-        <p role="note" className="text-caption text-destructive font-sans">
-          {version.processingError}
-        </p>
-      ) : null}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
         <Fact term="File" value={version.fileName} />
         <Fact term="Uploaded by" value={version.uploaderName ?? '–'} />
@@ -223,6 +272,9 @@ export function VersionPanel({
   songTitle,
   songId,
   capabilities,
+  artist = null,
+  cover = null,
+  album = null,
 }: {
   readonly versions: readonly SongVersion[];
   readonly linkedVersionId: string | null;
@@ -231,6 +283,11 @@ export function VersionPanel({
   readonly songTitle: string;
   readonly songId: string;
   readonly capabilities: SongCapabilities;
+  /** For the player's track display (task `071`). */
+  readonly artist?: string | null;
+  readonly cover?: CoverSource | null;
+  /** The project's name, when visible — the lock screen's album line (task `076`). */
+  readonly album?: string | null;
 }) {
   const [selectedId, setSelectedId] = React.useState(() =>
     initialVersionId(versions, linkedVersionId),
@@ -269,6 +326,7 @@ export function VersionPanel({
 
   return (
     <div className="flex flex-col gap-6">
+      <ProcessingPoller songId={songId} versions={versions} />
       <WaveformRegion
         label={
           selected === null
@@ -276,8 +334,44 @@ export function VersionPanel({
             : `Waveform for ${songTitle}, ${versionName(selected)}`
         }
       >
-        <WaveformStatus version={selected} />
+        {selected !== null && selected.processingState === 'complete' ? (
+          <Waveform
+            key={selected.id}
+            track={{
+              versionId: selected.id,
+              songId,
+              title: songTitle,
+              artist,
+              versionLabel: versionName(selected),
+              cover,
+              album,
+            }}
+            label={`Seek in ${songTitle}, ${versionName(selected)}`}
+          />
+        ) : (
+          <WaveformStatus version={selected} />
+        )}
       </WaveformRegion>
+      <TimestampComments
+        playback={songPlayback({
+          songId,
+          songTitle,
+          artist: artist ?? null,
+          cover: cover ?? null,
+          album,
+          versions,
+        })}
+        durationMs={selected?.durationMs ?? null}
+      />
+      <LoopControls songId={songId} />
+      <ABControls
+        songId={songId}
+        songTitle={songTitle}
+        artist={artist}
+        cover={cover}
+        album={album}
+        versions={versions}
+      />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
@@ -302,7 +396,12 @@ export function VersionPanel({
         </div>
         {selected === null ? null : (
           <div className="flex flex-col gap-4">
-            <VersionDetails version={selected} />
+            <VersionDetails
+              version={selected}
+              songId={songId}
+              canRetry={capabilities.edit}
+              playback={{ songTitle, artist, cover, album }}
+            />
             <VersionActions
               key={selected.id}
               songId={songId}

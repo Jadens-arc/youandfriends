@@ -51,13 +51,17 @@ Comments on lyrics carry lyric content in their quoted text, inheriting asset-pr
 
 ## Acceptance criteria
 
-- [ ] Comments anchor to a selection, block, or line.
-- [ ] Anchors use Yjs relative positions and survive edits above them, proven by test.
-- [ ] Commented ranges are subtly highlighted without harming readability.
-- [ ] Clicking a comment scrolls to its anchor and vice versa.
-- [ ] Deleting anchored text orphans the comment rather than destroying it, preserving the quoted text.
-- [ ] Anchors are discoverable by assistive technology.
-- [ ] Viewers see anchors read-only.
+- [x] Comments anchor to a selection, block, or line. ("Comment on the selection / this line / this section" under the lyrics; the range is taken at the press.)
+- [x] Anchors use Yjs relative positions and survive edits above them, proven by test. (`lib/lyrics/anchors.ts`, from the editor's own Yjs binding. Tested through typing, new lines and a new section above, another person's concurrent edits made offline, and a save through the plain-document API.)
+- [x] Commented ranges are subtly highlighted without harming readability. (A dotted underline and a 7% accent tint; stronger only for the thread being looked at.)
+- [x] Clicking a comment scrolls to its anchor and vice versa. ("Show in the lyrics" selects and scrolls to the words and marks them; the marker after the words focuses and scrolls to the thread.)
+- [x] Deleting anchored text orphans the comment rather than destroying it, preserving the quoted text. (The thread stays, with its quote and "The words this was about have been removed from the lyrics.")
+- [x] Anchors are discoverable by assistive technology. (Each commented range ends with a real button — "Comment by Sam on “second line”, 1 reply" — in the text flow; the tint alone would be invisible to a screen reader.)
+- [x] Viewers see anchors read-only. (Markers and highlights render in a read-only editor; viewers get no way to start a comment.)
+
+**An architectural change this required.** Anchors need the words to keep their Yjs identity across every save. So every lyrics editor now edits a Yjs document — a local one when there is no room — and every save carries Yjs state for the server to merge; a save through the plain API is applied as an _edit_ of the stored Yjs state rather than replacing it. ADR 0011 is amended accordingly. Single-player autosave therefore no longer produces version conflicts (the conflict path remains for older clients).
+
+**Not verified here.** Manual QA 1–3 need a browser and a screen reader (task `120`/`121`).
 
 ## Tests and validation commands
 
@@ -77,8 +81,8 @@ Additive. Reverting loses lyric anchoring; comments remain as general threads.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`6e74861`

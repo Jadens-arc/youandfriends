@@ -1,7 +1,9 @@
+import { SERVABLE_CONTENT_TYPES } from '@youandfriends/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
   hintDisagrees,
+  sniffableContentTypes,
   sniffContentType,
   SNIFF_PREFIX_BYTES,
   UNKNOWN_CONTENT_TYPE,
@@ -125,5 +127,34 @@ describe('noticing that the client was wrong', () => {
   it('is not a disagreement when the client claimed nothing', () => {
     expect(hintDisagrees(null, UNKNOWN_CONTENT_TYPE)).toBe(false);
     expect(hintDisagrees('', UNKNOWN_CONTENT_TYPE)).toBe(false);
+  });
+});
+
+describe('the sniffer and the serving allowlist (task `067`)', () => {
+  it('can serve every audio type it can recognise', () => {
+    const audio = sniffableContentTypes().filter((type) => type.startsWith('audio/'));
+    expect(audio.length).toBeGreaterThan(0);
+    for (const type of audio) expect(SERVABLE_CONTENT_TYPES).toContain(type);
+  });
+});
+
+describe('cover art types (task `069`)', () => {
+  it('recognises JPEG, PNG and WebP by their bytes', () => {
+    expect(sniffContentType(prefix([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg');
+    expect(sniffContentType(prefix([0x89, 'PNG', 0x0d, 0x0a, 0x1a, 0x0a]))).toBe('image/png');
+    expect(sniffContentType(prefix(['RIFF', 0, 0, 0, 0, 'WEBP']))).toBe('image/webp');
+  });
+
+  it('does not mistake a WebP for a WAV, or a WAV for a WebP', () => {
+    expect(sniffContentType(prefix(['RIFF', 0, 0, 0, 0, 'WAVE']))).toBe('audio/wav');
+    expect(sniffContentType(prefix(['RIFF', 0, 0, 0, 0, 'WEBP']))).not.toBe('audio/wav');
+  });
+
+  it('never recognises SVG or HTML as an image', () => {
+    const text = (value: string) => prefix([value]);
+    expect(sniffContentType(text('<svg xmlns="http://www.w3.org/2000/svg">'))).toBe(
+      UNKNOWN_CONTENT_TYPE,
+    );
+    expect(sniffContentType(text('<!DOCTYPE html><html>'))).toBe(UNKNOWN_CONTENT_TYPE);
   });
 });

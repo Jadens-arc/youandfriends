@@ -117,6 +117,8 @@ export {
   type RecencyCursor,
   type RecencyPage,
   type SongListRow,
+  listCoverRenditions,
+  type CoverRenditionRow,
 } from './queries/projects';
 export {
   listRecents,
@@ -126,6 +128,22 @@ export {
   setFavorite,
   type RecentRow,
 } from './queries/personal';
+export {
+  ensureMediaJob,
+  listRetryableMediaJobs,
+  loadMediaJobSource,
+  recordMediaJobDispatched,
+  recordMediaJobDispatchFailed,
+  resetMediaJobForRetry,
+  type MediaJobRow,
+  type MediaJobSource,
+  type RetryCandidateOptions,
+} from './queries/media-jobs';
+export {
+  listPlayableVersions,
+  type PlayableSelection,
+  type PlayableVersionRow,
+} from './queries/queue';
 export {
   getLiveAsset,
   listProjectAssets,
@@ -138,6 +156,7 @@ export {
   getProjectHeader,
   getSongHeader,
   listMixVersions,
+  listVersionProcessingStates,
   listProjectSongs,
   listSongFiles,
   listWorkspaceSongs,
@@ -168,3 +187,12 @@ export {
   type UpsertGrantInput,
   type UpsertGrantResult,
 } from './queries/permissions';
+export {
+  listSearchScope,
+  searchWorkspace,
+  SNIPPET_START,
+  SNIPPET_STOP,
+  type SearchInput,
+  type SearchRows,
+  type SearchScopeRows,
+} from './queries/search';

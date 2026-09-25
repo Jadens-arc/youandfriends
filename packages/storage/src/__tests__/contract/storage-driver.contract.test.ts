@@ -1,9 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { newUlid } from '@youandfriends/contracts';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { StorageDriver, UploadedPart } from '../../driver';
 import { assertBucketPrivate, createR2Driver } from '../../r2';
+import { newObjectKey } from '../../keys';
+import { createR2Transfer } from '../../transfer';
 import { createMinioHarness } from '../minio-harness';
 
 const harness = await createMinioHarness();
@@ -68,13 +75,17 @@ describeMinio('StorageDriver contract against MinIO', () => {
     });
     expect(await driver.readPrefix(key, 9)).toEqual(bytes.slice(0, 9));
 
-    const download = await driver.signDownload({ key, filename: 'contract.bin' });
+    const download = await driver.signDownload({
+      key,
+      filename: 'contract.bin',
+      contentType: null,
+    });
     const downloaded = await fetch(download.url);
     expect(downloaded.status).toBe(200);
     expect(downloaded.headers.get('content-disposition')).toContain('filename="contract.bin"');
     expect(new Uint8Array(await downloaded.arrayBuffer())).toEqual(bytes);
 
-    const stream = await driver.signStream(key);
+    const stream = await driver.signStream({ key, contentType: null });
     const streamed = await fetch(stream.url, { headers: { Range: 'bytes=2-7' } });
     expect(streamed.status).toBe(206);
     expect(new Uint8Array(await streamed.arrayBuffer())).toEqual(bytes.slice(2, 8));
@@ -99,7 +110,7 @@ describeMinio('StorageDriver contract against MinIO', () => {
       sizeBytes: firstBytes.length + secondBytes.length,
       etag: multipartEtag([firstBytes, secondBytes]),
     });
-    const signed = await driver.signStream(key);
+    const signed = await driver.signStream({ key, contentType: null });
     const firstByte = await fetch(signed.url, { headers: { Range: 'bytes=0-0' } });
     const lastPart = await fetch(signed.url, {
       headers: {
@@ -122,7 +133,7 @@ describeMinio('StorageDriver contract against MinIO', () => {
     expect(await driver.listParts(key, upload.uploadId)).toEqual([current]);
 
     await driver.completeMultipart(key, upload.uploadId, [current]);
-    const response = await fetch((await driver.signDownload({ key })).url);
+    const response = await fetch((await driver.signDownload({ key, contentType: null })).url);
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(replacement);
 
     const replay = await driver.signPart({ key, uploadId: upload.uploadId, partNumber: 1 });
@@ -226,8 +237,8 @@ describeMinio('StorageDriver contract against MinIO', () => {
     await shortLived.completeMultipart(key, upload.uploadId, [part]);
     const partUpload = await shortLived.createMultipart(partKey, 'application/octet-stream');
 
-    const download = await shortLived.signDownload({ key });
-    const stream = await shortLived.signStream(key);
+    const download = await shortLived.signDownload({ key, contentType: null });
+    const stream = await shortLived.signStream({ key, contentType: null });
     const uploadPart = await shortLived.signPart({
       key: partKey,
       uploadId: partUpload.uploadId,
@@ -248,6 +259,56 @@ describeMinio('StorageDriver contract against MinIO', () => {
     expect(
       (await fetch(uploadPart.url, { method: 'PUT', body: new Uint8Array([7, 8, 9]) })).status,
     ).toBe(403);
+  });
+
+  it('writes a derivative from a file, replaces it on a retry, and reads it back to a file (task `064`)', async () => {
+    const transfer = createR2Transfer(harness.config);
+    const dir = await mkdtemp(join(tmpdir(), 'yf-transfer-'));
+    try {
+      const key = newObjectKey(newUlid(), 'derivative');
+      await writeFile(join(dir, 'first'), 'first attempt');
+      await writeFile(join(dir, 'second'), 'second attempt, longer');
+      await transfer.uploadFile(key, join(dir, 'first'), 'audio/mp4');
+      // The retry writes the same key: what makes a partly finished job safe to run again.
+      await transfer.uploadFile(key, join(dir, 'second'), 'audio/mp4');
+      expect(await driver.head(key)).toMatchObject({ contentType: 'audio/mp4', sizeBytes: 22 });
+
+      const size = await transfer.downloadToFile(key, join(dir, 'back'), { maxBytes: 1024 });
+      expect(size).toBe(22);
+      expect(await readFile(join(dir, 'back'), 'utf8')).toBe('second attempt, longer');
+
+      await expect(
+        transfer.downloadToFile(key, join(dir, 'capped'), { maxBytes: 4 }),
+      ).rejects.toThrow(/limit/);
+      await expect(
+        transfer.uploadFile(newObjectKey(newUlid(), 'original'), join(dir, 'first'), 'audio/mp4'),
+      ).rejects.toThrow(/originals/);
+      await driver.delete([key]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('cannot be made to serve an HTML-bodied object as a renderable page (task `067`)', async () => {
+    const transfer = createR2Transfer(harness.config);
+    const dir = await mkdtemp(join(tmpdir(), 'yf-html-'));
+    try {
+      const key = newObjectKey(newUlid(), 'derivative');
+      await writeFile(join(dir, 'page'), '<html><script>alert(1)</script></html>');
+      // Stored claiming to be HTML — the worst case: the object's own metadata says render me.
+      await transfer.uploadFile(key, join(dir, 'page'), 'text/html');
+      for (const signed of [
+        await driver.signStream({ key, contentType: 'text/html' }),
+        await driver.signDownload({ key, contentType: 'text/html', filename: 'x.html' }),
+      ]) {
+        const response = await fetch(signed.url);
+        expect(response.headers.get('content-type')).toBe('application/octet-stream');
+        expect(response.headers.get('content-disposition')).toMatch(/^attachment/);
+      }
+      await driver.delete([key]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('confirms the contract bucket has no bucket policy', async () => {

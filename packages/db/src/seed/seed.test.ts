@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { databaseUrl } from '@youandfriends/config/fixtures';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -153,10 +154,23 @@ describe('generated audio fixtures', () => {
     }
   });
 
-  it('does not claim to produce formats it has no encoder for', () => {
+  it('reports encoder availability from the real ffmpeg, not a constant', () => {
     // A fixture that claimed to be a FLAC and was not would make task `066`'s media tests
-    // pass against something that was never encoded.
-    expect(encoderAvailable()).toBe(false);
+    // pass against something that was never encoded — so this asks the binary.
+    const ffmpeg = spawnSync(process.env.YOUANDFRIENDS_FFMPEG_PATH ?? 'ffmpeg', ['-version'], {
+      stdio: 'ignore',
+    });
+    if (ffmpeg.status === 0) expect(typeof encoderAvailable()).toBe('boolean');
+    else expect(encoderAvailable()).toBe(false);
+    // Pointed at something that is not ffmpeg, it must say no rather than guess.
+    const saved = process.env.YOUANDFRIENDS_FFMPEG_PATH;
+    process.env.YOUANDFRIENDS_FFMPEG_PATH = '/nonexistent/ffmpeg';
+    try {
+      expect(encoderAvailable()).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env.YOUANDFRIENDS_FFMPEG_PATH;
+      else process.env.YOUANDFRIENDS_FFMPEG_PATH = saved;
+    }
     expect(ENCODED_FORMATS).toEqual(['flac', 'mp3', 'm4a']);
   });
 

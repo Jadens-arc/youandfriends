@@ -4,7 +4,7 @@ import * as SliderPrimitive from '@radix-ui/react-slider';
 import * as React from 'react';
 
 import { cn } from '../lib/cn';
-import { disabledState, focusRing, transition } from '../lib/focus';
+import { disabledState, focusRing, focusRingOnEspresso, transition } from '../lib/focus';
 
 /**
  * Slider.
@@ -14,10 +14,22 @@ import { disabledState, focusRing, transition } from '../lib/focus';
  * invisible to assistive technology — so for some users this IS the seek control, not a
  * fallback. It is built accordingly: arrow keys, Home/End, and an announced value.
  */
+export interface SliderProps extends React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> {
+  /**
+   * `espresso` for the player bar: an on-espresso track and the second focus ring treatment,
+   * without which the thumb's focus would be invisible against the dark bar (task `071`).
+   */
+  readonly tone?: 'paper' | 'espresso';
+  /** The thumb's accessible name — the thumb is what receives focus, not the root. */
+  readonly thumbLabel?: string;
+  /** Spoken instead of the raw number, e.g. "1:23 of 4:56". */
+  readonly valueText?: string;
+}
+
 export const Slider = React.forwardRef<
   React.ComponentRef<typeof SliderPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
->(function Slider({ className, ...props }, ref) {
+  SliderProps
+>(function Slider({ className, tone = 'paper', thumbLabel, valueText, ...props }, ref) {
   return (
     <SliderPrimitive.Root
       ref={ref}
@@ -28,14 +40,26 @@ export const Slider = React.forwardRef<
       )}
       {...props}
     >
-      <SliderPrimitive.Track className="bg-border-strong relative h-1 w-full grow overflow-hidden rounded-full">
-        <SliderPrimitive.Range className="bg-primary absolute h-full" />
+      <SliderPrimitive.Track
+        className={cn(
+          'relative h-1 w-full grow overflow-hidden rounded-full',
+          tone === 'espresso' ? 'bg-on-espresso/20' : 'bg-border-strong',
+        )}
+      >
+        <SliderPrimitive.Range
+          className={cn('absolute h-full', tone === 'espresso' ? 'bg-on-espresso' : 'bg-primary')}
+        />
       </SliderPrimitive.Track>
       <SliderPrimitive.Thumb
+        {...(thumbLabel === undefined ? {} : { 'aria-label': thumbLabel })}
+        {...(valueText === undefined ? {} : { 'aria-valuetext': valueText })}
         className={cn(
-          'border-border-strong bg-card shadow-paper block size-4 rounded-full border',
+          'block size-4 rounded-full border',
+          tone === 'espresso'
+            ? 'border-on-espresso/40 bg-on-espresso shadow-inset'
+            : 'border-border-strong bg-card shadow-paper',
           transition,
-          focusRing,
+          tone === 'espresso' ? focusRingOnEspresso : focusRing,
           disabledState,
         )}
       />

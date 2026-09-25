@@ -1,4 +1,4 @@
-import { access, mkdir, symlink, writeFile } from 'node:fs/promises';
+import { access, mkdir, stat, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -123,5 +123,13 @@ describe('job scratch space', () => {
     // A 5 GB original transcoding to AAC needs far less than this; the number exists for the
     // case where ffmpeg produces more than it consumed.
     expect(DEFAULT_TEMP_BUDGET_BYTES).toBeGreaterThanOrEqual(1024 * 1024 * 1024);
+  });
+});
+
+describe('scratch space permissions (task `068`, T12)', () => {
+  it('is readable by this user only, so a co-tenant cannot read a decoded master', async () => {
+    await withTempWorkspace(async (workspace) => {
+      expect((await stat(workspace.dir)).mode & 0o777).toBe(0o700);
+    });
   });
 });

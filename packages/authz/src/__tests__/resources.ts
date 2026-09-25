@@ -19,6 +19,12 @@ import {
   favorites,
   recents,
   folders,
+  loopRegions,
+  lyricsDocuments,
+  lyricsRevisions,
+  commentThreads,
+  comments,
+  mediaJobs,
   mixVersions,
   permissionGrants,
   projects,
@@ -307,6 +313,43 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
   },
   {
     status: 'live',
+    name: 'loop_regions',
+    table: loopRegions,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      const [owner] = await db.select().from(workspaceMemberships).limit(1);
+      await db.insert(loopRegions).values({
+        id: testId(),
+        workspaceId,
+        userId: owner?.userId ?? testId(),
+        songId: song.id,
+        startMs: 12_000,
+        endMs: 16_000,
+      });
+    },
+    why: 'Which bars of an unreleased song someone is working on, and when.',
+  },
+  {
+    status: 'live',
+    name: 'media_jobs',
+    table: mediaJobs,
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { version } = await seedTree(db, workspaceId);
+      await db.insert(mediaJobs).values({
+        id: testId(),
+        workspaceId,
+        assetVersionId: version.id,
+        state: 'failed',
+        attempts: 3,
+        lastError: 'seeded failure',
+      });
+    },
+    why: 'Names every version being processed and why one failed \u2014 upload activity, by the minute.',
+  },
+  {
+    status: 'live',
     name: 'snapshots',
     table: snapshots,
     scopeType: null,
@@ -351,31 +394,79 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
   // Not yet created. Each is converted to `live` by the task that builds its table; the
   // completeness check below fails if one of these quietly appears without being converted.
   {
-    status: 'pending',
+    status: 'live',
     name: 'lyrics_documents',
-    tableName: 'lyrics_documents',
-    task: '081',
+    table: lyricsDocuments,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      await db.insert(lyricsDocuments).values({
+        id: testId(),
+        workspaceId,
+        songId: song.id,
+        document: { type: 'doc', content: [] },
+        plainText: 'Unpublished line',
+      });
+    },
     why: 'Unpublished words, which are as sensitive as unreleased audio.',
   },
   {
-    status: 'pending',
+    status: 'live',
     name: 'lyrics_revisions',
-    tableName: 'lyrics_revisions',
-    task: '083',
+    table: lyricsRevisions,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      await db.insert(lyricsRevisions).values({
+        id: testId(),
+        workspaceId,
+        songId: song.id,
+        kind: 'checkpoint',
+        name: 'Before the bridge rewrite',
+        document: { type: 'doc', content: [] },
+        plainText: 'An earlier unpublished line',
+        sourceVersion: 1,
+      });
+    },
     why: 'Every earlier draft of the same.',
   },
   {
-    status: 'pending',
+    status: 'live',
     name: 'comment_threads',
-    tableName: 'comment_threads',
-    task: '090',
+    table: commentThreads,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      await db.insert(commentThreads).values({
+        id: testId(),
+        workspaceId,
+        songId: song.id,
+        anchorKind: 'general',
+      });
+    },
     why: 'Private discussion between collaborators.',
   },
   {
-    status: 'pending',
+    status: 'live',
     name: 'comments',
-    tableName: 'comments',
-    task: '090',
+    table: comments,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      const threadId = testId();
+      await db.insert(commentThreads).values({
+        id: threadId,
+        workspaceId,
+        songId: song.id,
+        anchorKind: 'general',
+      });
+      await db.insert(comments).values({
+        id: testId(),
+        workspaceId,
+        threadId,
+        body: 'The second chorus drags — cut it?',
+      });
+    },
     why: 'The same, at message granularity.',
   },
   {

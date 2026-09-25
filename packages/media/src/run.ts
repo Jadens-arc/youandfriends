@@ -26,7 +26,8 @@
  * file can emit megabytes of stream metadata, and buffering it unbounded is how one upload
  * exhausts a worker's memory.
  */
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { isAbsolute } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -47,6 +48,20 @@ export function ffprobePath(): string {
 
 export function ffmpegPath(): string {
   return process.env.YOUANDFRIENDS_FFMPEG_PATH ?? 'ffmpeg';
+}
+
+/**
+ * The input arguments every ffmpeg invocation uses for an untrusted file (`docs/THREAT_MODEL.md`
+ * T12): `-protocol_whitelist file` before `-i`, so a container that names an external reference —
+ * an HLS playlist, a concat list, a QuickTime data reference — cannot make the decoder open a URL,
+ * whatever this build's defaults; and an absolute path, so a name beginning with `-` or a
+ * protocol prefix is never read as an option or a URL.
+ */
+export function untrustedInput(path: string): string[] {
+  if (!isAbsolute(path)) {
+    throw new Error(`refusing a relative media path ${JSON.stringify(path)}; pass an absolute one`);
+  }
+  return ['-protocol_whitelist', 'file', '-i', path];
 }
 
 /** Long enough for a large file on slow storage, short enough that a hang is noticed. */
@@ -144,4 +159,66 @@ export async function runForOutput(
       stderr,
     );
   }
+}
+
+/**
+ * Run a tool and hand its stdout to `onData` as it arrives — for decoded audio, which is far too
+ * large to buffer. The same safety as {@link run}: an argument array with no shell, a mandatory
+ * timeout that kills with SIGKILL, and stderr bounded to what a diagnosis needs.
+ */
+export function runStreaming(
+  tool: string,
+  args: readonly string[],
+  onData: (chunk: Buffer) => void,
+  options: RunOptions = {},
+): Promise<void> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const stderrLimit = 64 * 1024;
+  return new Promise((resolve, reject) => {
+    const child = spawn(tool, [...args], {
+      shell: false,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stderr = '';
+    let settled = false;
+    const finish = (error: Error | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error === null) resolve();
+      else reject(error);
+    };
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      finish(new ToolError(tool, 'timed_out', `${tool} did not finish within ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      try {
+        onData(chunk);
+      } catch (error) {
+        child.kill('SIGKILL');
+        finish(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      if (stderr.length < stderrLimit)
+        stderr += chunk.toString('utf8').slice(0, stderrLimit - stderr.length);
+    });
+    child.on('error', (error: NodeJS.ErrnoException) => {
+      finish(
+        error.code === 'ENOENT'
+          ? new ToolError(tool, 'not_installed', `${tool} is not installed or not on PATH`)
+          : error,
+      );
+    });
+    child.on('close', (code) => {
+      finish(
+        code === 0
+          ? null
+          : new ToolError(tool, 'failed', `${tool} exited with ${String(code)}`, stderr.trim()),
+      );
+    });
+  });
 }

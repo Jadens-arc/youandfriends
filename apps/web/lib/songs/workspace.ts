@@ -20,6 +20,7 @@ import {
   type SongFileRow,
 } from '@youandfriends/db';
 
+import { resolveCovers, type CoverSource } from '@/lib/library/covers';
 import type { LibraryContext } from '@/lib/library/context';
 import { mayEditVersionNote } from '@/lib/versions/service';
 import type { Collaborator } from '@/lib/library/projects';
@@ -67,6 +68,8 @@ export interface SongVersion {
   readonly processingState: ProcessingState;
   /** Only ever shown to someone who may edit the song — see {@link readSongWorkspace}. */
   readonly processingError: string | null;
+  /** The job's run reference, to quote when asking for help. Editors only, like the error. */
+  readonly processingReference: string | null;
   /** Editors, and the uploader while they can still comment (task `056`). */
   readonly noteEditable: boolean;
 }
@@ -119,7 +122,7 @@ export interface SongWorkspace {
   } | null;
   /** The artist, even when the project itself is hidden: it is a fact about the song too. */
   readonly artist: string | null;
-  readonly cover: null;
+  readonly cover: CoverSource | null;
   readonly collaborators: readonly Collaborator[];
   readonly isFavorite: boolean;
   readonly capabilities: SongCapabilities;
@@ -200,24 +203,34 @@ export async function readSongWorkspace(
   const library = await loadLibraryAccess(context.db, context.subject, context.workspaceId, now);
   const projectVisible = library.project(header.projectId, header.folderPath) !== null;
 
-  const [versionRows, fileRows, siblingRows, favorites, collaboratorIds, members, knownTags] =
-    await Promise.all([
-      listMixVersions(context.db, context.workspaceId, songId),
-      listSongFiles(context.db, context.workspaceId, {
-        songId,
-        projectId: header.projectId,
-      }),
-      listProjectSongs(context.db, context.workspaceId, header.projectId),
-      favoritedTargets(context.db, context.workspaceId, context.userId, [songId]),
-      loadSongCollaborators(
-        context.db,
-        context.workspaceId,
-        { id: songId, projectId: header.projectId, folderPath: header.folderPath },
-        now,
-      ),
-      membersOf(context.db, context.workspaceId),
-      workspaceTags(context.db, context.workspaceId),
-    ]);
+  const [
+    versionRows,
+    fileRows,
+    siblingRows,
+    favorites,
+    collaboratorIds,
+    members,
+    knownTags,
+    covers,
+  ] = await Promise.all([
+    listMixVersions(context.db, context.workspaceId, songId),
+    listSongFiles(context.db, context.workspaceId, {
+      songId,
+      projectId: header.projectId,
+    }),
+    listProjectSongs(context.db, context.workspaceId, header.projectId),
+    favoritedTargets(context.db, context.workspaceId, context.userId, [songId]),
+    loadSongCollaborators(
+      context.db,
+      context.workspaceId,
+      { id: songId, projectId: header.projectId, folderPath: header.folderPath },
+      now,
+    ),
+    membersOf(context.db, context.workspaceId),
+    workspaceTags(context.db, context.workspaceId),
+    // The project's cover — only when this viewer can open the project (task `069`).
+    resolveCovers(context, projectVisible ? [header.projectId] : []),
+  ]);
 
   const capabilities: SongCapabilities = {
     comment: permits(access, 'comment'),
@@ -241,7 +254,7 @@ export async function readSongWorkspace(
       ? { id: header.projectId, name: header.projectName, artist: header.artist }
       : null,
     artist: header.songArtist ?? header.artist,
-    cover: null,
+    cover: covers.get(header.projectId) ?? null,
     collaborators: collaboratorIds.flatMap((userId) => {
       const displayName = names.get(userId);
       return displayName === undefined ? [] : [{ userId, displayName }];
@@ -271,6 +284,7 @@ export async function readSongWorkspace(
       // A pipeline error can name codecs, paths inside a temp directory, and tool output. The
       // viewer is told *that* it failed; the detail is for the people who can re-upload.
       processingError: capabilities.edit ? row.processingError : null,
+      processingReference: capabilities.edit ? row.processingReference : null,
       noteEditable: mayEditVersionNote(access, row.uploadedBy, context.userId),
     })),
     currentVersionId: header.currentVersionId,
@@ -295,7 +309,7 @@ export interface ProjectWorkspace {
     readonly artist: string | null;
     readonly status: WorkStatus;
   };
-  readonly cover: null;
+  readonly cover: CoverSource | null;
   /** The folder it is filed in, when this viewer can see that folder — "Back" goes there. */
   readonly folder: { readonly id: string; readonly name: string } | null;
   readonly songs: readonly SiblingSong[];
@@ -344,12 +358,14 @@ export async function readProjectWorkspace(
   if (header === null) refuse(`project ${projectId} is not live`);
 
   const now = context.now ?? (() => new Date());
-  const [library, songRows, assetRows, knownTags, favorites] = await Promise.all([
+  const [library, songRows, assetRows, knownTags, favorites, covers] = await Promise.all([
     loadLibraryAccess(context.db, context.subject, context.workspaceId, now),
     listProjectSongs(context.db, context.workspaceId, projectId),
     listProjectAssets(context.db, context.workspaceId, projectId),
     workspaceTags(context.db, context.workspaceId),
     favoritedTargets(context.db, context.workspaceId, context.userId, [projectId]),
+    // Viewing the project was authorized above, so its cover may be shown (task `069`).
+    resolveCovers(context, [projectId]),
   ]);
   const projectFiles = assetRows.map(projectAssetToFile);
 
@@ -360,7 +376,7 @@ export async function readProjectWorkspace(
       artist: header.artist,
       status: header.status,
     },
-    cover: null,
+    cover: covers.get(projectId) ?? null,
     folder:
       header.folderId !== null &&
       header.folderName !== null &&

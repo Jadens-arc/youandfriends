@@ -4,6 +4,7 @@ import type { Database } from '../client';
 import { assets } from '../schema/assets';
 import { favorites } from '../schema/favorites';
 import { folders } from '../schema/folders';
+import { mediaJobs } from '../schema/media-jobs';
 import { projects } from '../schema/projects';
 import { songs } from '../schema/songs';
 import { storageObjects } from '../schema/storage-objects';
@@ -203,6 +204,11 @@ export interface MixVersionRow {
   readonly loudnessUnavailable: string | null;
   readonly processingState: ProcessingStateValue;
   readonly processingError: string | null;
+  /**
+   * What a person quotes when they ask about a failed version: the queue's run id, or the job's
+   * own id before any run (task `065`). Joins the page to the worker's log line.
+   */
+  readonly processingReference: string | null;
 }
 
 /** A song's mix versions, newest first — the order the version selector reads in. */
@@ -234,6 +240,7 @@ export async function listMixVersions(
       loudnessUnavailable: assetVersions.loudnessUnavailable,
       processingState: assetVersions.processingState,
       processingError: assetVersions.processingError,
+      processingReference: sql<string | null>`coalesce(${mediaJobs.runId}, ${mediaJobs.id})`,
     })
     .from(mixVersions)
     .innerJoin(
@@ -255,6 +262,36 @@ export async function listMixVersions(
       ),
     )
     .leftJoin(users, eq(users.id, mixVersions.uploadedBy))
+    .leftJoin(
+      mediaJobs,
+      and(
+        eq(mediaJobs.assetVersionId, assetVersions.id),
+        eq(mediaJobs.workspaceId, assetVersions.workspaceId),
+      ),
+    )
+    .where(and(eq(mixVersions.workspaceId, workspaceId), eq(mixVersions.songId, songId)))
+    .orderBy(desc(mixVersions.versionNumber));
+}
+
+/**
+ * Just the processing state of each of a song's versions — what the page polls while something is
+ * still processing (task `065`). Small on purpose: it runs every few seconds.
+ */
+export async function listVersionProcessingStates(
+  db: Database,
+  workspaceId: string,
+  songId: string,
+): Promise<{ readonly id: string; readonly processingState: ProcessingStateValue }[]> {
+  return db
+    .select({ id: mixVersions.id, processingState: assetVersions.processingState })
+    .from(mixVersions)
+    .innerJoin(
+      assetVersions,
+      and(
+        eq(assetVersions.id, mixVersions.assetVersionId),
+        eq(assetVersions.workspaceId, mixVersions.workspaceId),
+      ),
+    )
     .where(and(eq(mixVersions.workspaceId, workspaceId), eq(mixVersions.songId, songId)))
     .orderBy(desc(mixVersions.versionNumber));
 }

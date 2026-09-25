@@ -173,7 +173,13 @@ export async function recordUploadedVersion(
   const storageObjectId = session.storageObjectId;
 
   const [asset] = await context.db
-    .select({ id: assets.id, songId: assets.songId, projectId: assets.projectId })
+    .select({
+      id: assets.id,
+      songId: assets.songId,
+      projectId: assets.projectId,
+      kind: assets.kind,
+      createdBy: assets.createdBy,
+    })
     .from(assets)
     .where(
       and(
@@ -185,11 +191,24 @@ export async function recordUploadedVersion(
   if (asset === undefined) refuse(`asset ${session.assetId} is not live`);
 
   // Re-checked here, not trusted from the session's creation: access can be revoked mid-upload.
-  await context.authz.assertCan(context.subject, 'edit', {
-    workspaceId: context.workspaceId,
-    scopeType: asset.songId === null ? 'project' : 'song',
-    scopeId: (asset.songId ?? asset.projectId) as string,
-  });
+  // A voice note (task `093`) is a commenter's recording — the same rule the upload service
+  // applies when the session opens: its maker, while they may still comment on the song.
+  if (asset.kind === 'voice_note') {
+    if (asset.createdBy !== context.userId || asset.songId === null) {
+      refuse(`voice note ${asset.id} is not this person's`);
+    }
+    await context.authz.assertCan(context.subject, 'comment', {
+      workspaceId: context.workspaceId,
+      scopeType: 'song',
+      scopeId: asset.songId,
+    });
+  } else {
+    await context.authz.assertCan(context.subject, 'edit', {
+      workspaceId: context.workspaceId,
+      scopeType: asset.songId === null ? 'project' : 'song',
+      scopeId: (asset.songId ?? asset.projectId) as string,
+    });
+  }
 
   const result = await withAuditedTransaction(
     context.db,
@@ -357,6 +376,7 @@ async function loadMixVersion(context: LibraryContext, songId: string, versionId
       uploadedBy: mixVersions.uploadedBy,
       note: mixVersions.note,
       key: storageObjects.key,
+      contentType: storageObjects.contentType,
       fileName: sql<string>`coalesce(${assetVersions.originalFilename}, ${assets.name})`,
     })
     .from(mixVersions)
@@ -401,7 +421,14 @@ export async function setCurrentVersion(
   await withAuditedTransaction(context.db, auditContextOf(context), async ({ tx, audit }) => {
     await tx
       .update(songs)
-      .set({ currentVersionId: version.id })
+      .set({
+        currentVersionId: version.id,
+        // `songs.duration_ms` is the current version's (task `064`). Copied from the analysis,
+        // which may not have run yet — then null, and the job fills it in when it finishes.
+        durationMs: sql`(select av.duration_ms from mix_versions mv
+          join asset_versions av on av.id = mv.asset_version_id and av.workspace_id = mv.workspace_id
+          where mv.id = ${version.id} and mv.workspace_id = ${context.workspaceId})`,
+      })
       .where(and(eq(songs.id, songId), eq(songs.workspaceId, context.workspaceId)));
     await audit({
       action: 'song.updated',
@@ -482,6 +509,7 @@ export async function versionDownloadUrl(
   const signed = await context.driver.signDownload({
     key: version.key,
     filename: version.fileName,
+    contentType: version.contentType,
   });
   return signed.url;
 }

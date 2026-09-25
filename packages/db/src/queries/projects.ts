@@ -378,6 +378,7 @@ export const CONTENT_ACTIVITY_ACTIONS = [
   'folder.updated',
   'folder.moved',
   'lyrics.updated',
+  'lyrics.revision_restored',
   'comment.created',
 ] as const;
 
@@ -564,4 +565,61 @@ export async function listContentActivityPage(
     items,
     next: rows.length < pageSize || last === undefined ? null : { at: last.cursorAt, id: last.id },
   };
+}
+
+export interface CoverRenditionRow {
+  readonly projectId: string;
+  /** `cover-<width>`. */
+  readonly variant: string;
+  readonly key: string;
+  readonly contentType: string;
+}
+
+/**
+ * The finished cover renditions for a set of projects, in one query (task `069`): each project's
+ * chosen cover asset, its newest version, and that version's `thumbnail` derivatives. One round
+ * trip however many cards are on the page — never one per card.
+ *
+ * The caller passes only projects the viewer can already see. A trashed cover asset contributes
+ * nothing, and every join is held to the same workspace.
+ */
+export async function listCoverRenditions(
+  db: Database,
+  workspaceId: string,
+  projectIds: readonly string[],
+): Promise<CoverRenditionRow[]> {
+  if (projectIds.length === 0) return [];
+  const result = await db.execute<{
+    project_id: string;
+    variant: string;
+    key: string;
+    content_type: string;
+  }>(sql`
+    select p.id as project_id, d.variant, so.key, so.content_type
+    from projects p
+    join assets a
+      on a.id = p.cover_asset_id and a.workspace_id = p.workspace_id and a.deleted_at is null
+    join lateral (
+      select av.id from asset_versions av
+      where av.asset_id = a.id and av.workspace_id = a.workspace_id
+      order by av.version_number desc
+      limit 1
+    ) latest on true
+    join derivatives d
+      on d.asset_version_id = latest.id and d.workspace_id = p.workspace_id
+      and d.kind = 'thumbnail' and d.processing_state = 'complete'
+    join storage_objects so
+      on so.id = d.storage_object_id and so.workspace_id = p.workspace_id
+    where p.workspace_id = ${workspaceId}
+      and p.id in (${sql.join(
+        projectIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+  `);
+  return result.rows.map((row) => ({
+    projectId: row.project_id,
+    variant: row.variant,
+    key: row.key,
+    contentType: row.content_type,
+  }));
 }

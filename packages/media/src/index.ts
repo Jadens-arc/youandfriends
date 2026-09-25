@@ -13,11 +13,20 @@
  * (`062`) and waveforms (`063`) build on the probe and dispatcher here.
  */
 
-export { hintDisagrees, sniffContentType, SNIFF_PREFIX_BYTES, UNKNOWN_CONTENT_TYPE } from './sniff';
+export {
+  hintDisagrees,
+  sniffableContentTypes,
+  sniffContentType,
+  SNIFF_PREFIX_BYTES,
+  UNKNOWN_CONTENT_TYPE,
+} from './sniff';
 
 export {
   assertCapabilities,
   capabilitiesFrom,
+  meetsMinimum,
+  MINIMUM_FFMPEG_VERSION,
+  parseToolVersion,
   MissingCapabilityError,
   parseNames,
   probeCapabilities,
@@ -36,6 +45,27 @@ export {
   type JobDispatcher,
   type TriggerClient,
 } from './dispatcher';
+
+export {
+  FINE_BUCKETS_PER_SECOND,
+  generateWaveformPeaks,
+  MEDIUM_BUCKETS_PER_SECOND,
+  mergeBuckets,
+  OVERVIEW_BUCKETS,
+  PeakAccumulator,
+  WAVEFORM_TIMEOUT_MS,
+} from './waveform';
+
+export {
+  ARTWORK_CODECS,
+  ARTWORK_TIMEOUT_MS,
+  ArtworkRejectedError,
+  MAX_ARTWORK_PIXELS,
+  probeArtwork,
+  renderCoverRendition,
+  type ArtworkProbe,
+  type ArtworkRejection,
+} from './artwork';
 
 export {
   DEFAULT_STREAM_BITRATE,
@@ -68,7 +98,9 @@ export {
   ffmpegPath,
   ffprobePath,
   runForOutput,
+  runStreaming,
   ToolError,
+  untrustedInput,
   type RunOptions,
 } from './run';
 

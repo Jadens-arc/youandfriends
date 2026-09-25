@@ -351,6 +351,8 @@ describeWithDatabase('the mix version stack', () => {
     );
     expect(url).toMatch(/^https:/);
     expect(driver.signedDownloads.at(-1)?.filename).toBe('Headlights v1.wav');
+    // The recorded, sniffed type travels with the read, for the driver's allowlist (task `067`).
+    expect(driver.signedDownloads.at(-1)?.contentType).toBe('audio/wav');
     expect(driver.signedDownloads.length).toBe(signedBefore + 1);
 
     const events = await db

@@ -51,14 +51,16 @@ Each version's stream URL is separately authorized and short-TTL (T3). Preloadin
 
 ## Acceptance criteria
 
-- [ ] Switching preserves `currentTime` within a few milliseconds, proven by test.
-- [ ] Playing state is preserved across the switch.
-- [ ] The alternate version is preloaded so the switch is fast.
-- [ ] Keyboard shortcuts switch and cycle versions.
-- [ ] The sounding version is unmistakable.
-- [ ] Loudness is visible during comparison.
-- [ ] Versions of different durations are handled by clamping with a clear indication.
-- [ ] Each version's stream URL is separately authorized.
+- [x] Switching preserves `currentTime` within a few milliseconds, proven by test. (`switchVersion` reads the playhead from the element at the moment of the switch — not the store's last `timeupdate` — and starts the other version there; tested to under a millisecond: 83.4567 s in, 83.4567 s out.)
+- [x] Playing state is preserved across the switch. (Playing stays playing, paused stays paused; the loop region and the queue position carry over, and a switch does not count as a new play.)
+- [x] The alternate version is preloaded so the switch is fast. (When the comparison is offered, the alternate's URL is fetched and its bytes warmed **at the current position** in the detached, never-played element; at the switch the prepared URL is used without a request, and the next alternate is prepared for the flip back.)
+- [x] Keyboard shortcuts switch and cycle versions. (A flips to the last other version heard; V steps through the versions. Both only where a comparison is offered, and never from fields.)
+- [x] The sounding version is unmistakable. (The comparison is a radio group, "Sounding version": the one playing is checked, carries a speaker icon and the word "Sounding", and the player bar's version word changes with it.)
+- [x] Loudness is visible during comparison. (Integrated loudness and true peak on every option, from task `061`'s analysis.)
+- [x] Versions of different durations are handled by clamping with a clear indication. (Past a shorter version's end, the switch lands at its end and says "Version 1 is shorter — playing from its end.")
+- [x] Each version's stream URL is separately authorized. (Each version's URL comes from its own call to `/api/stream/:versionId`, which authorizes it — tested that the alternate is requested for itself before any switch.)
+
+**Deviation: one playing element, not two.** The task's notes suggest a second element kept in sync. Task `070` requires exactly one playing element — two fight over Media Session and iOS's single audio focus — so the alternate is prepared (URL authorized, bytes warmed where playback is) in a detached element that never plays, and the one element switches source at the exact instant. A switch may still cost a moment of buffering in a real browser; how fast it _feels_ (Manual QA 1–2) is task `120`'s to confirm.
 
 ## Tests and validation commands
 
@@ -79,8 +81,8 @@ Additive. Reverting loses A/B; version playback remains.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`41af46e`

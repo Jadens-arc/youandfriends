@@ -118,9 +118,40 @@ function CreateDialog({
   );
 }
 
+/** The "New project" dialog, filed in `folderId` or at the root; opens the project it made. */
+export function NewProjectDialog({
+  folderId,
+  onClose,
+}: {
+  readonly folderId: string | null;
+  readonly onClose: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <CreateDialog
+      title="New project"
+      description="A project holds songs, their versions, lyrics, and files."
+      fields={[
+        { name: 'name', label: 'Project name', required: true },
+        { name: 'artist', label: 'Artist', required: false },
+      ]}
+      schema={createProjectSchema}
+      submitLabel="Create project"
+      onClose={onClose}
+      onCreate={async (values) => {
+        const { id } = await postJson<{ id: string }>('/api/projects', {
+          name: values.name ?? '',
+          artist: values.artist ?? '',
+          folderId,
+        });
+        router.push(projectHref(id));
+      }}
+    />
+  );
+}
+
 /** "New project", filed in the folder open on the shelf, or at the root. */
 export function NewProjectButton({ folderId }: { readonly folderId: string | null }) {
-  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   return (
     <>
@@ -128,27 +159,7 @@ export function NewProjectButton({ folderId }: { readonly folderId: string | nul
         <Plus aria-hidden />
         New project
       </Button>
-      {open ? (
-        <CreateDialog
-          title="New project"
-          description="A project holds songs, their versions, lyrics, and files."
-          fields={[
-            { name: 'name', label: 'Project name', required: true },
-            { name: 'artist', label: 'Artist', required: false },
-          ]}
-          schema={createProjectSchema}
-          submitLabel="Create project"
-          onClose={() => setOpen(false)}
-          onCreate={async (values) => {
-            const { id } = await postJson<{ id: string }>('/api/projects', {
-              name: values.name ?? '',
-              artist: values.artist ?? '',
-              folderId,
-            });
-            router.push(projectHref(id));
-          }}
-        />
-      ) : null}
+      {open ? <NewProjectDialog folderId={folderId} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }

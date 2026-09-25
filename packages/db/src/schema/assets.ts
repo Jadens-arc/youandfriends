@@ -6,6 +6,7 @@ import { createdAt, id, reference, updatedAt, workspaceId } from './columns';
 import { projects } from './projects';
 import { softDeleteColumns } from './soft-delete';
 import { songs } from './songs';
+import { users } from './users';
 import { workspaces } from './workspaces';
 
 export const assetKindEnum = pgEnum('asset_kind', ASSET_KINDS);
@@ -48,6 +49,12 @@ export const assets = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`),
 
+    /**
+     * Who made it (task `093`). A voice note belongs to the commenter who recorded it: only they
+     * may upload its one recording. Null for assets made before this column, or whose creator's
+     * account is gone.
+     */
+    createdBy: reference('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     ...softDeleteColumns(),

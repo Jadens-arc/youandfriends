@@ -4,6 +4,8 @@ import { Button, cn } from '@youandfriends/ui';
 import { Upload } from 'lucide-react';
 import * as React from 'react';
 
+import { useRegisterUploadSurface } from '@/lib/upload/current-surface';
+
 import { UploadDialog, type UploadSurface } from './upload-dialog';
 
 function hasFiles(event: React.DragEvent): boolean {
@@ -30,6 +32,7 @@ export function DropZone({
   const [over, setOver] = React.useState(false);
   const [files, setFiles] = React.useState<File[] | null>(null);
   const depth = React.useRef(0);
+  useRegisterUploadSurface(surface);
 
   return (
     <div

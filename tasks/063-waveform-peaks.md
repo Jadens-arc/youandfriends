@@ -51,12 +51,12 @@ Peaks are derived data with no additional sensitivity beyond the audio itself, b
 
 ## Acceptance criteria
 
-- [ ] Peaks are generated at multiple resolutions for every audio version.
-- [ ] The binary format is compact and documented in the repository.
-- [ ] Output is deterministic for identical input, proven by test.
-- [ ] Mono, stereo, and multichannel sources are handled.
-- [ ] Peaks are computed from the original, not the derivative.
-- [ ] Peak data is served only through authorized presigned URLs.
+- [x] Peaks are generated at multiple resolutions for every audio version. (`generateWaveformPeaks` in `packages/media/src/waveform.ts`: ~1,000-bucket overview, 50/s, and 200/s tiers, streamed from ffmpeg without holding the decoded file in memory. Run for every audio version by task `064`'s job.)
+- [x] The binary format is compact and documented in the repository. (`packages/media/src/waveform-format.md`; encoder and strict decoder in `packages/contracts/src/waveform.ts`, shared with the player. The test checks it is under half the size of the same integers as JSON and under a tenth of JSON floats.)
+- [x] Output is deterministic for identical input, proven by test. (Two runs hash identically; the accumulator gives identical bytes however the PCM stream is chunked, including mid-sample splits.)
+- [x] Mono, stereo, and multichannel sources are handled. (One envelope over every channel; tested with mono, stereo, and 5.1.)
+- [x] Peaks are computed from the original, not the derivative. (Decoded at the original's own rate and channel count; `064` passes the downloaded original.)
+- [x] Peak data is served only through authorized presigned URLs. (Stored as a `waveform_peaks` derivative in the private derivatives class; the read path that authorizes and presigns it is the player's, tasks `067`/`072`.)
 
 ## Tests and validation commands
 
@@ -76,8 +76,8 @@ Additive derivative. Regenerable at any time from originals.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`bdabdaf`

@@ -36,7 +36,12 @@ export function ProcessingBadge({ state }: { readonly state: ProcessingState }) 
   const Icon = PROCESSING_ICON[state];
   return (
     <Badge variant={PROCESSING_VARIANT[state]}>
-      <Icon aria-hidden className="size-3.5" />
+      {/* Spinning is the indeterminate indicator for work of unknown length — never a progress
+          bar (task `065`). Still for anyone who asked for reduced motion; the word carries it. */}
+      <Icon
+        aria-hidden
+        className={state === 'running' ? 'size-3.5 motion-safe:animate-spin' : 'size-3.5'}
+      />
       {PROCESSING_LABELS[state]}
     </Badge>
   );

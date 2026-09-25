@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `063` is next. `016`, `029`, `045` are passed over until their dependencies are `complete`. 46 of 95 iteration-one tasks are `complete`.
+Task `094` is next. `016`, `029` are passed over until their dependencies are `complete`. 72 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -59,7 +59,7 @@ Task `063` is next. `016`, `029`, `045` are passed over until their dependencies
 | `042` | Song workspace and tabs                                                | Library navigation                   | `041`, `026`                              | `complete` | `564a54c` | —       |
 | `043` | Song and project metadata editing                                      | Library navigation                   | `042`, `024`                              | `complete` | `315d389` | —       |
 | `044` | Favorites, recents, and activity                                       | Library navigation                   | `042`, `024`                              | `complete` | `1838e8c` | —       |
-| `045` | Command palette and search                                             | Library navigation                   | `041`, `080`                              | `pending`  | —         | —       |
+| `045` | Command palette and search                                             | Library navigation                   | `041`, `080`                              | `complete` | `b1db9fd` | —       |
 | `046` | Create projects and songs                                              | Library navigation                   | `041`, `042`, `024`                       | `complete` | `1e5bfe5` | —       |
 | `050` | Storage package and R2 driver                                          | Upload, storage, versions            | `002`, `003`                              | `complete` | `683c0ca` | —       |
 | `051` | Upload session API                                                     | Upload, storage, versions            | `050`, `026`, `023`                       | `complete` | `3221a64` | —       |
@@ -73,32 +73,32 @@ Task `063` is next. `016`, `029`, `045` are passed over until their dependencies
 | `059` | Typecheck the operational scripts                                      | Data, authorization, audit           | `051`                                     | `complete` | `70db6f6` | —       |
 | `060` | Media package, ffprobe validation, capability probe                    | Media pipeline                       | `050`, `003`                              | `complete` | `d783b17` | —       |
 | `061` | EBU R128 loudness and true peak analysis                               | Media pipeline                       | `060`                                     | `complete` | `3e3d092` | —       |
-| `062` | AAC streaming derivative                                               | Media pipeline                       | `060`, `061`                              | `complete` | —         | —       |
-| `063` | Multi-resolution waveform peak generation                              | Media pipeline                       | `060`, `062`                              | `pending`  | —         | —       |
-| `064` | Trigger.dev job orchestration                                          | Media pipeline                       | `060`, `061`, `062`, `063`, `051`         | `pending`  | —         | —       |
-| `065` | Processing status and error surfacing                                  | Media pipeline                       | `064`, `056`                              | `pending`  | —         | —       |
-| `066` | Media pipeline fixture tests                                           | Media pipeline                       | `064`, `027`                              | `pending`  | —         | —       |
-| `067` | Serve stored bytes as the type we recorded                             | Media pipeline                       | `051`, `062`                              | `pending`  | —         | —       |
-| `068` | Threat model the media pipeline                                        | Media pipeline                       | `060`                                     | `pending`  | —         | —       |
-| `069` | Cover art renditions and delivery                                      | Media pipeline                       | `064`, `067`, `058`                       | `pending`  | —         | —       |
-| `070` | Player state machine and audio element                                 | Persistent player                    | `062`, `013`, `067`                       | `pending`  | —         | —       |
-| `071` | Persistent player interface                                            | Persistent player                    | `070`, `012`                              | `pending`  | —         | —       |
-| `072` | Waveform rendering and seeking                                         | Persistent player                    | `063`, `071`                              | `pending`  | —         | —       |
-| `073` | Playback queue and best-effort gapless                                 | Persistent player                    | `070`, `071`                              | `pending`  | —         | —       |
-| `074` | Loop regions and playback speed                                        | Persistent player                    | `072`, `073`                              | `pending`  | —         | —       |
-| `075` | A/B version switching                                                  | Persistent player                    | `070`, `056`, `061`                       | `pending`  | —         | —       |
-| `076` | Media Session and background playback                                  | Persistent player                    | `070`, `073`                              | `pending`  | —         | —       |
-| `077` | Mobile mini-player and expanded player                                 | Persistent player                    | `071`, `072`, `074`, `075`, `014`         | `pending`  | —         | —       |
-| `080` | Lyrics schema, plain-text projection, and autosave                     | Collaborative lyrics                 | `026`, `042`                              | `pending`  | —         | —       |
-| `081` | Tiptap structured lyrics editor                                        | Collaborative lyrics                 | `080`, `011`                              | `pending`  | —         | —       |
-| `082` | Real-time collaboration, presence, and cursors                         | Collaborative lyrics                 | `081`, `080`, `023`                       | `pending`  | —         | —       |
-| `083` | Lyric timestamp anchors                                                | Collaborative lyrics                 | `081`, `072`                              | `pending`  | —         | —       |
-| `084` | Revision snapshots and restoration                                     | Collaborative lyrics                 | `080`, `082`                              | `pending`  | —         | —       |
-| `085` | Mobile lyrics experience                                               | Collaborative lyrics                 | `081`, `082`, `083`, `014`                | `pending`  | —         | —       |
-| `090` | Comment schema, threads, and general comments                          | Comments, voice notes, notifications | `042`, `026`                              | `pending`  | —         | —       |
-| `091` | Timestamped audio comments                                             | Comments, voice notes, notifications | `090`, `072`, `071`                       | `pending`  | —         | —       |
-| `092` | Lyric-anchored comments                                                | Comments, voice notes, notifications | `090`, `081`, `082`                       | `pending`  | —         | —       |
-| `093` | Voice notes                                                            | Comments, voice notes, notifications | `090`, `053`, `063`                       | `pending`  | —         | —       |
+| `062` | AAC streaming derivative                                               | Media pipeline                       | `060`, `061`                              | `complete` | `d4c37c7` | —       |
+| `063` | Multi-resolution waveform peak generation                              | Media pipeline                       | `060`, `062`                              | `complete` | `bdabdaf` | —       |
+| `064` | Trigger.dev job orchestration                                          | Media pipeline                       | `060`, `061`, `062`, `063`, `051`         | `complete` | `1747ccb` | —       |
+| `065` | Processing status and error surfacing                                  | Media pipeline                       | `064`, `056`                              | `complete` | `5f26333` | —       |
+| `066` | Media pipeline fixture tests                                           | Media pipeline                       | `064`, `027`                              | `complete` | `24b9a4d` | —       |
+| `067` | Serve stored bytes as the type we recorded                             | Media pipeline                       | `051`, `062`                              | `complete` | `2c19915` | —       |
+| `068` | Threat model the media pipeline                                        | Media pipeline                       | `060`                                     | `complete` | `1562f13` | —       |
+| `069` | Cover art renditions and delivery                                      | Media pipeline                       | `064`, `067`, `058`                       | `complete` | `bb44d54` | —       |
+| `070` | Player state machine and audio element                                 | Persistent player                    | `062`, `013`, `067`                       | `complete` | `607486d` | —       |
+| `071` | Persistent player interface                                            | Persistent player                    | `070`, `012`                              | `complete` | `6132517` | —       |
+| `072` | Waveform rendering and seeking                                         | Persistent player                    | `063`, `071`                              | `complete` | `128f15d` | —       |
+| `073` | Playback queue and best-effort gapless                                 | Persistent player                    | `070`, `071`                              | `complete` | `8e74a44` | —       |
+| `074` | Loop regions and playback speed                                        | Persistent player                    | `072`, `073`                              | `complete` | `5ad612f` | —       |
+| `075` | A/B version switching                                                  | Persistent player                    | `070`, `056`, `061`                       | `complete` | `41af46e` | —       |
+| `076` | Media Session and background playback                                  | Persistent player                    | `070`, `073`                              | `complete` | `0e3e2dd` | —       |
+| `077` | Mobile mini-player and expanded player                                 | Persistent player                    | `071`, `072`, `074`, `075`, `014`         | `complete` | `a6bbeaa` | —       |
+| `080` | Lyrics schema, plain-text projection, and autosave                     | Collaborative lyrics                 | `026`, `042`                              | `complete` | `68e9988` | —       |
+| `081` | Tiptap structured lyrics editor                                        | Collaborative lyrics                 | `080`, `011`                              | `complete` | `5c6f80a` | —       |
+| `082` | Real-time collaboration, presence, and cursors                         | Collaborative lyrics                 | `081`, `080`, `023`                       | `complete` | `02db1c4` | —       |
+| `083` | Lyric timestamp anchors                                                | Collaborative lyrics                 | `081`, `072`                              | `complete` | `f526fde` | —       |
+| `084` | Revision snapshots and restoration                                     | Collaborative lyrics                 | `080`, `082`                              | `complete` | `3a7b93b` | —       |
+| `085` | Mobile lyrics experience                                               | Collaborative lyrics                 | `081`, `082`, `083`, `014`                | `complete` | `667147c` | —       |
+| `090` | Comment schema, threads, and general comments                          | Comments, voice notes, notifications | `042`, `026`                              | `complete` | `3f3af07` | —       |
+| `091` | Timestamped audio comments                                             | Comments, voice notes, notifications | `090`, `072`, `071`                       | `complete` | `e97aa35` | —       |
+| `092` | Lyric-anchored comments                                                | Comments, voice notes, notifications | `090`, `081`, `082`                       | `complete` | `6e74861` | —       |
+| `093` | Voice notes                                                            | Comments, voice notes, notifications | `090`, `053`, `063`                       | `complete` | —         | —       |
 | `094` | Mentions, reactions, and thread resolution                             | Comments, voice notes, notifications | `090`, `032`                              | `pending`  | —         | —       |
 | `095` | In-app notification center                                             | Comments, voice notes, notifications | `094`, `024`                              | `pending`  | —         | —       |
 | `096` | Notification preferences and email delivery                            | Comments, voice notes, notifications | `095`, `002`                              | `pending`  | —         | —       |

@@ -50,13 +50,17 @@ Same authorization as desktop lyrics. Read-only presentation for viewers and com
 
 ## Acceptance criteria
 
-- [ ] The full-screen editor renders with a compact waveform above it.
-- [ ] The caret stays visible as the on-screen keyboard appears and dismisses.
-- [ ] Block controls meet 44×44 px and do not cover the writing area.
-- [ ] Presence adapts to narrow width.
-- [ ] Viewers and commenters get a genuine read-only view.
-- [ ] Playback is controllable without leaving the lyrics surface.
-- [ ] Space does not trigger play/pause while editing.
+- [x] The full-screen editor renders with a compact waveform above it. (On a phone, "Write full screen" — or simply starting to type — turns the lyrics tab into a full-screen surface: the song's title and Done, the compact waveform and play button, then the lyrics. It is the _same_ mounted editor restyled below `md`, so entering and leaving loses nothing; Escape or Done leaves.)
+- [x] The caret stays visible as the on-screen keyboard appears and dismisses. (`components/lyrics/mobile/keyboard.ts`: the keyboard's height from the Visual Viewport API — not `vh` — and on every keyboard resize and selection change the lyrics scroll just enough to keep the caret above the keyboard and the docked controls. Arithmetic tested pure; the wiring tested with a resizing visual viewport. **On a real iPhone this is Manual QA 1.**)
+- [x] Block controls meet 44×44 px and do not cover the writing area. (Every section control is at least 44 px below `md`; in full screen the controls dock to the bottom, riding above the keyboard, in one scrollable row, and the lyrics end with room for them.)
+- [x] Presence adapts to narrow width. (Initials in each person's colour instead of names — the name kept for screen readers and as the title — and connection state in fewer words, never hidden.)
+- [x] Viewers and commenters get a genuinely read-only view. (Not editable, no controls, no full-screen writing mode — tested.)
+- [x] Playback is controllable without leaving the lyrics surface. (The play button and seekable compact waveform stay above the lyrics in full screen; timestamps (task `083`) still play from their line.)
+- [x] Space does not trigger play/pause while editing. (The player's shortcut handler leaves keys to a contenteditable or `role="textbox"`; tested against the real editor, with the same key on the page body shown to reach the player.)
+
+**Fix-up after commit.** The implementation commit carried one lint error (`react-hooks/immutability` in `mobile/keyboard.ts`) that the gate did not catch: `turbo.json` limited the lint and test task inputs to `src/**` and `app/**`, so changes under `apps/web/components/**` and `apps/web/lib/**` hit a stale cache and reported green. A second `085:` commit fixes the error and removes those input restrictions, so every tracked file in a package now invalidates its lint and test cache; a forced lint of every package is clean.
+
+**Not verified here.** Manual QA 1–3 need a real iPhone (task `102`/`120`); jsdom has no layout or on-screen keyboard, so the tests exercise the measurements and wiring, not Safari's rendering.
 
 ## Tests and validation commands
 
@@ -77,8 +81,8 @@ Mobile UI only. Reverting degrades mobile lyrics to the desktop layout.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`667147c`, then `5a7bfaa` (the lint fix-up described above)

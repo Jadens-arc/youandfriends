@@ -1,0 +1,38 @@
+{
+  "name": "@youandfriends/jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Trigger.dev task definitions for the media pipeline (ADR 0002).",
+  "exports": {
+    "./client": "./src/client.ts",
+    "./enqueue": "./src/enqueue.ts"
+  },
+  "scripts": {
+    "dev": "trigger dev",
+    "deploy": "trigger deploy",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit && tsc --project tsconfig.bin.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "ops:media:retry": "tsx bin/media-retry.mjs"
+  },
+  "dependencies": {
+    "@trigger.dev/sdk": "^4.6.4",
+    "@youandfriends/config": "workspace:*",
+    "@youandfriends/contracts": "workspace:*",
+    "@youandfriends/db": "workspace:*",
+    "@youandfriends/media": "workspace:*",
+    "@youandfriends/storage": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "^4.6.4",
+    "trigger.dev": "^4.6.4",
+    "tsx": "^4.23.13",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

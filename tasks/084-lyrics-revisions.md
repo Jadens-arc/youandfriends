@@ -52,13 +52,19 @@ Revisions contain lyrics and carry the same sensitivity and authorization. Resto
 
 ## Acceptance criteria
 
-- [ ] Automatic snapshots occur on meaningful change with a time floor.
-- [ ] Users can create named checkpoints.
-- [ ] The revision list shows timestamp, author, and name.
-- [ ] A structure-aware diff compares a revision against current.
-- [ ] Restoration snapshots current work first, so restoring is undoable.
-- [ ] Retention keeps named checkpoints and thins automatic ones per a documented policy.
-- [ ] Restoration is authorized, audited, and propagates to connected collaborators.
+- [x] Automatic snapshots occur on meaningful change with a time floor. (Inside the save transaction: when the lyrics differ from the last revision by at least 4 lines or 80 characters of changed lines, at most once per 10 minutes — 2 minutes for a save made as the page is left. The first words ever saved are kept. `lib/lyrics/revisions-policy.ts`, tested pure and against the database.)
+- [x] Users can create named checkpoints. (History → "Name a checkpoint"; the autosave is flushed first, so the checkpoint is of what is on screen. Editors only; audited `lyrics.checkpoint_created`.)
+- [x] The revision list shows timestamp, author, and name. (Name — or its kind — the kind in words, a `<time>`, and who.)
+- [x] A structure-aware diff compares a revision against current. (Line-based over the bracketed text: section headings stay headings; each row is marked added or removed with an icon, a tint, strikethrough for removals, and the word "Added"/"Removed" for screen readers.)
+- [x] Restoration snapshots current work first, so restoring is undoable. (A `before_restore` revision of what is there is written in the same transaction before anything changes; restoring _it_ brings the work back — tested.)
+- [x] Retention keeps named checkpoints and thins automatic ones per a documented policy. (Checkpoints and before-restore revisions are kept; automatic ones are all kept for a day, the latest per hour for a week, the latest per day after — applied at each automatic snapshot, and stated in the History panel.)
+- [x] Restoration is authorized, audited, and propagates to connected collaborators. (`edit` on the song, 404-shaped otherwise; audited `lyrics.revision_restored` with both revision ids. The restore is computed as an edit of the stored Yjs state and returned as an update, which the restoring tab applies to its shared document — reaching everyone in the room; tested through the relay.)
+
+**Schema.** `lyrics_revisions` (migration `0020`, with the composite same-workspace song reference, a check that checkpoints are named, and the `lyrics.checkpoint_created` audit value). Its cross-workspace IDOR entry is live. A trashed song's revisions are unreachable with it, and go with it when it is purged.
+
+**Known limit.** A collaborator's words typed into a section in the instant that section is replaced by a restore go with that section; everything saved before the restore is in the `before_restore` revision.
+
+**Not verified here.** Manual QA 1–3 need a browser and, for 2, a Liveblocks project (task `120`).
 
 ## Tests and validation commands
 
@@ -80,8 +86,8 @@ Additive. Reverting loses revision history — do not revert once users rely on 
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`3a7b93b`

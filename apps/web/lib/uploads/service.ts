@@ -18,6 +18,7 @@ import {
 } from '@youandfriends/authz';
 import {
   assets,
+  assetVersions,
   markStorageUsageStale,
   storageObjects,
   storageUsage,
@@ -33,6 +34,8 @@ import {
 } from '@youandfriends/media';
 import { newObjectKey, type StorageDriver } from '@youandfriends/storage';
 import { and, eq } from 'drizzle-orm';
+
+import { VOICE_NOTE_MAX_BYTES } from '@/lib/comments/voice-notes';
 
 /**
  * The upload protocol, server side.
@@ -131,6 +134,40 @@ export async function createUploadSession(context: UploadContext, input: CreateU
   // steps ask later, through the same function, so the three cannot drift apart.
   const asset = await assertMayWriteAsset(context, request.assetId);
 
+  if (asset.kind === 'voice_note') {
+    if (request.sizeBytes > VOICE_NOTE_MAX_BYTES) {
+      throw new UploadError(
+        'size_exceeded',
+        `${request.sizeBytes} bytes exceeds the ${VOICE_NOTE_MAX_BYTES}-byte voice note limit`,
+      );
+    }
+    // One recording per voice note: no second upload once one has landed or is under way.
+    const [existing] = await context.db
+      .select({ id: assetVersions.id })
+      .from(assetVersions)
+      .where(
+        and(
+          eq(assetVersions.assetId, asset.id),
+          eq(assetVersions.workspaceId, context.workspaceId),
+        ),
+      )
+      .limit(1);
+    const [pending] = await context.db
+      .select({ id: uploadSessions.id })
+      .from(uploadSessions)
+      .where(
+        and(
+          eq(uploadSessions.assetId, asset.id),
+          eq(uploadSessions.workspaceId, context.workspaceId),
+          eq(uploadSessions.state, 'pending'),
+        ),
+      )
+      .limit(1);
+    if (existing !== undefined || pending !== undefined) {
+      throw new UploadError('invalid_state', `voice note ${asset.id} already has its recording`);
+    }
+  }
+
   if (context.maxObjectBytes !== undefined && request.sizeBytes > context.maxObjectBytes) {
     throw new UploadError(
       'size_exceeded',
@@ -217,12 +254,33 @@ async function assertMayWriteAsset(
   assetId: string,
 ): Promise<WritableAsset> {
   const [asset] = await context.db
-    .select({ id: assets.id, songId: assets.songId, projectId: assets.projectId })
+    .select({
+      id: assets.id,
+      songId: assets.songId,
+      projectId: assets.projectId,
+      kind: assets.kind,
+      createdBy: assets.createdBy,
+    })
     .from(assets)
     .where(and(eq(assets.id, assetId), eq(assets.workspaceId, context.workspaceId)));
 
   // 404-shaped, never 403: a forbidden answer confirms the asset exists (THREAT_MODEL T1).
   if (!asset) throw new UploadError('not_found', `no asset ${assetId}`);
+
+  if (asset.kind === 'voice_note') {
+    // A voice note (task `093`) is a commenter's recording: only the person who made the asset
+    // may upload into it, while they may still comment, and only once — it is not a file with
+    // versions, and nobody else's recording can be slipped in under their name.
+    if (asset.createdBy !== context.userId || asset.songId === null) {
+      throw new UploadError('not_found', `no asset ${assetId}`);
+    }
+    await context.authz.assertCan(context.subject, 'comment', {
+      workspaceId: context.workspaceId,
+      scopeType: 'song',
+      scopeId: asset.songId,
+    });
+    return asset;
+  }
 
   await context.authz.assertCan(context.subject, 'edit', {
     workspaceId: context.workspaceId,
@@ -238,6 +296,7 @@ interface WritableAsset {
   readonly id: string;
   readonly songId: string | null;
   readonly projectId: string | null;
+  readonly kind: string;
 }
 
 /**

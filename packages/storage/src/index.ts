@@ -26,12 +26,14 @@ export {
   type PresignTtls,
   type SignDownloadInput,
   type SignPartInput,
+  type SignStreamInput,
   type StorageDriver,
   type UploadedPart,
 } from './driver';
 
 export {
   classPrefix,
+  derivativeObjectKey,
   newObjectKey,
   OBJECT_CLASSES,
   parseObjectKey,
@@ -43,7 +45,17 @@ export {
   assertBucketPrivate,
   contentDisposition,
   createR2Driver,
+  readOverrides,
   r2ConfigFrom,
   StorageNotConfiguredError,
   type R2Config,
 } from './r2';
+
+export {
+  assertOverwritable,
+  createR2Transfer,
+  limitBytes,
+  TransferLimitError,
+  type ObjectTransfer,
+  type TransferOptions,
+} from './transfer';

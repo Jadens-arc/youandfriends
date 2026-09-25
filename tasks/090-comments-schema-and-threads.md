@@ -52,14 +52,18 @@ Comment bodies are untrusted user input rendered to other collaborators — stor
 
 ## Acceptance criteria
 
-- [ ] Threads support general, timestamp, and lyric anchors by discriminator.
-- [ ] Comments support replies within a thread.
-- [ ] Editing shows an edited indicator; deletion tombstones and preserves structure.
-- [ ] Threads can be resolved and unresolved, and resolved threads collapse.
-- [ ] Posting requires commenter role or above; viewers cannot post.
-- [ ] Bodies are stored as plain text and escaped on render.
-- [ ] Comments appear in the task `023` IDOR suite.
-- [ ] Edits and deletions are authorized and audited.
+- [x] Threads support general, timestamp, and lyric anchors by discriminator. (`comment_threads.anchor_kind` with a check holding each kind to its own fields; `commentAnchorSchema` is the matching discriminated union. The API accepts `general` only until tasks `091` and `092` add the behaviour behind the other two.)
+- [x] Comments support replies within a thread. (In order; a reply moves its thread to the top.)
+- [x] Editing shows an edited indicator; deletion tombstones and preserves structure. ("· edited" with the time as its title; a deleted comment's words are erased — in the database, not just hidden — and its place reads "This comment was deleted.")
+- [x] Threads can be resolved and unresolved, and resolved threads collapse. (Folded under "N resolved threads", with who resolved each.)
+- [x] Posting requires commenter role or above; viewers cannot post. (`comment` through `packages/authz`; viewers get no composer and a 404-shaped refusal — tested.)
+- [x] Bodies are stored as plain text and escaped on render. (Plain text in, plain text out, rendered as React text with whitespace kept; control characters and direction overrides refused — tested with markup that stays text.)
+- [x] Comments appear in the task `023` IDOR suite. (`comment_threads` and `comments` are live entries, both in `SCOPED_TABLES`.)
+- [x] Edits and deletions are authorized and audited. (Edit: the author only. Delete: the author, or anyone who may edit the song. `comment.updated`, `comment.deleted`, `comment.resolved`, `comment.reopened`, and `comment.created` — all against the song, so they join its activity. Scoping mutation-checked.)
+
+**Decision.** The task allows editors to edit anyone's comments; this implementation lets editors _delete_ any comment but lets only authors _edit_ their own — rewriting someone else's words under their name is not something the product needs, and narrower is the safe default.
+
+**Not verified here.** Manual QA 1–3 need a browser (task `120`).
 
 ## Tests and validation commands
 
@@ -81,8 +85,8 @@ Additive. Reverting after comments exist would lose conversation — do not reve
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`3f3af07`

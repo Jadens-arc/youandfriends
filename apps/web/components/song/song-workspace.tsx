@@ -1,8 +1,12 @@
 import { cn } from '@youandfriends/ui';
 
+import { LyricsAudio, lyricsTrack } from '@/components/lyrics/lyrics-audio';
+import { LyricsPanel } from '@/components/lyrics/lyrics-panel';
 import type { ActivityItem } from '@/lib/library/projects';
 import type { SongWorkspace as SongWorkspaceData } from '@/lib/songs/workspace';
 
+import { CommentsPanel } from '@/components/comments/comments-panel';
+import { songPlayback } from '@/lib/comments/playback';
 import { ActivityFeed } from '@/components/library/activity-feed';
 import { InlineField } from '@/components/metadata/inline-field';
 import { DropZone, UploadFilesButton } from '@/components/upload/drop-zone';
@@ -117,11 +121,35 @@ export function SongWorkspaceView({
                       songTitle={workspace.song.title}
                       songId={workspace.song.id}
                       capabilities={workspace.capabilities}
+                      artist={workspace.artist}
+                      cover={workspace.cover}
+                      album={workspace.project?.name ?? null}
                     />
                   </div>
                 ),
                 lyrics: (
-                  <p className="text-body text-muted-foreground font-sans italic">No lyrics yet.</p>
+                  <LyricsPanel
+                    songId={workspace.song.id}
+                    songTitle={workspace.song.title}
+                    track={lyricsTrack({
+                      songId: workspace.song.id,
+                      songTitle: workspace.song.title,
+                      artist: workspace.artist,
+                      cover: workspace.cover,
+                      album: workspace.project?.name ?? null,
+                      versions: workspace.versions,
+                    })}
+                    audio={
+                      <LyricsAudio
+                        songId={workspace.song.id}
+                        songTitle={workspace.song.title}
+                        artist={workspace.artist}
+                        cover={workspace.cover}
+                        album={workspace.project?.name ?? null}
+                        versions={workspace.versions}
+                      />
+                    }
+                  />
                 ),
                 files: (
                   <div className="flex flex-col gap-4">
@@ -138,20 +166,36 @@ export function SongWorkspaceView({
                   </div>
                 ),
                 activity: (
-                  <section aria-labelledby="song-activity-heading" className="flex flex-col gap-2">
-                    <h2
-                      id="song-activity-heading"
-                      className="text-caption text-muted-foreground font-sans font-medium tracking-wide uppercase"
-                    >
-                      Activity
-                    </h2>
-                    <ActivityFeed
-                      items={activity}
-                      now={now}
-                      showTarget={false}
-                      empty="Nothing has happened here yet."
+                  <div className="flex flex-col gap-8">
+                    <CommentsPanel
+                      songId={workspace.song.id}
+                      playback={songPlayback({
+                        songId: workspace.song.id,
+                        songTitle: workspace.song.title,
+                        artist: workspace.artist,
+                        cover: workspace.cover,
+                        album: workspace.project?.name ?? null,
+                        versions: workspace.versions,
+                      })}
                     />
-                  </section>
+                    <section
+                      aria-labelledby="song-activity-heading"
+                      className="flex flex-col gap-2"
+                    >
+                      <h2
+                        id="song-activity-heading"
+                        className="text-caption text-muted-foreground font-sans font-medium tracking-wide uppercase"
+                      >
+                        Activity
+                      </h2>
+                      <ActivityFeed
+                        items={activity}
+                        now={now}
+                        showTarget={false}
+                        empty="Nothing has happened here yet."
+                      />
+                    </section>
+                  </div>
                 ),
               }}
             />

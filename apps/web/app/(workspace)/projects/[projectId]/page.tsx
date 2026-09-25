@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 
 import { NewSongButton } from '@/components/library/create-dialogs';
 import { FavoriteToggle, RecordView } from '@/components/library/personal';
+import { QueueSourceButtons } from '@/components/player/queue-actions';
 import { CoverUpload } from '@/components/metadata/cover-upload';
 import { InlineField, InlineStatus } from '@/components/metadata/inline-field';
 import { CoverArt } from '@/components/library/cover-art';
@@ -100,6 +101,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
             <CoverUpload projectId={project.id} projectName={project.name} />
           ) : null}
         </div>
+        <QueueSourceButtons
+          selection={{ kind: 'project', projectId: project.id }}
+          label={project.name}
+        />
       </div>
     </header>
   );

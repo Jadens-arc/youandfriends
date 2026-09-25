@@ -3,6 +3,8 @@
 import { cn } from '@youandfriends/ui';
 import * as React from 'react';
 
+import { PlayerBar } from '@/components/player/player-bar';
+
 /** Reserved height of the player bar. Also used to pad scroll containers above it. */
 export const PLAYER_HEIGHT = '4.5rem';
 
@@ -17,8 +19,8 @@ export const PLAYER_HEIGHT = '4.5rem';
  * The height is reserved whether or not anything is playing, so the first play does not
  * shove the page upward.
  *
- * Transport controls, the waveform, and audio itself arrive in tasks `070`–`072`. This is
- * the slot and the guarantee, not the player.
+ * The bar itself is `PlayerBar` (task `071`); audio is the one element `AudioHost` owns (task
+ * `070`). This is the slot and the guarantee.
  */
 export function PlayerRegion({ children }: { children?: React.ReactNode }) {
   return (
@@ -30,11 +32,7 @@ export function PlayerRegion({ children }: { children?: React.ReactNode }) {
         'bg-espresso text-on-espresso px-4',
       )}
     >
-      {children ?? (
-        <p className="text-caption text-secondary-on-espresso font-sans">
-          Nothing playing. The player arrives in task 070.
-        </p>
-      )}
+      {children ?? <PlayerBar />}
     </div>
   );
 }

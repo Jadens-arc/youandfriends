@@ -28,6 +28,15 @@ interface Signature {
 }
 
 /**
+ * Every type the sniffer can name. Its audio types must all be servable
+ * (`SERVABLE_CONTENT_TYPES` in `@youandfriends/contracts`, task `067`) — a test holds the two
+ * lists together so a newly recognised format cannot silently download instead of playing.
+ */
+export function sniffableContentTypes(): readonly string[] {
+  return [...new Set([...SIGNATURES.map((signature) => signature.contentType), 'audio/mpeg'])];
+}
+
+/**
  * Signatures in specificity order: RIFF alone is ambiguous (WAV, AVI, WebP all open `RIFF`), so
  * the form tag at offset 8 is part of the match rather than a detail checked afterwards.
  */
@@ -64,6 +73,22 @@ const SIGNATURES: readonly Signature[] = [
   { contentType: 'audio/mp4', at: [{ offset: 4, bytes: 'ftypM4B ' }] },
   { contentType: 'video/mp4', at: [{ offset: 4, bytes: 'ftyp' }] },
   { contentType: 'audio/ogg', at: [{ offset: 0, bytes: 'OggS' }] },
+  // Chrome and Firefox record voice notes (task `093`) as WebM/Opus: an EBML header. Safari
+  // records MP4/AAC, which the `ftyp` rows above already name.
+  { contentType: 'audio/webm', at: [{ offset: 0, bytes: '\x1a\x45\xdf\xa3' }] },
+
+  // Cover art (task `069`). Only these three: they are what the artwork pipeline will decode,
+  // and none of them can carry script. SVG is deliberately absent — it is a document, not an
+  // image, and it can.
+  { contentType: 'image/jpeg', at: [{ offset: 0, bytes: '\xff\xd8\xff' }] },
+  { contentType: 'image/png', at: [{ offset: 0, bytes: '\x89PNG\r\n\x1a\n' }] },
+  {
+    contentType: 'image/webp',
+    at: [
+      { offset: 0, bytes: 'RIFF' },
+      { offset: 8, bytes: 'WEBP' },
+    ],
+  },
 
   // Project bundles. A Logic project and an MPC program are directories; they arrive zipped.
   // Recorded as ZIP and never expanded server-side (T4).

@@ -70,3 +70,12 @@ with more code to own.
 
 **Inngest / QStash** — comparable job semantics, but neither offers a first-party ffmpeg
 build path, so we would be back to sourcing a binary ourselves.
+
+## Amendment — task `064`
+
+Implemented against **`@trigger.dev/sdk` v4** (4.6), the current major version. v4 keeps v3's
+`task()` model and exposes it from the package root; nothing in this decision depends on what
+changed between them. The web tier reaches the queue through `apps/jobs`'s `triggerClientFrom`,
+a scoped `TriggerClient` rather than the SDK's process-wide `configure`, and still never imports
+the SDK directly. The ffmpeg build extension is pinned to the static 7.x build
+(`ffmpeg({ version: '7' })`); the capability probe at each job's start is what verifies it.

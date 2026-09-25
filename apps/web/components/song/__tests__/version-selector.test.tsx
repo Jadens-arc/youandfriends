@@ -94,8 +94,8 @@ describe('VersionPanel', () => {
     );
     await userEvent.click(screen.getByRole('radio', { name: /Version 3/ }));
     expect(screen.getByRole('heading', { name: 'Version 3' })).toBeInTheDocument();
-    // Processing state is an icon and a word.
-    expect(screen.getByText('Processing')).toBeInTheDocument();
+    // Processing state is an icon and a word — in the list row and in the details.
+    expect(screen.getAllByText('Processing')).toHaveLength(2);
     expect(window.location.href).toBe(before);
   });
 
@@ -125,8 +125,8 @@ describe('VersionPanel', () => {
         {...PANEL}
       />,
     );
-    expect(screen.getByText('Processing failed')).toBeInTheDocument();
-    expect(screen.getByText('decoder error')).toBeInTheDocument();
+    expect(screen.getAllByText('Processing failed')).toHaveLength(2);
+    expect(screen.getByText(/decoder error/)).toBeInTheDocument();
   });
 
   it('says what to do when there are no versions yet', () => {
