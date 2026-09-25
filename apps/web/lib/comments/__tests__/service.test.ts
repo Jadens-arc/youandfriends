@@ -190,7 +190,7 @@ describeWithDatabase('comments', () => {
     }
     const lyric = await refusal(
       createThread(contextFor(people.sam), ids.song, {
-        anchor: { kind: 'lyric', range: {} },
+        anchor: { kind: 'lyric', start: {}, end: {}, quote: 'x'.repeat(501), scope: 'line' },
         body: 'this line',
       }),
     );

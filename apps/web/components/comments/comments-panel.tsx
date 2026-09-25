@@ -232,30 +232,44 @@ function MomentChip({
   );
 }
 
-function Thread({
+export function Thread({
   thread,
   songId,
   canComment,
   onChanged,
   playback,
+  domId,
+  lead = null,
 }: {
   readonly thread: ThreadView;
   readonly songId: string;
   readonly canComment: boolean;
   readonly onChanged: () => Promise<void>;
   readonly playback: SongPlayback | null;
+  /** An id to scroll and move focus to (a lyric anchor opens its thread, task `092`). */
+  readonly domId?: string;
+  /** Shown above the comments — a lyric thread's quote. */
+  readonly lead?: React.ReactNode;
 }) {
   const [replying, setReplying] = React.useState(false);
   const base = `/api/songs/${encodeURIComponent(songId)}/comments/${encodeURIComponent(thread.id)}`;
   const resolved = thread.resolvedAt !== null;
   return (
     <article
+      id={domId}
+      tabIndex={domId === undefined ? undefined : -1}
       aria-label={threadName(thread)}
       className="border-border-subtle bg-card flex flex-col gap-3 rounded-md border p-3"
     >
       {thread.anchor.kind === 'timestamp' ? (
         <MomentChip anchor={thread.anchor} playback={playback} />
       ) : null}
+      {thread.anchor.kind === 'lyric' && lead === null ? (
+        <blockquote className="border-border text-caption text-muted-foreground border-l-2 pl-2 font-mono whitespace-pre-wrap">
+          {thread.anchor.quote}
+        </blockquote>
+      ) : null}
+      {lead}
       <ol className="flex flex-col gap-3">
         {thread.comments.map((comment) => (
           <Comment key={comment.id} comment={comment} base={base} onChanged={onChanged} />

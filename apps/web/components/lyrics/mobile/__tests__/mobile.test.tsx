@@ -61,19 +61,21 @@ function phone(matches: boolean) {
 function stubLyrics(canEdit: boolean) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (_url: string, init?: RequestInit) =>
-      init?.method === 'PUT'
-        ? new Response(JSON.stringify({ version: 2 }))
-        : new Response(
-            JSON.stringify({
-              document: CHORUS,
-              version: 1,
-              canEdit,
-              updatedAt: null,
-              yjsState: '',
-              collaboration: null,
-            }),
-          ),
+    vi.fn(async (url: string, init?: RequestInit) =>
+      String(url).endsWith('/comments')
+        ? new Response(JSON.stringify({ threads: [], canComment: true }))
+        : init?.method === 'PUT'
+          ? new Response(JSON.stringify({ version: 2 }))
+          : new Response(
+              JSON.stringify({
+                document: CHORUS,
+                version: 1,
+                canEdit,
+                updatedAt: null,
+                yjsState: '',
+                collaboration: null,
+              }),
+            ),
     ),
   );
 }

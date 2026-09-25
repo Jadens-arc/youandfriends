@@ -22,7 +22,13 @@ export interface CommentView {
 export type AnchorView =
   | { readonly kind: 'general' }
   | { readonly kind: 'timestamp'; readonly versionId: string; readonly ms: number }
-  | { readonly kind: 'lyric'; readonly range: Record<string, unknown> };
+  | {
+      readonly kind: 'lyric';
+      readonly start: Record<string, unknown>;
+      readonly end: Record<string, unknown>;
+      readonly quote: string;
+      readonly scope: 'selection' | 'line' | 'section';
+    };
 
 export interface ThreadView {
   readonly id: string;
@@ -66,7 +72,12 @@ export function refreshComments(songId: string): Promise<void> {
   entry.inflight ??= (async () => {
     try {
       const response = await fetch(commentsUrl(songId), { cache: 'no-store' });
-      entry.state = response.ok ? ((await response.json()) as CommentsData) : 'error';
+      const body = response.ok ? ((await response.json()) as Partial<CommentsData>) : null;
+      // Only a well-formed answer is used; anything else is shown as "could not be loaded".
+      entry.state =
+        body !== null && Array.isArray(body.threads) && typeof body.canComment === 'boolean'
+          ? (body as CommentsData)
+          : 'error';
     } catch {
       entry.state = 'error';
     } finally {

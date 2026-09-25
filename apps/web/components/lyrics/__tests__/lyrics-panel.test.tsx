@@ -32,7 +32,10 @@ function stubFetch(
 ) {
   let read = 0;
   const calls: { method: string; body: unknown }[] = [];
-  const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+  const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    // The song's comments (task `092`) are fetched too; they are not what these tests are about.
+    if (String(url).endsWith('/comments'))
+      return new Response(JSON.stringify({ threads: [], canComment: true }));
     const method = init?.method ?? 'GET';
     calls.push({ method, body: init?.body === undefined ? null : JSON.parse(String(init.body)) });
     if (method === 'PUT') return put();

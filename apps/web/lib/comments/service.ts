@@ -126,7 +126,14 @@ function anchorOf(row: {
     return { kind: 'timestamp', versionId: row.anchorVersionId ?? '', ms: row.anchorMs ?? 0 };
   }
   if (row.anchorKind === 'lyric') {
-    return { kind: 'lyric', range: (row.anchorLyric ?? {}) as Record<string, unknown> };
+    const stored = (row.anchorLyric ?? {}) as Partial<Extract<CommentAnchor, { kind: 'lyric' }>>;
+    return {
+      kind: 'lyric',
+      start: stored.start ?? {},
+      end: stored.end ?? {},
+      quote: stored.quote ?? '',
+      scope: stored.scope ?? 'selection',
+    };
   }
   return { kind: 'general' };
 }
@@ -231,10 +238,6 @@ export async function createThread(
   input: CreateThreadRequest,
 ): Promise<{ readonly threadId: string; readonly commentId: string }> {
   const { anchor, body } = parse(createThreadSchema, input);
-  // Lyric anchors arrive with task `092`; the shape is ready, the behaviour is not.
-  if (anchor.kind === 'lyric') {
-    throw validationFailed([{ path: 'anchor', message: 'Lyric comments are not available yet.' }]);
-  }
   await requireAccess(context, songId, 'comment');
   if (anchor.kind === 'timestamp') {
     // The moment belongs to the song; the version records what was playing when it was heard.
@@ -266,7 +269,16 @@ export async function createThread(
         anchorKind: anchor.kind,
         ...(anchor.kind === 'timestamp'
           ? { anchorVersionId: anchor.versionId, anchorMs: anchor.ms }
-          : {}),
+          : anchor.kind === 'lyric'
+            ? {
+                anchorLyric: {
+                  start: anchor.start,
+                  end: anchor.end,
+                  quote: anchor.quote,
+                  scope: anchor.scope,
+                },
+              }
+            : {}),
         createdBy: context.userId,
         createdAt: at,
         updatedAt: at,

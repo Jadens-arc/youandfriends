@@ -30,6 +30,13 @@ import type * as Y from 'yjs';
 import { LYRICS_FRAGMENT } from '@/lib/lyrics/yjs';
 
 import { LyricsTimestamps, timestampStorage } from '../timestamps/extension';
+import {
+  anchorStorage,
+  commentAnchorsKey,
+  LyricCommentAnchors,
+  type AnchorThread,
+} from '@/components/comments/lyric-anchor/extension';
+
 import { useKeepCaretVisible } from '../mobile/keyboard';
 import { useFollowAlong } from '../timestamps/follow-along';
 import type { LyricsTiming } from '../timestamps/playback';
@@ -55,8 +62,9 @@ import {
 /** Editing together (task `082`): the shared document and the awareness that carries cursors. */
 export interface EditorCollaboration {
   readonly doc: Y.Doc;
-  readonly awareness: Awareness;
-  readonly user: { readonly name: string; readonly color: string };
+  /** Present when a room is joined: cursors are shared through it. */
+  readonly awareness: Awareness | null;
+  readonly user: { readonly name: string; readonly color: string } | null;
 }
 
 /**
@@ -81,6 +89,8 @@ function renderCaret(user: Record<string, unknown>): HTMLElement {
 export interface LyricsEditorHandle {
   /** Replace the whole document without it counting as an edit (loading a newer version). */
   replace(document: LyricsDocument): void;
+  /** The live editor, for things that read its selection or scroll to a place in it. */
+  editor(): Editor | null;
 }
 
 const SHORTCUT_KEYS: Readonly<Partial<Record<SectionKind, string>>> = {
@@ -153,6 +163,14 @@ export const LyricsEditor = React.forwardRef<
     } | null;
     /** Called when the writing surface gains focus — a phone enters full screen then. */
     readonly onFocus?: () => void;
+    /** Told the live editor once it exists (and null when it goes). */
+    readonly onEditor?: (editor: Editor | null) => void;
+    /** Lyric comments to mark in the text (task `092`). */
+    readonly commentAnchors?: {
+      readonly threads: readonly AnchorThread[];
+      readonly active: string | null;
+      readonly onOpen: (threadId: string) => void;
+    } | null;
   }
 >(function LyricsEditor(
   {
@@ -166,6 +184,8 @@ export const LyricsEditor = React.forwardRef<
     timing = null,
     dock = null,
     onFocus,
+    commentAnchors = null,
+    onEditor,
   },
   ref,
 ) {
@@ -189,17 +209,27 @@ export const LyricsEditor = React.forwardRef<
     {
       extensions:
         collaboration === null
-          ? [...lyricsExtensions, placeholder, timestamps]
+          ? [...lyricsExtensions, placeholder, timestamps, LyricCommentAnchors]
           : [
               ...lyricsSchemaExtensions,
               placeholder,
               timestamps,
+              LyricCommentAnchors,
               Collaboration.configure({ document: collaboration.doc, field: LYRICS_FRAGMENT }),
-              CollaborationCaret.configure({
-                provider: { awareness: collaboration.awareness },
-                user: collaboration.user,
-                render: renderCaret,
-              }),
+              ...(collaboration.awareness === null || collaboration.user === null
+                ? []
+                : [
+                    CollaborationCaret.configure({
+                      provider: { awareness: collaboration.awareness },
+                      user: collaboration.user,
+                      render: renderCaret,
+                      // The default appends a hex alpha to the colour, which a CSS variable cannot take.
+                      selectionRender: (user: Record<string, unknown>) => ({
+                        class: 'lyrics-remote-selection',
+                        style: `background-color: color-mix(in srgb, ${String(user.color)} 22%, transparent)`,
+                      }),
+                    }),
+                  ]),
             ],
       // Together, the shared document is the content; alone, the stored one.
       ...(collaboration === null ? { content: toEditorContent(document) } : {}),
@@ -227,12 +257,31 @@ export const LyricsEditor = React.forwardRef<
       onFocus: () => focus.current?.(),
     },
     // A new shared document (a fresh session after an access change) is a new editor.
-    [collaboration?.doc],
+    [collaboration?.doc, collaboration?.awareness],
   );
 
   React.useEffect(() => {
     editor?.setEditable(editable, false);
   }, [editor, editable]);
+
+  React.useEffect(() => {
+    if (editor === null) return;
+    onEditor?.(editor);
+    return () => onEditor?.(null);
+  }, [editor, onEditor]);
+
+  // Which lyric comments to mark — redrawn whenever the list or the open thread changes.
+  React.useEffect(() => {
+    if (editor === null || editor.isDestroyed) return;
+    anchorStorage(editor).set(
+      commentAnchors?.threads ?? [],
+      commentAnchors?.active ?? null,
+      commentAnchors?.onOpen ?? (() => {}),
+    );
+    editor.view.dispatch(
+      editor.state.tr.setMeta(commentAnchorsKey, true).setMeta('addToHistory', false),
+    );
+  }, [editor, commentAnchors]);
 
   // Which song timestamps play and stamp from — set on the live editor, not at creation.
   React.useEffect(() => {
@@ -243,6 +292,7 @@ export const LyricsEditor = React.forwardRef<
   React.useImperativeHandle(
     ref,
     () => ({
+      editor: () => editor,
       replace(next) {
         // Together there is nothing to replace: the room is already the newest version.
         if (collaboration !== null) return;

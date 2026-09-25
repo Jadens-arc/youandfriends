@@ -26,8 +26,11 @@ of every line when their documents meet.
   saves may arrive in any order, or twice.
 - **Seeds are deterministic.** Lyrics with no stored Yjs state are converted by a Yjs client with
   id 0, so every conversion of the same document is byte-identical and merges into one copy.
-- **A single-player save clears the stored Yjs state**, which would otherwise describe an older
-  document.
+- **Every editor edits a Yjs document** — alone, a local one; together, the room's — and every
+  save it makes carries Yjs state to merge (task `092`). A save through the plain-document API
+  (no Yjs state) is applied as an **edit** of the stored Yjs state (`updateYFragment`), so words
+  that did not change keep their identity. _Amended in task `092`: this replaced clearing the
+  stored state on a single-player save, which broke the identity lyric comment anchors need._
 - The Liveblocks `ydocUpdated` webhook merges the room's copy by the same function — a second
   path, only into a row an editor already created.
 
@@ -39,9 +42,9 @@ working offline simply saves and merges.
 **Harder:** Postgres stores the Yjs history (tombstones included), which grows with editing.
 Fine at lyric-sheet sizes; revisions (task `084`) are where compaction would go.
 
-**Accepted:** Toggling collaboration off and back on while a room still holds an old document
-can reintroduce text from that room. Collaboration is a deployment setting, not a per-song
-switch, so this is an operator action, noted here rather than engineered around.
+**Accepted:** A long-lived room that has been offline from Postgres for a long time merges back
+everything it holds when it next saves. That is the CRDT working as designed; revisions (task
+`084`) are where an unwanted merge is undone.
 
 ## Assumptions to re-verify
 

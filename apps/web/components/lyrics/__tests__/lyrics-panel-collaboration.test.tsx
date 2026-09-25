@@ -33,7 +33,9 @@ function stubFetch(reads: readonly { canEdit: boolean }[]) {
   const puts: { yjsState?: string }[] = [];
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (_url: string, init?: RequestInit) => {
+    vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith('/comments'))
+        return new Response(JSON.stringify({ threads: [], canComment: true }));
       if (init?.method === 'PUT') {
         puts.push(JSON.parse(String(init.body)) as { yjsState?: string });
         return new Response(JSON.stringify({ version: puts.length + 1 }));

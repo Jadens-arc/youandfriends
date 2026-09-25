@@ -143,3 +143,44 @@
     background: color-mix(in srgb, var(--color-accent) 16%, transparent);
   }
 }
+
+/*
+ * Lyric comments (task `092`): a quiet dotted underline and the faintest tint — the lyric sheet
+ * stays a writing surface — and a small marker button where each commented range ends.
+ */
+@layer components {
+  .lyrics-comment-anchor {
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: var(--color-muted-foreground);
+    text-underline-offset: 0.2em;
+    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  }
+
+  .lyrics-comment-anchor--active {
+    text-decoration-style: solid;
+    background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  }
+
+  .lyrics-comment-marker {
+    display: inline-flex;
+    margin-inline-start: 0.25rem;
+    padding: 0.1rem;
+    border-radius: 3px;
+    color: var(--color-muted-foreground);
+    vertical-align: 0.05em;
+    cursor: pointer;
+  }
+
+  .lyrics-comment-marker:hover {
+    color: var(--color-foreground);
+  }
+
+  .lyrics-comment-marker-icon {
+    width: 0.8rem;
+    height: 0.8rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+  }
+}

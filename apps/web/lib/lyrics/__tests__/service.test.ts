@@ -20,6 +20,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { readLyrics, saveLyrics, type LyricsContext } from '../service';
+import { lyricsToText } from '../text-format';
 
 const reason = unavailableReason();
 const describeWithDatabase = reason === null ? describe : describe.skip;
@@ -114,7 +115,8 @@ describeWithDatabase('lyrics storage', () => {
     expect(saved).toEqual({ version: 1 });
     const read = await readLyrics(contextFor(people.editor), songId);
     expect(read).toMatchObject({ version: 1, canEdit: true });
-    expect(read.document).toEqual(doc('Stay, stay', 'Headlights on'));
+    // Stored through Yjs, so attributes come back normalized; the words are what must match.
+    expect(lyricsToText(read.document)).toBe(lyricsToText(doc('Stay, stay', 'Headlights on')));
   });
 
   it('derives the plain text on every save, and search finds it', async () => {
@@ -154,8 +156,8 @@ describeWithDatabase('lyrics storage', () => {
       }),
     );
     expect(error.publicCode).toBe('conflict');
-    expect((await readLyrics(contextFor(people.owner), songId)).document).toEqual(
-      doc('mine first'),
+    expect(lyricsToText((await readLyrics(contextFor(people.owner), songId)).document)).toBe(
+      lyricsToText(doc('mine first')),
     );
   });
 

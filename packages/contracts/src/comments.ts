@@ -22,6 +22,11 @@ export const commentBodySchema = z
     message: 'Comments may not contain control characters.',
   });
 
+/** A Yjs relative position as JSON: small, and only what Yjs writes there. */
+const yRelativePositionSchema = z
+  .record(z.string(), z.unknown())
+  .refine((value) => JSON.stringify(value).length <= 1_000, 'Too large a position.');
+
 /** The longest moment a timestamp comment can point at, as for lyric timestamps: six hours. */
 const MAX_MS = 6 * 60 * 60 * 1000;
 
@@ -39,9 +44,17 @@ export const commentAnchorSchema = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('lyric'),
-    range: z
-      .record(z.string(), z.unknown())
-      .refine((value) => JSON.stringify(value).length <= 4_000, 'Too large a lyric anchor.'),
+    /** Yjs relative positions (task `092`): they name the characters, not their offsets. */
+    start: yRelativePositionSchema,
+    end: yRelativePositionSchema,
+    /** The words as they were, kept so an orphaned comment still says what it was about. */
+    quote: z
+      .string()
+      .max(500)
+      .refine((value) => !hasForbiddenCharacter(value.replace(/\n/g, ' ')), {
+        message: 'The quote may not contain control characters.',
+      }),
+    scope: z.enum(['selection', 'line', 'section']),
   }),
 ]);
 export type CommentAnchor = z.infer<typeof commentAnchorSchema>;

@@ -20,7 +20,14 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { LibraryContext } from '@/lib/library/context';
 
 import { snapshotIfDue } from './revisions';
-import { documentFromYjs, fromBase64, mergeYjs, toBase64, yjsFromDocument } from './yjs';
+import {
+  documentFromYjs,
+  fromBase64,
+  mergeYjs,
+  toBase64,
+  yjsFromDocument,
+  yjsReplace,
+} from './yjs';
 import type { NotificationSink } from '@/lib/library/metadata';
 
 /**
@@ -171,9 +178,19 @@ export async function saveLyrics(
             detail: `lyrics for ${songId} are at version ${currentVersion}, not ${baseVersion}`,
           });
         }
-        stored = document;
-        // A single-player save supersedes any Yjs state, which would otherwise be stale.
-        storedYjs = null;
+        // A plain-document save (the API without Yjs) is applied as an *edit* of the stored Yjs
+        // state: unchanged lines keep their identity, so lyric comment anchors (task `092`) and
+        // any open room stay attached to the words they were on (ADR 0011).
+        const base =
+          current?.yjsState ??
+          (current === undefined ? null : yjsFromDocument(current.document as LyricsDocument));
+        if (base === null) {
+          storedYjs = yjsFromDocument(document);
+          stored = documentFromYjs(storedYjs);
+        } else {
+          storedYjs = yjsReplace(base, document).merged;
+          stored = documentFromYjs(storedYjs);
+        }
       }
       const plainText = lyricsPlainText(stored);
       const version = currentVersion + 1;

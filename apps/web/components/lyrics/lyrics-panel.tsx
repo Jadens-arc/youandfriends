@@ -5,6 +5,9 @@ import { Button, cn } from '@youandfriends/ui';
 import { AlertTriangle, Check, CloudOff, Loader2, Lock, Maximize2, PencilLine } from 'lucide-react';
 import * as React from 'react';
 import * as Y from 'yjs';
+import type { Editor } from '@tiptap/core';
+
+import { useSongComments } from '@/lib/comments/store';
 
 import { createAutosave, httpSave, type Autosave, type SaveState } from '@/lib/lyrics/autosave';
 import {
@@ -14,12 +17,13 @@ import {
 } from '@/lib/lyrics/collaboration-client';
 import { lyricsToText } from '@/lib/lyrics/text-format';
 import type { Track } from '@/lib/player/machine';
-import { fromBase64, toBase64 } from '@/lib/lyrics/yjs';
+import { fromBase64, toBase64, yjsFromDocument, yjsReplace } from '@/lib/lyrics/yjs';
 
 import { LyricsEditor, type LyricsEditorHandle } from './editor/lyrics-editor';
 import { useKeyboardInset } from './mobile/keyboard';
 import { PresenceList } from './presence/presence-list';
 import { HistoryPanel, type RestoreResponse } from './revisions/history-panel';
+import { anchorThreads, LyricComments } from '@/components/comments/lyric-anchor/lyric-comments';
 
 /**
  * The song's lyrics (tasks `080`, `081`): the structured editor, autosaving, with its save state
@@ -127,6 +131,29 @@ export function LyricsPanel({
   const editor = React.useRef<LyricsEditorHandle>(null);
   const current = React.useRef<LyricsDocument | null>(null);
   const createSession = React.useContext(SessionFactoryContext);
+  const shared = React.useRef<Y.Doc | null>(null);
+  const [sharedDoc, setSharedDoc] = React.useState<Y.Doc | null>(null);
+  // Lyric comments (task `092`): the live editor, and the thread being looked at.
+  const [liveEditor, setLiveEditor] = React.useState<Editor | null>(null);
+  const [activeThread, setActiveThread] = React.useState<string | null>(null);
+  const comments = useSongComments(songId);
+  const threads = comments === 'loading' || comments === 'error' ? null : comments.threads;
+  const commentAnchors = React.useMemo(
+    () =>
+      threads === null
+        ? null
+        : {
+            threads: anchorThreads(threads),
+            active: activeThread,
+            onOpen: (threadId: string) => {
+              setActiveThread(threadId);
+              const target = document.getElementById(`lyric-thread-${threadId}`);
+              target?.scrollIntoView?.({ block: 'center' });
+              target?.focus();
+            },
+          },
+    [threads, activeThread],
+  );
   const timing = React.useMemo(() => ({ songId, track }), [songId, track]);
   // Full screen on a phone (task `085`). CSS decides whether it applies — the same editor stays
   // mounted either way, so nothing is lost switching in and out.
@@ -147,6 +174,17 @@ export function LyricsPanel({
         return;
       }
       current.current = result.document;
+      // Every editor edits a Yjs document (task `092`): alone, a local one; together, the room's.
+      // It starts from the server's state — or, from an older server, a deterministic seed.
+      const doc = new Y.Doc();
+      Y.applyUpdate(
+        doc,
+        result.yjsState === '' || result.yjsState === undefined
+          ? yjsFromDocument(result.document)
+          : fromBase64(result.yjsState),
+      );
+      shared.current = doc;
+      setSharedDoc(doc);
       setLoaded(result);
     });
     return () => {
@@ -154,32 +192,32 @@ export function LyricsPanel({
     };
   }, [songId]);
 
-  // Editing together: one shared document per loaded song, carried through its room. The room
-  // token is minted server-side at this person's current access; a new session asks again.
+  // Editing together: the shared document carried through the song's room. The room token is
+  // minted server-side at this person's current access; a new session asks again.
   const room = loaded !== null && loaded !== 'error' ? (loaded.collaboration ?? null) : null;
-  const seed = loaded !== null && loaded !== 'error' ? loaded.yjsState : null;
-  const shared = React.useRef<Y.Doc | null>(null);
   React.useEffect(() => {
-    if (room === null || seed === null) return;
-    if (shared.current === null) {
-      shared.current = new Y.Doc();
-      Y.applyUpdate(shared.current, fromBase64(seed));
-    }
-    const doc = shared.current;
+    if (room === null || sharedDoc === null) return;
+    const doc = sharedDoc;
     const session = createSession(room.room, doc);
     session.awareness.setLocalStateField('user', {
       name: room.self.name,
       color: resolveColor(room.self.color),
     });
-    setConnection(session.status());
     const unsubscribe = session.onStatus(setConnection);
-    setTogether({ doc, session });
+    // Published from a callback, once the effect has run — the session is an external system.
+    let disposed = false;
+    queueMicrotask(() => {
+      if (disposed) return;
+      setConnection(session.status());
+      setTogether({ doc, session });
+    });
     return () => {
+      disposed = true;
       unsubscribe();
       session.destroy();
       setTogether(null);
     };
-  }, [room, seed, createSession, sessionKey]);
+  }, [room, sharedDoc, createSession, sessionKey]);
 
   // Access can change while the page is open. Re-ask on a cadence and on return to the tab; a
   // change takes effect at once — the editor stops accepting input, and the room is rejoined
@@ -210,16 +248,14 @@ export function LyricsPanel({
 
   // One autosave per loaded document, flushed on every way out of the page.
   const baseVersion = loaded !== null && loaded !== 'error' ? loaded.version : null;
-  const collaborative = room !== null;
   React.useEffect(() => {
     if (baseVersion === null) return;
     const saver = createAutosave({
       version: baseVersion,
-      save: collaborative
-        ? httpSave(songId, () =>
-            shared.current === null ? '' : toBase64(Y.encodeStateAsUpdate(shared.current)),
-          )
-        : httpSave(songId),
+      // Always the Yjs state: the server merges it, so saves from two tabs never conflict.
+      save: httpSave(songId, () =>
+        shared.current === null ? '' : toBase64(Y.encodeStateAsUpdate(shared.current)),
+      ),
       onChange: (next) => {
         setState(next);
         // A refused save means access was lost: rejoin the room at whatever access remains.
@@ -247,14 +283,24 @@ export function LyricsPanel({
       autosave.current = null;
     };
     // `loaded` is replaced wholesale on "load latest"; the version is what identifies it.
-  }, [songId, baseVersion, collaborative]);
+  }, [songId, baseVersion]);
 
   async function loadLatest() {
     if (current.current !== null) setKept(lyricsToText(current.current));
     const latest = await fetchLyrics(songId);
     if (latest === null) return;
     current.current = latest.document;
-    editor.current?.replace(latest.document);
+    if (shared.current !== null) {
+      // Merge the server's state; without one, apply its document as an edit of ours.
+      Y.applyUpdate(
+        shared.current,
+        latest.yjsState === ''
+          ? yjsReplace(Y.encodeStateAsUpdate(shared.current), latest.document).update
+          : fromBase64(latest.yjsState),
+      );
+    } else {
+      editor.current?.replace(latest.document);
+    }
     autosave.current?.rebase(latest.version);
   }
 
@@ -331,15 +377,26 @@ export function LyricsPanel({
           }}
           onBlur={() => void autosave.current?.flush()}
           timing={timing}
+          onEditor={setLiveEditor}
+          commentAnchors={commentAnchors}
           collaboration={
-            together === null || room === null
+            sharedDoc === null
               ? null
               : {
-                  doc: together.doc,
-                  awareness: together.session.awareness,
-                  user: { name: room.self.name, color: resolveColor(room.self.color) },
+                  doc: sharedDoc,
+                  awareness: together?.session.awareness ?? null,
+                  user:
+                    room === null
+                      ? null
+                      : { name: room.self.name, color: resolveColor(room.self.color) },
                 }
           }
+        />
+        <LyricComments
+          songId={songId}
+          editor={liveEditor}
+          active={activeThread}
+          onShow={setActiveThread}
         />
         {kept === null ? null : (
           <details className="text-caption font-sans">
