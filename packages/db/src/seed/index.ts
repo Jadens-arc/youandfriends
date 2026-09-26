@@ -25,6 +25,7 @@ import {
   SEED_USERS,
   SEED_WORKSPACE_ID,
 } from './data';
+import { resetConversation, seedConversation, type ConversationResult } from './conversation';
 import { generateAllFixtures } from './fixtures/audio';
 import type { SeedPermit } from './guard';
 import { deterministicId } from './ids';
@@ -50,6 +51,8 @@ export interface SeedResult {
   readonly mixVersions: number;
   readonly grants: number;
   readonly fixtureBytes: number;
+  /** Lyrics, comments, the voice note, notifications (task `029`). */
+  readonly conversation: ConversationResult;
 }
 
 const id = deterministicId;
@@ -284,6 +287,10 @@ export async function seed(db: DirectDatabase, _permit: SeedPermit): Promise<See
     })
     .onConflictDoNothing();
 
+  const voiceTone = fixtures[0];
+  if (voiceTone === undefined) throw new Error('no generated fixture for the voice note');
+  const conversation = await seedConversation(db, voiceTone);
+
   return {
     workspaceId: SEED_WORKSPACE_ID,
     users: SEED_USERS.length,
@@ -292,7 +299,8 @@ export async function seed(db: DirectDatabase, _permit: SeedPermit): Promise<See
     songs: SEED_SONGS.length,
     mixVersions: mixCount,
     grants: SEED_GRANTS.length,
-    fixtureBytes,
+    fixtureBytes: fixtureBytes + voiceTone.sizeBytes,
+    conversation,
   };
 }
 
@@ -339,6 +347,8 @@ export async function reset(db: DirectDatabase, _permit: SeedPermit): Promise<vo
   );
 
   await withTransaction(db, async (tx) => {
+    // Task `029`'s rows first: comments before the songs and the voice note they hang off.
+    await resetConversation(tx);
     await tx.delete(favorites).where(inArray(favorites.id, favoriteIds));
     await tx.delete(permissionGrants).where(inArray(permissionGrants.id, grantIds));
 

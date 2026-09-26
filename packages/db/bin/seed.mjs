@@ -60,9 +60,14 @@ try {
     console.log(`  ${result.users} collaborators, one at each role, plus a deny override`);
     console.log(`  ${result.folders} folders, ${result.projects} projects, ${result.songs} songs`);
     console.log(`  ${result.mixVersions} mix versions`);
+    const { conversation } = result;
     console.log(
-      `  ${result.mixVersions} storage_object rows describing ` +
+      `  ${result.mixVersions + conversation.voiceNotes} storage_object rows describing ` +
         `${(result.fixtureBytes / 1024).toFixed(0)} KB of generated tones — never real music`,
+    );
+    console.log(
+      `  lyrics on ${conversation.lyrics} songs, ${conversation.threads} comment threads with ` +
+        `${conversation.comments} comments (one a voice note), ${conversation.notifications} notifications`,
     );
 
     // The bytes were generated and hashed, and then discarded. Saying so matters: a

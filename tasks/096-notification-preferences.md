@@ -97,4 +97,4 @@ Additive. Reverting loses preferences; in-app notifications continue with defaul
 
 ## Commit
 
-_(not yet)_
+`2d1c0ca`

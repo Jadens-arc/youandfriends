@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { databaseUrl } from '@youandfriends/config/fixtures';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { makeFolder, makeTenant } from '../__tests__/factories';
@@ -8,7 +8,13 @@ import { createTestDatabase, unavailableReason, type TestDatabase } from '../__t
 import {
   assetVersions,
   assets,
+  commentMentions,
+  commentReactions,
+  comments,
+  commentThreads,
   folders,
+  lyricsDocuments,
+  notifications,
   mixVersions,
   permissionGrants,
   projects,
@@ -347,15 +353,31 @@ describeWithDatabase('running the seed', () => {
 
   it('is idempotent', async () => {
     await seed(database.db, permit);
-    const before = (await database.db.select().from(mixVersions)).length;
+    const count = async () =>
+      Object.fromEntries(
+        await Promise.all(
+          (
+            [
+              ['mixVersions', mixVersions],
+              ['storageObjects', storageObjects],
+              ['lyricsDocuments', lyricsDocuments],
+              ['commentThreads', commentThreads],
+              ['comments', comments],
+              ['commentMentions', commentMentions],
+              ['commentReactions', commentReactions],
+              ['notifications', notifications],
+            ] as const
+          ).map(async ([name, table]) => [name, (await database.db.select().from(table)).length]),
+        ),
+      );
+    const before = await count();
 
     await seed(database.db, permit);
 
     // A seed that duplicates teaches people to reset reflexively, and resetting reflexively is
     // how someone eventually resets the wrong database.
-    expect((await database.db.select().from(mixVersions)).length).toBe(before);
+    expect(await count()).toEqual(before);
     expect(await database.db.select().from(folders)).toHaveLength(SEED_FOLDERS.length);
-    expect(await database.db.select().from(storageObjects)).toHaveLength(before);
   }, 60_000);
 
   it('stacks versions and makes the newest current', async () => {
@@ -544,8 +566,9 @@ describeWithDatabase('running the seed', () => {
     // Against a model-derived total, not against whatever the last run happened to write.
     const expected = SEED_SONGS.reduce((total, song) => total + song.versions, 0);
     expect(await database.db.select().from(mixVersions)).toHaveLength(expected);
-    expect(await database.db.select().from(assetVersions)).toHaveLength(expected);
-    expect(await database.db.select().from(storageObjects)).toHaveLength(expected);
+    // Plus the one voice note's recording (task `029`), a version of an asset but not a mix.
+    expect(await database.db.select().from(assetVersions)).toHaveLength(expected + 1);
+    expect(await database.db.select().from(storageObjects)).toHaveLength(expected + 1);
   }, 60_000);
 
   it('clears its content on reset, and rebuilds it', async () => {
@@ -565,6 +588,12 @@ describeWithDatabase('running the seed', () => {
       ['storageObjects', storageObjects],
       ['permissionGrants', permissionGrants],
       ['favorites', favorites],
+      ['lyricsDocuments', lyricsDocuments],
+      ['commentThreads', commentThreads],
+      ['comments', comments],
+      ['commentMentions', commentMentions],
+      ['commentReactions', commentReactions],
+      ['notifications', notifications],
     ] as const) {
       expect(await database.db.select().from(table), name).toEqual([]);
     }
@@ -592,11 +621,134 @@ describeWithDatabase('running the seed', () => {
       SEED_WORKSPACE_ID,
       'Hand-made, inside the seeded workspace',
     );
+    // A notification the seed did not write, in the seeded workspace, to a seeded person: a
+    // reset that swept notifications by workspace or recipient would take it.
+    const [ownNotification] = await database.db
+      .insert(notifications)
+      .values({
+        id: deterministicId('not-from-the-seed'),
+        workspaceId: SEED_WORKSPACE_ID,
+        recipientId: deterministicId('user:avery'),
+        event: 'access.changed',
+        targetType: 'workspace',
+        targetId: SEED_WORKSPACE_ID,
+        groupKey: 'hand-made',
+      })
+      .returning();
 
     await reset(database.db, permit);
+
+    expect((await database.db.select().from(notifications)).map((row) => row.id)).toEqual([
+      ownNotification?.id,
+    ]);
+    await database.db.delete(notifications);
 
     const surviving = await database.db.select().from(folders);
     expect(surviving.map((row) => row.id).sort()).toEqual([foreignFolder.id, handMade.id].sort());
     expect(await database.db.select().from(workspaces)).toHaveLength(2);
   }, 60_000);
+
+  describe('the conversation (task 029)', () => {
+    const song = (key: string) => deterministicId(`song:${key}`);
+    const user = (key: string) => deterministicId(`user:${key}`);
+
+    it('puts structured lyrics on some songs, and leaves others deliberately without', async () => {
+      await seed(database.db, permit);
+      const documents = await database.db.select().from(lyricsDocuments);
+      expect(new Set(documents.map((row) => row.songId))).toEqual(
+        new Set([song('blue-hour-1'), song('blue-hour-2'), song('second-sleep-1')]),
+      );
+      const blueHour = documents.find((row) => row.songId === song('blue-hour-1'));
+      const kinds = (blueHour?.document as { content: { attrs: { kind: string } }[] }).content.map(
+        (section) => section.attrs.kind,
+      );
+      expect(kinds).toEqual(['verse', 'pre_chorus', 'chorus', 'verse', 'bridge', 'chorus']);
+      // Searchable, like a saved document.
+      expect(blueHour?.plainText).toContain('Blue hour, stay a little longer');
+      const without = SEED_SONGS.filter(
+        (candidate) => !documents.some((row) => row.songId === song(candidate.key)),
+      );
+      expect(without.map((candidate) => candidate.key)).toContain('loose-ideas-1');
+    });
+
+    it('has a general thread and a one-comment thread at a moment inside its version', async () => {
+      await seed(database.db, permit);
+      const threads = await database.db.select().from(commentThreads);
+      expect(threads.filter((thread) => thread.anchorKind === 'general').length).toBeGreaterThan(0);
+      const moment = threads.find((thread) => thread.anchorKind === 'timestamp');
+      expect(moment).toBeDefined();
+      const [version] = await database.db
+        .select({ durationMs: assetVersions.durationMs, songId: mixVersions.songId })
+        .from(mixVersions)
+        .innerJoin(assetVersions, eq(assetVersions.id, mixVersions.assetVersionId))
+        .where(eq(mixVersions.id, moment?.anchorVersionId ?? ''));
+      expect(version?.songId).toBe(moment?.songId);
+      expect(moment?.anchorMs).toBeLessThan(version?.durationMs ?? 0);
+      expect(
+        await database.db
+          .select()
+          .from(comments)
+          .where(eq(comments.threadId, moment?.id ?? '')),
+      ).toHaveLength(1);
+      expect(threads.some((thread) => thread.resolvedAt !== null)).toBe(true);
+      // The mention is a reference to Avery, recorded as reaching her.
+      const [mention] = await database.db.select().from(commentMentions);
+      expect(mention?.userId).toBe(user('avery'));
+      const [mentioning] = await database.db
+        .select()
+        .from(comments)
+        .where(eq(comments.id, mention?.commentId ?? ''));
+      expect(mentioning?.body).toContain(`<@${user('avery')}>`);
+    });
+
+    it('has a voice note comment carrying a generated tone, made by its commenter', async () => {
+      await seed(database.db, permit);
+      const [carrier] = await database.db
+        .select()
+        .from(comments)
+        .where(and(eq(comments.body, ''), isNull(comments.tombstonedAt)));
+      expect(carrier?.voiceNoteAssetId).not.toBeNull();
+      const [asset] = await database.db
+        .select()
+        .from(assets)
+        .where(eq(assets.id, carrier?.voiceNoteAssetId ?? ''));
+      expect(asset).toMatchObject({ kind: 'voice_note', createdBy: carrier?.authorId });
+      const [recording] = await database.db
+        .select({ contentType: storageObjects.contentType, state: assetVersions.processingState })
+        .from(assetVersions)
+        .innerJoin(storageObjects, eq(storageObjects.id, assetVersions.storageObjectId))
+        .where(eq(assetVersions.assetId, asset?.id ?? ''));
+      expect(recording).toEqual({ contentType: 'audio/wav', state: 'complete' });
+    });
+
+    it('has notifications read and unread — and people with nothing unread, or nothing at all', async () => {
+      await seed(database.db, permit);
+      const rows = await database.db.select().from(notifications);
+      const of = (key: string) => rows.filter((row) => row.recipientId === user(key));
+      expect(of('avery').some((row) => row.readAt === null)).toBe(true);
+      expect(of('avery').some((row) => row.readAt !== null)).toBe(true);
+      expect(of('tom').length).toBeGreaterThan(0);
+      expect(of('tom').every((row) => row.readAt !== null)).toBe(true);
+      expect(of('priya')).toEqual([]);
+      expect(rows.every((row) => row.actorId !== row.recipientId)).toBe(true);
+      expect(new Set(rows.map((row) => row.event))).toEqual(
+        new Set(['comment.mentioned', 'version.processed', 'comment.created', 'comment.replied']),
+      );
+    });
+
+    it('only puts words where the grants allow them', async () => {
+      await seed(database.db, permit);
+      // Tom is denied on Careless Weather and Priya only views: neither may be seen commenting
+      // there, or the seed shows something the product would refuse.
+      const written = await database.db
+        .select({ authorId: comments.authorId, songId: commentThreads.songId })
+        .from(comments)
+        .innerJoin(commentThreads, eq(commentThreads.id, comments.threadId));
+      expect(written.length).toBeGreaterThan(0);
+      expect(written.filter((row) => row.authorId === user('priya'))).toEqual([]);
+      expect(
+        written.filter((row) => row.authorId === user('tom') && row.songId === song('blue-hour-2')),
+      ).toEqual([]);
+    });
+  });
 });

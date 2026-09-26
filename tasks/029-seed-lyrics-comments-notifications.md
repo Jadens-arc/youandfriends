@@ -46,11 +46,15 @@ Same as `027`: never commit user music or real recordings (T9), and the seed mus
 
 ## Acceptance criteria
 
-- [ ] Lyrics documents exist with structured blocks, and at least one song has none.
-- [ ] A general comment thread and a timestamp-anchored thread both exist.
-- [ ] A voice note comment exists, backed by a generated fixture.
-- [ ] Notifications exist in read and unread states.
-- [ ] The seed remains idempotent and `--reset` still clears everything it creates.
+- [x] Lyrics documents exist with structured blocks, and at least one song has none. (Blue Hour — verse, pre-chorus, chorus, verse with an empty line, bridge, chorus — plus Careless Weather and a one-section Second Sleep, each with its searchable plain text. Low Tide, Untitled Sketch, and the long-titled song have none.)
+- [x] A general comment thread and a timestamp-anchored thread both exist. (A general thread of three with a mention of Avery, stored as a reference and a `comment_mentions` row, and a reaction. A timestamped thread of **one** comment at 1.5 s into Blue Hour v4, inside the fixture's length, which a test checks against the version's duration. A resolved thread on Second Sleep. Every author is someone the seeded grants allow to comment there, and a test holds it.)
+- [x] A voice note comment exists, backed by a generated fixture. (A `voice_note` asset made by Sam, with one complete version whose storage object describes a generated WAV tone, carried by a comment with no words.)
+- [x] Notifications exist in read and unread states. (Avery has an unread mention, an unread "ready to play", and a read comment. Tom's are **all read**. Priya has **none**.)
+- [x] The seed remains idempotent and `--reset` still clears everything it creates. (Re-seeding leaves every new table's count unchanged. Reset deletes by id, conversation first, and the reset test now covers lyrics, threads, comments, mentions, reactions, and notifications. A notification the seed did not write survives reset, so a reset that swept by workspace or recipient would fail. Mutation-checked.)
+
+**Not seeded: a lyric-range comment.** Its anchor is a Yjs relative position into one particular Yjs state, which `packages/db` cannot build without the editor's schema (`apps/web`). A made-up anchor would render as orphaned — a different thing from what it would claim to show. The scope bullet said "once task `091` defines the anchor"; it now exists, but seeding it honestly needs the editor's conversion in the seed, which is a change beyond this task.
+
+**Not run here:** the `pnpm --filter @youandfriends/db seed` commands in the validation list. They need the development database's connection settings, and in this session migrating that database and reading the environment file holding them were both declined. The same `seed` and `reset` functions ran against real scratch databases in `seed.test.ts`: seeding twice, reset, and rebuild.
 
 ## Tests and validation commands
 
@@ -72,7 +76,11 @@ Development-only data. No schema change.
 
 ## Status
 
-`pending`
+`blocked`
+
+## Blocker
+
+The task's seed-command validations (`pnpm --filter @youandfriends/db seed`, twice, then `seed -- --reset`) have not been run. They need the development database, and reading its connection settings was declined in this session. Everything else passes. To unblock: run those three commands against the development database and mark this `complete`.
 
 ## Commit
 
