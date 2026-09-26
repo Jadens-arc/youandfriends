@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `029` is next. `016` is passed over until its dependencies are `complete`. 74 of 95 iteration-one tasks are `complete`.
+Task `029` is next. `016` is passed over until its dependencies are `complete`. 75 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -100,8 +100,8 @@ Task `029` is next. `016` is passed over until its dependencies are `complete`. 
 | `092` | Lyric-anchored comments                                                | Comments, voice notes, notifications | `090`, `081`, `082`                       | `complete` | `6e74861` | —       |
 | `093` | Voice notes                                                            | Comments, voice notes, notifications | `090`, `053`, `063`                       | `complete` | `046a2e7` | —       |
 | `094` | Mentions, reactions, and thread resolution                             | Comments, voice notes, notifications | `090`, `032`                              | `complete` | `bae88e5` | —       |
-| `095` | In-app notification center                                             | Comments, voice notes, notifications | `094`, `024`                              | `complete` | —         | —       |
-| `096` | Notification preferences and email delivery                            | Comments, voice notes, notifications | `095`, `002`                              | `pending`  | —         | —       |
+| `095` | In-app notification center                                             | Comments, voice notes, notifications | `094`, `024`                              | `complete` | `5b38876` | —       |
+| `096` | Notification preferences and email delivery                            | Comments, voice notes, notifications | `095`, `002`                              | `complete` | —         | —       |
 | `100` | PWA manifest, icons, and installability                                | Mobile and PWA                       | `014`, `010`                              | `complete` | `3a628af` | —       |
 | `101` | Responsive audit across all implemented flows                          | Mobile and PWA                       | `077`, `085`, `095`, `055`                | `pending`  | —         | —       |
 | `102` | Mobile playback verification and iOS limitations                       | Mobile and PWA                       | `076`, `077`, `062`                       | `pending`  | —         | —       |

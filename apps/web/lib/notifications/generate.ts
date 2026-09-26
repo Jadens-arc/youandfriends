@@ -1,10 +1,12 @@
 import { loadProjectCollaborators, loadSongCollaborators } from '@youandfriends/authz';
-import { newUlid, type WorkspaceId } from '@youandfriends/contracts';
+import { newUlid, resolvePreferences, type WorkspaceId } from '@youandfriends/contracts';
 import {
+  emailModesOf,
   getProjectHeader,
   getSongHeader,
   insertNotifications,
   membersOf,
+  preferencesOf,
   type DirectDatabase,
 } from '@youandfriends/db';
 
@@ -19,6 +21,9 @@ import type { NotificationInput, NotificationSink } from './types';
  * - **Never the actor.** Also held by a database check.
  * - **Grouping** is decided here, by `group_key`: every comment on a song folds into one entry;
  *   a mention is always its own, because it is addressed to you.
+ *
+ * - **Preferences** (task `096`): a row is written for in-app, for email, or both, as the reader
+ *   chose — nothing if neither. Email is marked only when it can actually be sent.
  *
  * Runs after the change it describes has committed. A failure here is logged and swallowed: the
  * comment was posted, and saying otherwise would be false. The missing notification is the cost.
@@ -78,11 +83,21 @@ async function audienceOf(
   }
 }
 
+export interface GenerateOptions {
+  readonly newId?: () => string;
+  readonly now?: () => Date;
+  /** Whether email can be sent at all, and how immediate email is handed on (task `096`). */
+  readonly email?: {
+    readonly available: boolean;
+    readonly dispatch: (notificationIds: readonly string[]) => Promise<void>;
+  };
+}
+
 export async function generateNotifications(
   db: DirectDatabase,
   workspaceId: string,
   input: NotificationInput,
-  options: { readonly newId?: () => string; readonly now?: () => Date } = {},
+  options: GenerateOptions = {},
 ): Promise<string[]> {
   const now = options.now ?? (() => new Date());
   const audience = await audienceOf(db, workspaceId, input, now);
@@ -94,29 +109,48 @@ export async function generateNotifications(
   );
   const newId = options.newId ?? newUlid;
   const groupKey = groupKeyOf(input);
-  await insertNotifications(
-    db,
-    recipients.map((recipientId) => ({
-      id: newId(),
-      workspaceId,
-      recipientId,
-      actorId: input.actorId,
-      event: input.event,
-      targetType: input.targetType,
-      targetId: input.targetId,
-      groupKey,
-      detail: input.detail ?? {},
-      createdAt: now(),
-    })),
+  const emailing = options.email?.available === true;
+  const [saved, modes] = await Promise.all([
+    preferencesOf(db, recipients),
+    emailing ? emailModesOf(db, recipients) : Promise.resolve(new Map<string, string>()),
+  ]);
+  const rows = recipients.flatMap((recipientId) => {
+    const wants = resolvePreferences(saved.filter((row) => row.userId === recipientId))[
+      input.event
+    ];
+    const email = emailing && wants.email;
+    if (!wants.in_app && !email) return [];
+    return [
+      {
+        id: newId(),
+        workspaceId,
+        recipientId,
+        actorId: input.actorId,
+        event: input.event,
+        targetType: input.targetType,
+        targetId: input.targetId,
+        groupKey,
+        detail: input.detail ?? {},
+        inApp: wants.in_app,
+        emailStatus: email ? ('pending' as const) : null,
+        createdAt: now(),
+      },
+    ];
+  });
+  await insertNotifications(db, rows);
+  const immediate = rows.filter(
+    (row) =>
+      row.emailStatus === 'pending' && (modes.get(row.recipientId) ?? 'immediate') === 'immediate',
   );
-  return recipients;
+  if (immediate.length > 0) await options.email?.dispatch(immediate.map((row) => row.id));
+  return rows.map((row) => row.recipientId);
 }
 
 /** The sink a request's context carries. */
 export function notificationSink(
   db: DirectDatabase,
   workspaceId: string,
-  options: { readonly newId?: () => string; readonly now?: () => Date } = {},
+  options: GenerateOptions = {},
 ): NotificationSink {
   return async (input) => {
     try {

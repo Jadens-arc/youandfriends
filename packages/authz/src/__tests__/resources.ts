@@ -621,4 +621,13 @@ export const pendingResources = SENSITIVE_RESOURCES.filter(
 );
 
 /** Tables that are not tenant-owned, and so cannot have a cross-workspace case. */
-export const NON_TENANT_TABLES = ['users', 'workspaces', '__drizzle_migrations'] as const;
+export const NON_TENANT_TABLES = [
+  'users',
+  'workspaces',
+  '__drizzle_migrations',
+  // A person's own notification choices, across every workspace they are in (task `096`): event
+  // names, channels, a delivery mode — no workspace content. Read and written only for the
+  // signed-in person, by their own id; no request names whose.
+  'notification_preferences',
+  'notification_settings',
+] as const;

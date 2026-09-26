@@ -140,8 +140,14 @@ export {
   type RetryCandidateOptions,
 } from './queries/media-jobs';
 export {
+  emailModesOf,
   insertNotifications,
   markNotificationsRead,
+  pendingEmailNotifications,
+  preferencesOf,
+  recordDigest,
+  savePreferences,
+  settleEmail,
   NOTIFICATION_LIST_LIMIT,
   NOTIFICATION_RETENTION_DAYS,
   pruneNotifications,
@@ -150,6 +156,7 @@ export {
   recordProcessingNotification,
   type NewNotification,
   type NotificationRow,
+  type PreferenceRow,
 } from './queries/notifications';
 export {
   listPlayableVersions,

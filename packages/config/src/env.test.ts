@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+  emailConfigFrom,
   EnvironmentError,
   hasSentryDsn,
   parsePublicEnv,
@@ -157,5 +158,35 @@ describe('.env.example stays honest', () => {
       expect(name).toMatch(/^(YOUANDFRIENDS_|MINIO_ENDPOINT$|NODE_ENV$)/);
       expect(value).not.toMatch(/^(sk_|pk_live|rk_)/);
     }
+  });
+});
+
+describe('email configuration (task 096)', () => {
+  const secret = ['link', 'secret', 'EXAMPLENOTAREALSECRETVALUE'].join('_');
+  const complete = {
+    RESEND_API_KEY: ['re', 'EXAMPLENOTAREALKEY'].join('_'),
+    RESEND_FROM_ADDRESS: 'studio@youandfriends.org',
+    YOUANDFRIENDS_EMAIL_LINK_SECRET: secret,
+    YOUANDFRIENDS_APP_URL: 'https://youandfriends.org/',
+  };
+
+  it('is complete only with every part, trailing slash trimmed', () => {
+    expect(emailConfigFrom(complete)).toEqual({
+      config: {
+        apiKey: complete.RESEND_API_KEY,
+        from: 'studio@youandfriends.org',
+        linkSecret: secret,
+        appUrl: 'https://youandfriends.org',
+      },
+    });
+  });
+
+  it('names what is missing, so the product can say email is unavailable', () => {
+    expect(
+      emailConfigFrom({ ...complete, RESEND_API_KEY: undefined, YOUANDFRIENDS_APP_URL: '' }),
+    ).toEqual({ missing: ['RESEND_API_KEY', 'YOUANDFRIENDS_APP_URL'] });
+    expect(emailConfigFrom({ ...complete, YOUANDFRIENDS_EMAIL_LINK_SECRET: undefined })).toEqual({
+      missing: ['YOUANDFRIENDS_EMAIL_LINK_SECRET'],
+    });
   });
 });

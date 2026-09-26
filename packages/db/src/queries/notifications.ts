@@ -2,7 +2,12 @@ import { and, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 
 import type { Database } from '../client';
 import { assets } from '../schema/assets';
-import { notifications, type NotificationDetail } from '../schema/notifications';
+import {
+  notificationPreferences,
+  notifications,
+  notificationSettings,
+  type NotificationDetail,
+} from '../schema/notifications';
 import { assetVersions, mixVersions } from '../schema/versions';
 
 /**
@@ -44,12 +49,15 @@ export async function recentNotificationsFor(
   recipientId: string,
   limit = NOTIFICATION_LIST_LIMIT,
 ): Promise<NotificationRow[]> {
-  return db
-    .select()
-    .from(notifications)
-    .where(mine(workspaceId, recipientId))
-    .orderBy(desc(notifications.createdAt), desc(notifications.id))
-    .limit(limit);
+  return (
+    db
+      .select()
+      .from(notifications)
+      // Rows kept only to be emailed are not listed.
+      .where(and(mine(workspaceId, recipientId), eq(notifications.inApp, true)))
+      .orderBy(desc(notifications.createdAt), desc(notifications.id))
+      .limit(limit)
+  );
 }
 
 /** Mark some — or, with `'all'`, every — notification of this person's read. */
@@ -160,4 +168,121 @@ export async function recordProcessingNotification(
     },
   ]);
   return true;
+}
+
+export type PreferenceRow = typeof notificationPreferences.$inferSelect;
+
+/** Saved preferences for these people. A missing row is the default. */
+export async function preferencesOf(
+  db: Database,
+  userIds: readonly string[],
+): Promise<PreferenceRow[]> {
+  if (userIds.length === 0) return [];
+  return db
+    .select()
+    .from(notificationPreferences)
+    .where(inArray(notificationPreferences.userId, [...userIds]));
+}
+
+/** Each person's email mode; `immediate` when never set. */
+export async function emailModesOf(
+  db: Database,
+  userIds: readonly string[],
+): Promise<Map<string, 'immediate' | 'daily'>> {
+  const modes = new Map<string, 'immediate' | 'daily'>();
+  if (userIds.length === 0) return modes;
+  const rows = await db
+    .select({ userId: notificationSettings.userId, mode: notificationSettings.emailMode })
+    .from(notificationSettings)
+    .where(inArray(notificationSettings.userId, [...userIds]));
+  for (const row of rows) modes.set(row.userId, row.mode);
+  return modes;
+}
+
+/** Save a person's choices: each given event and channel, and their email mode if given. */
+export async function savePreferences(
+  db: Database,
+  userId: string,
+  changes: readonly {
+    readonly event: string;
+    readonly channel: 'in_app' | 'email';
+    readonly enabled: boolean;
+  }[],
+  emailMode: 'immediate' | 'daily' | undefined,
+  newId: () => string,
+): Promise<void> {
+  for (const change of changes) {
+    await db
+      .insert(notificationPreferences)
+      .values({ id: newId(), userId, ...change })
+      .onConflictDoUpdate({
+        target: [
+          notificationPreferences.userId,
+          notificationPreferences.event,
+          notificationPreferences.channel,
+        ],
+        set: { enabled: change.enabled, updatedAt: new Date() },
+      });
+  }
+  if (emailMode !== undefined) {
+    await db
+      .insert(notificationSettings)
+      .values({ userId, emailMode })
+      .onConflictDoUpdate({
+        target: notificationSettings.userId,
+        set: { emailMode, updatedAt: new Date() },
+      });
+  }
+}
+
+/** Email that is waiting to go: one person's, or everyone's created before a moment. */
+export async function pendingEmailNotifications(
+  db: Database,
+  filter: {
+    readonly recipientId?: string;
+    readonly createdBefore?: Date;
+    readonly ids?: readonly string[];
+  },
+): Promise<NotificationRow[]> {
+  return db
+    .select()
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.emailStatus, 'pending'),
+        filter.recipientId === undefined
+          ? undefined
+          : eq(notifications.recipientId, filter.recipientId),
+        filter.createdBefore === undefined
+          ? undefined
+          : lt(notifications.createdAt, filter.createdBefore),
+        filter.ids === undefined ? undefined : inArray(notifications.id, [...filter.ids]),
+      ),
+    )
+    .orderBy(notifications.recipientId, desc(notifications.createdAt))
+    .limit(2_000);
+}
+
+/** Record what became of pending email. Only rows still pending change: a retry cannot resend. */
+export async function settleEmail(
+  db: Database,
+  ids: readonly string[],
+  status: 'sent' | 'skipped',
+  now: Date,
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .update(notifications)
+    .set({ emailStatus: status, emailedAt: now })
+    .where(and(inArray(notifications.id, [...ids]), eq(notifications.emailStatus, 'pending')))
+    .returning();
+  return rows.map((row) => row.id);
+}
+
+/** Mark a digest sent for a person. */
+export async function recordDigest(db: Database, userId: string, now: Date): Promise<void> {
+  await db
+    .insert(notificationSettings)
+    .values({ userId, emailMode: 'daily', lastDigestAt: now })
+    .onConflictDoUpdate({ target: notificationSettings.userId, set: { lastDigestAt: now } });
 }

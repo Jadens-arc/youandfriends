@@ -124,3 +124,9 @@ export {
   type Target,
 } from './subjects';
 export { loadChain } from './target';
+export {
+  signUnsubscribe,
+  verifyUnsubscribe,
+  type Unsubscribe,
+  type UnsubscribeScope,
+} from './unsubscribe';

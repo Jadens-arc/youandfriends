@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@trigger.dev/sdk": "^4.6.4",
+    "@youandfriends/authz": "workspace:*",
     "@youandfriends/config": "workspace:*",
     "@youandfriends/contracts": "workspace:*",
     "@youandfriends/db": "workspace:*",

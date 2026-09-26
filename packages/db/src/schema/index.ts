@@ -20,7 +20,7 @@ import { loopRegions } from './loop-regions';
 import { lyricsDocuments, lyricsRevisions } from './lyrics';
 import { commentMentions, commentReactions, commentThreads, comments } from './comments';
 import { mediaJobs } from './media-jobs';
-import { notifications } from './notifications';
+import { notificationPreferences, notifications, notificationSettings } from './notifications';
 import { snapshotEntries, snapshots } from './snapshots';
 import { storageObjects } from './storage-objects';
 import { uploadParts, uploadSessions } from './uploads';
@@ -66,6 +66,10 @@ export const NON_TENANT_TABLES: Readonly<Record<string, string>> = {
   users: 'a user spans workspaces',
   // The workspace is the tenant. It cannot contain itself.
   workspaces: 'the workspace is the tenancy',
+  // A person's own notification choices follow them across workspaces (task `096`). They hold
+  // no workspace content: event names, channels, and a delivery mode.
+  notification_preferences: "a person's own settings, across workspaces",
+  notification_settings: "a person's own settings, across workspaces",
   // Drizzle's own bookkeeping, in its own schema.
   __drizzle_migrations: "the migrator's ledger",
 };
@@ -88,6 +92,8 @@ export const schema = {
   commentMentions,
   commentReactions,
   notifications,
+  notificationPreferences,
+  notificationSettings,
   snapshots,
   snapshotEntries,
   users,

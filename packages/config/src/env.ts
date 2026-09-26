@@ -53,6 +53,11 @@ const serverSchema = z.object({
 
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_ADDRESS: z.string().email().optional(),
+  // Task `096`: signs email unsubscribe links. Without it no email is sent — an email whose
+  // unsubscribe link cannot be honoured is not one we send.
+  YOUANDFRIENDS_EMAIL_LINK_SECRET: z.string().min(32).optional(),
+  // The address emails link back to, e.g. https://youandfriends.org.
+  YOUANDFRIENDS_APP_URL: z.string().url().optional(),
 
   SENTRY_DSN: z.string().url().optional(),
 
@@ -166,4 +171,44 @@ export function hasSentryDsn(
   env: Pick<ServerEnv, 'SENTRY_DSN' | 'NEXT_PUBLIC_SENTRY_DSN'>,
 ): boolean {
   return Boolean(env.SENTRY_DSN ?? env.NEXT_PUBLIC_SENTRY_DSN);
+}
+
+/** Everything email delivery needs (task `096`). */
+export interface EmailConfig {
+  readonly apiKey: string;
+  readonly from: string;
+  readonly linkSecret: string;
+  readonly appUrl: string;
+}
+
+/**
+ * Email configuration, or the names of what is missing. Missing is an answer the product shows —
+ * the preferences page says email is unavailable — never a silent no-op behind an "on" toggle.
+ */
+export function emailConfigFrom(
+  env: Pick<
+    ServerEnv,
+    | 'RESEND_API_KEY'
+    | 'RESEND_FROM_ADDRESS'
+    | 'YOUANDFRIENDS_EMAIL_LINK_SECRET'
+    | 'YOUANDFRIENDS_APP_URL'
+  >,
+): { readonly config: EmailConfig } | { readonly missing: readonly string[] } {
+  const missing = (
+    [
+      'RESEND_API_KEY',
+      'RESEND_FROM_ADDRESS',
+      'YOUANDFRIENDS_EMAIL_LINK_SECRET',
+      'YOUANDFRIENDS_APP_URL',
+    ] as const
+  ).filter((name) => env[name] === undefined || env[name] === '');
+  if (missing.length > 0) return { missing };
+  return {
+    config: {
+      apiKey: env.RESEND_API_KEY as string,
+      from: env.RESEND_FROM_ADDRESS as string,
+      linkSecret: env.YOUANDFRIENDS_EMAIL_LINK_SECRET as string,
+      appUrl: (env.YOUANDFRIENDS_APP_URL as string).replace(/\/+$/, ''),
+    },
+  };
 }

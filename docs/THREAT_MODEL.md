@@ -92,6 +92,15 @@ collaborator's list stops showing that song at once. Rows hold ids, not content:
 are read from the comment, so deleting it takes its words, and its mentions, out of every
 notification. An invitation notice carries no token and no way into the workspace.
 
+**Email leaves the boundary** (task `096`). A notification email is one sentence — who, what,
+which song — and a link; never a comment's words or lyrics. It is checked again when it is sent:
+the reader's access to the target, the target not in the trash, and their preference still on;
+failing any, it is `skipped`, never sent. Unsubscribe links are HMAC-signed over a fixed purpose
+and name only a person and one event (or "all email"), so they cannot be turned into any other
+change. Opening one changes nothing: the page asks first, and only a POST acts, so a mail
+scanner's prefetch cannot unsubscribe anyone. With email unconfigured, the preferences page says
+so, and nothing is marked for email.
+
 **A mention is not an invitation** (task `094`). Mentioning someone writes no grant and no
 membership. Who can be mentioned is resolved on the server — the people who can see _that song_,
 denies included — and is offered only to someone who may comment there, so the suggestion list is

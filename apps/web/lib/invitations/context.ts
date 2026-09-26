@@ -5,6 +5,7 @@ import type { DirectDatabase } from '@youandfriends/db';
 import { transactionalDatabase } from '@/lib/database';
 import type { WorkspaceContext } from '@/lib/workspace/current';
 import { notificationSink } from '@/lib/notifications/generate';
+import { productionEmail } from '@/lib/notifications/email';
 import type { NotificationSink } from '@/lib/notifications/types';
 
 /**
@@ -37,6 +38,6 @@ export function invitationContext(context: WorkspaceContext): InvitationContext 
     workspaceId: context.workspace.workspaceId,
     userId: context.userId,
     correlationId: context.correlationId,
-    notify: notificationSink(db, context.workspace.workspaceId),
+    notify: notificationSink(db, context.workspace.workspaceId, { email: productionEmail() }),
   };
 }

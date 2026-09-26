@@ -1,6 +1,8 @@
 import { permits } from '@youandfriends/authz';
 import {
+  describeNotification,
   markNotificationsReadSchema,
+  notificationPath,
   fieldErrorsFromZod,
   validationFailed,
   type NotificationEvent,
@@ -23,7 +25,6 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { mentionsOf } from '@/lib/comments/mentions';
 import { plainText } from '@/lib/comments/mention-format';
 import type { LibraryContext } from '@/lib/library/context';
-import { projectHref, songHref } from '@/lib/songs/routes';
 
 /**
  * Reading notifications (task `095`).
@@ -245,64 +246,6 @@ async function mixNumbersOf(context: LibraryContext, rows: readonly Notification
   return new Map(found.map((row) => [row.id, row.number]));
 }
 
-function hrefOf(row: NotificationRow): string | null {
-  const { detail } = row;
-  switch (row.targetType) {
-    case 'song': {
-      if (detail.commentId !== undefined) {
-        return `${songHref(row.targetId, 'activity')}#comment-${detail.commentId}`;
-      }
-      if (row.event === 'lyrics.changed') return songHref(row.targetId, 'lyrics');
-      if (detail.mixVersionId !== undefined) {
-        return `${songHref(row.targetId)}?version=${encodeURIComponent(detail.mixVersionId)}`;
-      }
-      if (detail.assetVersionId !== undefined) return songHref(row.targetId, 'files');
-      return songHref(row.targetId);
-    }
-    case 'project':
-      return projectHref(row.targetId);
-    case 'workspace':
-      return '/';
-    case 'invitation':
-      // Accepting takes the link in the invitation itself; this carries no token.
-      return null;
-  }
-}
-
-function itemSummary(
-  row: NotificationRow,
-  actor: string,
-  title: string,
-  mixNumber: number | undefined,
-): string {
-  switch (row.event as NotificationEvent) {
-    case 'comment.created':
-      return `${actor} commented on ${title}`;
-    case 'comment.replied':
-      return `${actor} replied on ${title}`;
-    case 'voice_note.created':
-      return `${actor} left a voice note on ${title}`;
-    case 'comment.mentioned':
-      return `${actor} mentioned you on ${title}`;
-    case 'version.created':
-      return mixNumber === undefined
-        ? `${actor} uploaded a new file to ${title}`
-        : `${actor} uploaded version ${mixNumber} of ${title}`;
-    case 'version.processed':
-      return `Your upload to ${title} is ready to play`;
-    case 'version.processing_failed':
-      return `Your upload to ${title} couldn’t be processed`;
-    case 'lyrics.changed':
-      return `${actor} changed the lyrics of ${title}`;
-    case 'metadata.changed':
-      return `${actor} edited the details of ${title}`;
-    case 'access.changed':
-      return `${actor} changed your access in ${title}`;
-    case 'invitation.received':
-      return `${actor} invited you to ${title}`;
-  }
-}
-
 function people(names: readonly string[]): string {
   const [first, second] = names;
   if (first === undefined) return 'Someone';
@@ -369,15 +312,16 @@ export async function listNotifications(
     if (row.event === 'comment.mentioned' && (comment === undefined || comment.deleted)) continue;
     const actor = row.actorId === null ? 'Someone' : (names.get(row.actorId) ?? 'Someone');
     const event = row.event as NotificationEvent;
+    const mixNumber =
+      row.detail.mixVersionId === undefined ? undefined : mixNumbers.get(row.detail.mixVersionId);
     const item: NotificationItemView = {
       id: row.id,
       event,
-      summary: itemSummary(
-        row,
+      summary: describeNotification(event, {
         actor,
-        target.title,
-        row.detail.mixVersionId === undefined ? undefined : mixNumbers.get(row.detail.mixVersionId),
-      ),
+        title: target.title,
+        ...(mixNumber === undefined ? {} : { versionNumber: mixNumber }),
+      }),
       preview:
         comment === undefined
           ? event === 'invitation.received'
@@ -386,7 +330,7 @@ export async function listNotifications(
           : comment.deleted
             ? 'This comment was deleted.'
             : comment.preview,
-      href: hrefOf(row),
+      href: notificationPath(row),
       unread: row.readAt === null,
       at: row.createdAt,
     };

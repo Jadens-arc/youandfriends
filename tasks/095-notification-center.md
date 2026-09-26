@@ -100,4 +100,4 @@ Additive. Reverting loses notifications; events still write to audit.
 
 ## Commit
 
-_(not yet)_
+`5b38876`

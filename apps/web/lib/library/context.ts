@@ -6,6 +6,7 @@ import { createR2Driver, r2ConfigFrom, StorageNotConfiguredError } from '@youand
 
 import { transactionalDatabase } from '@/lib/database';
 import { notificationSink } from '@/lib/notifications/generate';
+import { productionEmail } from '@/lib/notifications/email';
 import type { NotificationSink } from '@/lib/notifications/types';
 import type { WorkspaceContext } from '@/lib/workspace/current';
 
@@ -46,7 +47,7 @@ export function libraryContext(context: WorkspaceContext): LibraryContext {
     userId: context.userId,
     correlationId: context.correlationId,
     coverSigner: coverSigner(),
-    notify: notificationSink(db, context.workspace.workspaceId),
+    notify: notificationSink(db, context.workspace.workspaceId, { email: productionEmail() }),
   };
 }
 
