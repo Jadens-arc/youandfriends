@@ -4,6 +4,8 @@ import type { DirectDatabase } from '@youandfriends/db';
 
 import { transactionalDatabase } from '@/lib/database';
 import type { WorkspaceContext } from '@/lib/workspace/current';
+import { notificationSink } from '@/lib/notifications/generate';
+import type { NotificationSink } from '@/lib/notifications/types';
 
 /**
  * The per-request handle invitation use cases take.
@@ -22,6 +24,8 @@ export interface InvitationContext {
   readonly now?: (() => Date) | undefined;
   readonly newId?: (() => string) | undefined;
   readonly correlationId?: string | undefined;
+  /** Domain events (task `095`): someone with an account hears they were invited. */
+  readonly notify?: NotificationSink | undefined;
 }
 
 export function invitationContext(context: WorkspaceContext): InvitationContext {
@@ -33,5 +37,6 @@ export function invitationContext(context: WorkspaceContext): InvitationContext 
     workspaceId: context.workspace.workspaceId,
     userId: context.userId,
     correlationId: context.correlationId,
+    notify: notificationSink(db, context.workspace.workspaceId),
   };
 }

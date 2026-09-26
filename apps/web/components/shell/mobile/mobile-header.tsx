@@ -6,6 +6,8 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { NotificationBell } from '@/components/notifications/notification-bell';
+
 import { useBackTarget } from './back-target';
 
 const SECTION_LABELS: Readonly<Record<string, string>> = {
@@ -17,6 +19,7 @@ const SECTION_LABELS: Readonly<Record<string, string>> = {
   trash: 'Trash',
   settings: 'Settings',
   members: 'Members',
+  notifications: 'Notifications',
 };
 
 function labelFor(segment: string | undefined): string {
@@ -79,12 +82,16 @@ export function MobileHeader() {
 
       {/* The phone's way to settings. The bottom bar holds the five places music lives and has no
           room for a sixth, so settings rides in the header of every root destination instead. */}
+      {parent === null && section !== 'notifications' ? (
+        <NotificationBell className="ml-auto" />
+      ) : null}
       {parent === null && section !== 'settings' ? (
         <Link
           href="/settings"
           aria-label="Settings"
           className={cn(
-            'text-foreground ml-auto flex min-h-11 min-w-11 items-center justify-center rounded-sm',
+            'text-foreground flex min-h-11 min-w-11 items-center justify-center rounded-sm',
+            section === 'notifications' ? 'ml-auto' : '',
             transition,
             focusRing,
           )}

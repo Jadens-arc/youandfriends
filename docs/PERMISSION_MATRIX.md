@@ -129,10 +129,10 @@ which requires workspace ownership, so an unguarded read of it is not one call a
 | `comments`              | covered    | The same, at message granularity.                                                                                                |
 | `comment_mentions`      | covered    | Who is being pulled into which conversation — who works with whom.                                                               |
 | `comment_reactions`     | covered    | Who read and agreed with what, and when.                                                                                         |
+| `notifications`         | covered    | Reveals activity, timing, and who is working with whom.                                                                          |
 | `upload_sessions`       | covered    | An in-flight session is a writable handle to storage.                                                                            |
 | `upload_parts`          | covered    | Each row names a part already in the bucket, with its ETag. Reading another workspace’s parts is half of hijacking their upload. |
 | `invitations`           | covered    | An email address plus a role plus a scope — exactly who is being brought in, and to what.                                        |
-| `notifications`         | task `095` | Reveals activity, timing, and who is working with whom.                                                                          |
 | `share_links`           | task `200` | A share link is a bearer credential. Enumerating them is total compromise.                                                       |
 | `sync_tokens`           | task `110` | A sync token authorizes a Mac agent. Same.                                                                                       |
 

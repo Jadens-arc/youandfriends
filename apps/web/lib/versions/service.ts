@@ -272,7 +272,21 @@ export async function recordUploadedVersion(
     },
   );
 
-  if (result.created) await context.onVersionRecorded?.(result.assetVersionId);
+  if (result.created) {
+    await context.onVersionRecorded?.(result.assetVersionId);
+    // A mix is announced as the song's new version by `recordMixVersion`, with its number; a
+    // voice note by the comment that carries it.
+    if (asset.kind !== 'mix' && asset.kind !== 'voice_note') {
+      await context.notify?.({
+        event: 'version.created',
+        ...(asset.songId === null
+          ? { targetType: 'project' as const, targetId: asset.projectId as string }
+          : { targetType: 'song' as const, targetId: asset.songId }),
+        actorId: context.userId,
+        detail: { assetVersionId: result.assetVersionId },
+      });
+    }
+  }
   return result;
 }
 
@@ -317,53 +331,69 @@ export async function recordMixVersion(
 
   const version = await recordUploadedVersion(context, request.sessionId);
 
-  return withAuditedTransaction(context.db, auditContextOf(context), async ({ tx, audit }) => {
-    await tx.execute(sql`select id from songs where id = ${songId} for update`);
+  const recorded = await withAuditedTransaction(
+    context.db,
+    auditContextOf(context),
+    async ({ tx, audit }) => {
+      await tx.execute(sql`select id from songs where id = ${songId} for update`);
 
-    const [existing] = await tx
-      .select({ id: mixVersions.id, versionNumber: mixVersions.versionNumber })
-      .from(mixVersions)
-      .where(
-        and(
-          eq(mixVersions.workspaceId, context.workspaceId),
-          eq(mixVersions.assetVersionId, version.assetVersionId),
-        ),
-      );
-    if (existing !== undefined) {
-      return {
-        ...version,
-        mixVersionId: existing.id,
-        mixVersionNumber: existing.versionNumber,
-        created: false,
-      };
-    }
+      const [existing] = await tx
+        .select({ id: mixVersions.id, versionNumber: mixVersions.versionNumber })
+        .from(mixVersions)
+        .where(
+          and(
+            eq(mixVersions.workspaceId, context.workspaceId),
+            eq(mixVersions.assetVersionId, version.assetVersionId),
+          ),
+        );
+      if (existing !== undefined) {
+        return {
+          ...version,
+          mixVersionId: existing.id,
+          mixVersionNumber: existing.versionNumber,
+          created: false,
+        };
+      }
 
-    const [{ highest } = { highest: null }] = await tx
-      .select({ highest: max(mixVersions.versionNumber) })
-      .from(mixVersions)
-      .where(and(eq(mixVersions.workspaceId, context.workspaceId), eq(mixVersions.songId, songId)));
-    const mixVersionNumber = (highest ?? 0) + 1;
-    const mixVersionId = (context.newId ?? newUlid)();
+      const [{ highest } = { highest: null }] = await tx
+        .select({ highest: max(mixVersions.versionNumber) })
+        .from(mixVersions)
+        .where(
+          and(eq(mixVersions.workspaceId, context.workspaceId), eq(mixVersions.songId, songId)),
+        );
+      const mixVersionNumber = (highest ?? 0) + 1;
+      const mixVersionId = (context.newId ?? newUlid)();
 
-    await tx.insert(mixVersions).values({
-      id: mixVersionId,
-      workspaceId: context.workspaceId,
-      songId,
-      versionNumber: mixVersionNumber,
-      assetVersionId: version.assetVersionId,
-      uploadedBy: context.userId,
-      note: request.note === undefined || request.note === '' ? null : request.note,
-    });
+      await tx.insert(mixVersions).values({
+        id: mixVersionId,
+        workspaceId: context.workspaceId,
+        songId,
+        versionNumber: mixVersionNumber,
+        assetVersionId: version.assetVersionId,
+        uploadedBy: context.userId,
+        note: request.note === undefined || request.note === '' ? null : request.note,
+      });
 
-    await audit({
-      action: 'song.updated',
+      await audit({
+        action: 'song.updated',
+        targetType: 'song',
+        targetId: songId,
+        metadata: { change: 'version_added', mixVersionId, mixVersionNumber },
+      });
+
+      return { ...version, mixVersionId, mixVersionNumber, created: true };
+    },
+  );
+  if (recorded.created) {
+    await context.notify?.({
+      event: 'version.created',
       targetType: 'song',
       targetId: songId,
-      metadata: { change: 'version_added', mixVersionId, mixVersionNumber },
+      actorId: context.userId,
+      detail: { mixVersionId: recorded.mixVersionId, assetVersionId: recorded.assetVersionId },
     });
-
-    return { ...version, mixVersionId, mixVersionNumber, created: true };
-  });
+  }
+  return recorded;
 }
 
 /** A version id from a request, confirmed to belong to this song in this workspace. */

@@ -350,13 +350,17 @@ export async function createThread(
       return { threadId, commentId, mentioned };
     },
   );
+  const detail = { threadId: created.threadId, commentId: created.commentId };
+  await notifyMentioned(context, songId, created.mentioned, detail);
   await context.notify?.({
-    event: 'comment.created',
+    event: body === '' && voiceNoteAssetId !== undefined ? 'voice_note.created' : 'comment.created',
     targetType: 'song',
     targetId: songId,
     actorId: context.userId,
+    // Told already, more specifically.
+    excludeIds: created.mentioned.newlyReached,
+    detail,
   });
-  await notifyMentioned(context, songId, created.mentioned);
   return {
     threadId: created.threadId,
     commentId: created.commentId,
@@ -425,13 +429,18 @@ export async function reply(
       return { commentId, mentioned };
     },
   );
+  const detail = { threadId, commentId: created.commentId };
+  await notifyMentioned(context, songId, created.mentioned, detail);
   await context.notify?.({
-    event: 'comment.replied',
+    event: body === '' && voiceNoteAssetId !== undefined ? 'voice_note.created' : 'comment.replied',
     targetType: 'song',
     targetId: songId,
     actorId: context.userId,
+    // A reply is for the people in the conversation, not everyone on the song.
+    recipientIds: await participantsOf(context, threadId),
+    excludeIds: created.mentioned.newlyReached,
+    detail,
   });
-  await notifyMentioned(context, songId, created.mentioned);
   return { commentId: created.commentId, unreachedMentions: created.mentioned.unreached };
 }
 
@@ -489,12 +498,43 @@ export async function editComment(
       return outcome;
     },
   );
-  await notifyMentioned(context, songId, mentioned);
+  await notifyMentioned(context, songId, mentioned, { threadId, commentId });
   return { unreachedMentions: mentioned.unreached };
 }
 
+/** Everyone who wrote in a thread or was mentioned in it. */
+async function participantsOf(context: LibraryContext, threadId: string): Promise<string[]> {
+  const [authors, mentioned] = await Promise.all([
+    context.db
+      .select({ userId: comments.authorId })
+      .from(comments)
+      .where(and(eq(comments.threadId, threadId), eq(comments.workspaceId, context.workspaceId))),
+    context.db
+      .select({ userId: commentMentions.userId })
+      .from(commentMentions)
+      .innerJoin(
+        comments,
+        and(
+          eq(comments.id, commentMentions.commentId),
+          eq(comments.workspaceId, commentMentions.workspaceId),
+        ),
+      )
+      .where(and(eq(comments.threadId, threadId), eq(comments.workspaceId, context.workspaceId))),
+  ]);
+  return [
+    ...new Set(
+      [...authors, ...mentioned].flatMap((row) => (row.userId === null ? [] : [row.userId])),
+    ),
+  ];
+}
+
 /** Tell the people a comment newly reached. Never the author: they know. */
-async function notifyMentioned(context: CommentsContext, songId: string, outcome: MentionOutcome) {
+async function notifyMentioned(
+  context: CommentsContext,
+  songId: string,
+  outcome: MentionOutcome,
+  detail: { readonly threadId: string; readonly commentId: string },
+) {
   const recipientIds = outcome.newlyReached.filter((id) => id !== context.userId);
   if (recipientIds.length === 0) return;
   await context.notify?.({
@@ -503,6 +543,7 @@ async function notifyMentioned(context: CommentsContext, songId: string, outcome
     targetId: songId,
     actorId: context.userId,
     recipientIds,
+    detail,
   });
 }
 

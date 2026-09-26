@@ -21,7 +21,9 @@ import {
   listPendingInvitations,
   revokeInvitation,
   findInvitationById,
+  users,
 } from '@youandfriends/db';
+import { sql } from 'drizzle-orm';
 
 import { requireInWorkspace } from '@/lib/workspace/settings';
 
@@ -135,6 +137,22 @@ export async function sendInvitation(
       return row;
     },
   );
+
+  // Someone who already has an account hears about it in the product too. Accepting still takes
+  // the link — the notification carries no token, so it is news, not a way in.
+  const [invitee] = await context.db
+    .select({ id: users.id })
+    .from(users)
+    .where(sql`lower(${users.email}) = ${request.email}`);
+  if (invitee !== undefined) {
+    await context.notify?.({
+      event: 'invitation.received',
+      targetType: 'invitation',
+      targetId: created.id,
+      actorId: context.userId,
+      recipientIds: [invitee.id],
+    });
+  }
 
   return { invitationId: created.id, token: buildToken('invite', id, secret), expiresAt };
 }

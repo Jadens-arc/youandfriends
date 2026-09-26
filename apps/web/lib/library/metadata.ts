@@ -7,7 +7,6 @@ import {
   updateProjectSchema,
   updateSongSchema,
   validationFailed,
-  type NotificationEvent,
   type UpdateProjectRequest,
   type UpdateSongRequest,
 } from '@youandfriends/contracts';
@@ -25,26 +24,10 @@ import type { LibraryContext } from './context';
  * writes nothing, not an empty event.
  */
 
-/**
- * Something a collaborator may want to hear about. Delivery arrives with tasks `095`–`096`;
- * until then the event is raised and a context without a sink drops it — the cause is wired
- * now so the notification center does not have to rediscover every place that changes things.
- */
-export type NotificationSink = (event: {
-  readonly event: NotificationEvent;
-  readonly targetType: 'song' | 'project';
-  readonly targetId: string;
-  readonly actorId: string;
-  /**
-   * The people this event is addressed to, when it has addressees — the people a comment
-   * mentions (task `094`). Absent: everyone following the target.
-   */
-  readonly recipientIds?: readonly string[] | undefined;
-}) => Promise<void>;
+/** The domain event sink (task `095`) — defined with its generator. */
+export type { NotificationSink } from '@/lib/notifications/types';
 
-export interface MetadataContext extends LibraryContext {
-  readonly notify?: NotificationSink | undefined;
-}
+export type MetadataContext = LibraryContext;
 
 function refuse(detail: string): never {
   throw forbidden({ detail });

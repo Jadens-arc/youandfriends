@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { ulidSchema } from './ids';
+
 /**
  * What a person can be notified about (`docs/DESIGN.md` §7).
  *
@@ -29,3 +31,10 @@ export type NotificationEvent = z.infer<typeof notificationEventSchema>;
 export const NOTIFICATION_CHANNELS = ['in_app', 'email'] as const;
 export const notificationChannelSchema = z.enum(NOTIFICATION_CHANNELS);
 export type NotificationChannel = z.infer<typeof notificationChannelSchema>;
+
+/** Marking notifications read (task `095`): some by id, or every one at once. */
+export const markNotificationsReadSchema = z.union([
+  z.object({ ids: z.array(ulidSchema).min(1).max(500) }),
+  z.object({ all: z.literal(true) }),
+]);
+export type MarkNotificationsReadRequest = z.infer<typeof markNotificationsReadSchema>;

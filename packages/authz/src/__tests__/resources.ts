@@ -28,6 +28,7 @@ import {
   comments,
   mediaJobs,
   mixVersions,
+  notifications,
   permissionGrants,
   projects,
   snapshotEntries,
@@ -515,10 +516,25 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     why: 'Who read and agreed with what, and when.',
   },
   {
-    status: 'pending',
+    status: 'live',
     name: 'notifications',
-    tableName: 'notifications',
-    task: '095',
+    table: notifications,
+    // Reached through its recipient and its target, never as a scope of its own.
+    scopeType: null,
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      const recipient = await makeUser(db);
+      await addMember(db, workspaceId, recipient.id, 'viewer');
+      await db.insert(notifications).values({
+        id: testId(),
+        workspaceId,
+        recipientId: recipient.id,
+        event: 'comment.created',
+        targetType: 'song',
+        targetId: song.id,
+        groupKey: `comment:song:${song.id}`,
+      });
+    },
     why: 'Reveals activity, timing, and who is working with whom.',
   },
   {

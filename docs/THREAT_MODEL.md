@@ -85,6 +85,13 @@ how they resolve. `owner` cannot be offered by any invitation, enforced twice �
 layer's `INVITABLE_ROLES` and a database CHECK constraint — because it is workspace-wide
 administration, never a scope grant (ADR 0010).
 
+**Notifications are filtered twice** (task `095`). When written, recipients are the people who
+can see the target, resolved with denies, and never the actor (also a database check). When read,
+each target's access is resolved again and a trashed song hides its notifications, so a revoked
+collaborator's list stops showing that song at once. Rows hold ids, not content: a comment's words
+are read from the comment, so deleting it takes its words, and its mentions, out of every
+notification. An invitation notice carries no token and no way into the workspace.
+
 **A mention is not an invitation** (task `094`). Mentioning someone writes no grant and no
 membership. Who can be mentioned is resolved on the server — the people who can see _that song_,
 denies included — and is offered only to someone who may comment there, so the suggestion list is

@@ -227,11 +227,17 @@ function Comment({
   readonly onPerson: ((person: MentionView) => void) | undefined;
 }) {
   const [editing, setEditing] = React.useState(false);
+  // `comment-<id>`: where a notification lands (task `095`).
+  const anchor = `comment-${comment.id}`;
   if (comment.deleted) {
-    return <li className="text-caption text-muted-foreground italic">This comment was deleted.</li>;
+    return (
+      <li id={anchor} tabIndex={-1} className="text-caption text-muted-foreground italic">
+        This comment was deleted.
+      </li>
+    );
   }
   return (
-    <li className="flex flex-col gap-1">
+    <li id={anchor} tabIndex={-1} className={cn('flex flex-col gap-1 rounded-sm', focusRing)}>
       <p className="text-caption text-muted-foreground">
         <span className="text-foreground font-medium">{comment.author ?? 'Someone'}</span>
         {' · '}
@@ -497,6 +503,21 @@ export function CommentsPanel({
   const load = React.useCallback(() => refreshComments(songId), [songId]);
   const [unresolvedOnly, setUnresolvedOnly] = React.useState(false);
   const [person, setPerson] = React.useState<MentionView | null>(null);
+  const ready = typeof state === 'object';
+
+  // A link to one comment (a notification's, task `095`) lands on it once the comments are here:
+  // the browser's own fragment scroll ran before they were. A resolved thread is opened for it.
+  React.useEffect(() => {
+    if (!ready) return;
+    const hash = window.location.hash;
+    if (!hash.startsWith('#comment-')) return;
+    const target = document.getElementById(decodeURIComponent(hash.slice(1)));
+    if (target === null) return;
+    const folded = target.closest('details');
+    if (folded !== null) folded.open = true;
+    target.scrollIntoView({ block: 'center' });
+    target.focus({ preventScroll: true });
+  }, [ready]);
 
   if (loaded === null)
     return <p className="text-body text-muted-foreground font-sans">Loading comments…</p>;

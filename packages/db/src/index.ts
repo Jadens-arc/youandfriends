@@ -140,6 +140,18 @@ export {
   type RetryCandidateOptions,
 } from './queries/media-jobs';
 export {
+  insertNotifications,
+  markNotificationsRead,
+  NOTIFICATION_LIST_LIMIT,
+  NOTIFICATION_RETENTION_DAYS,
+  pruneNotifications,
+  READ_NOTIFICATION_RETENTION_DAYS,
+  recentNotificationsFor,
+  recordProcessingNotification,
+  type NewNotification,
+  type NotificationRow,
+} from './queries/notifications';
+export {
   listPlayableVersions,
   type PlayableSelection,
   type PlayableVersionRow,

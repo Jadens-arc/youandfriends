@@ -11,6 +11,7 @@ import { transactionalDatabase } from '@/lib/database';
 import type { MemberManagementContext } from './members';
 import { resolveWorkspace, WORKSPACE_COOKIE, type CurrentWorkspace } from './resolve';
 import type { WorkspaceRequest } from './settings';
+import { notificationSink } from '@/lib/notifications/generate';
 
 /** A signed-in request, resolved to the workspace it is working in. */
 export interface WorkspaceContext {
@@ -69,5 +70,10 @@ export function workspaceRequest(context: WorkspaceContext): WorkspaceRequest {
 
 /** The per-request handle role-change and removal use cases take. */
 export function memberManagementContext(context: WorkspaceContext): MemberManagementContext {
-  return { ...workspaceRequest(context), actingUserId: context.userId };
+  const request = workspaceRequest(context);
+  return {
+    ...request,
+    actingUserId: context.userId,
+    notify: notificationSink(request.db, request.workspaceId),
+  };
 }

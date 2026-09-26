@@ -10,6 +10,7 @@ import {
 } from '@youandfriends/db';
 
 import { requireInWorkspace, type WorkspaceRequest } from './settings';
+import type { NotificationSink } from '@/lib/notifications/types';
 
 /**
  * Changing a full member's workspace-wide role, and removing someone from a workspace
@@ -28,6 +29,8 @@ export interface MemberManagementContext extends WorkspaceRequest {
   /** Who is making the change, for the "you cannot demote/remove yourself into an ownerless
    *  workspace" guards — distinct from `subject`, which an audit event also needs. */
   readonly actingUserId: string;
+  /** Domain events (task `095`): a changed role is news to the person it happened to. */
+  readonly notify?: NotificationSink | undefined;
 }
 
 const idsOf = (context: MemberManagementContext) => context.newId ?? newUlid;
@@ -68,24 +71,38 @@ export async function changeMemberRole(
     });
   }
 
-  await withAuditedTransaction(context.db, auditContextOf(context), async ({ tx, audit }) => {
-    await lockWorkspaceForMembershipWrite(tx, context.workspaceId);
+  const changed = await withAuditedTransaction(
+    context.db,
+    auditContextOf(context),
+    async ({ tx, audit }) => {
+      await lockWorkspaceForMembershipWrite(tx, context.workspaceId);
 
-    const result = await updateMembershipRole(tx, context.workspaceId, targetUserId, newRole);
-    if (result === null) throw notFound();
-    if (result.previousRole === newRole) return;
+      const result = await updateMembershipRole(tx, context.workspaceId, targetUserId, newRole);
+      if (result === null) throw notFound();
+      if (result.previousRole === newRole) return false;
 
-    if (result.previousRole === 'owner' && (await countOwners(tx, context.workspaceId)) === 0) {
-      throw conflict({ detail: 'a workspace must keep at least one owner' });
-    }
+      if (result.previousRole === 'owner' && (await countOwners(tx, context.workspaceId)) === 0) {
+        throw conflict({ detail: 'a workspace must keep at least one owner' });
+      }
 
-    await audit({
-      action: 'member.role_changed',
-      targetType: 'member',
-      targetId: targetUserId,
-      metadata: { from: result.previousRole, to: newRole },
+      await audit({
+        action: 'member.role_changed',
+        targetType: 'member',
+        targetId: targetUserId,
+        metadata: { from: result.previousRole, to: newRole },
+      });
+      return true;
+    },
+  );
+  if (changed) {
+    await context.notify?.({
+      event: 'access.changed',
+      targetType: 'workspace',
+      targetId: context.workspaceId,
+      actorId: context.actingUserId,
+      recipientIds: [targetUserId],
     });
-  });
+  }
 }
 
 /**
