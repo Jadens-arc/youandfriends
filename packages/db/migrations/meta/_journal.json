@@ -162,6 +162,13 @@
       "when": 1790305537264,
       "tag": "0022_voice_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790443494964,
+      "tag": "0023_mentions_reactions",
+      "breakpoints": true
     }
   ]
 }

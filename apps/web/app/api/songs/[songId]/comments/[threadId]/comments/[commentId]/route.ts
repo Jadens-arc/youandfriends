@@ -1,12 +1,13 @@
 import { editCommentSchema } from '@youandfriends/contracts';
 
-import { handleJson, parseBody, parsePathId, requireWorkspace } from '@/lib/api/http';
+import { handleJson, json, parseBody, parsePathId, requireWorkspace } from '@/lib/api/http';
 import { deleteComment, editComment } from '@/lib/comments/service';
 import { libraryContext } from '@/lib/library/context';
 
 /**
  * `/api/songs/:songId/comments/:threadId/comments/:commentId` (task `090`): `PATCH` to edit (the
- * author), `DELETE` to erase the words and leave a tombstone (the author, or an editor).
+ * author) — answered with anyone it mentions who cannot see the song (task `094`) — and `DELETE`
+ * to erase the words and leave a tombstone (the author, or an editor).
  */
 type Params = { params: Promise<{ songId: string; threadId: string; commentId: string }> };
 
@@ -18,14 +19,15 @@ export async function PATCH(request: Request, { params }: Params): Promise<Respo
     const body = await parseBody(request, editCommentSchema);
     const { songId, threadId, commentId } = await params;
     const context = { ...libraryContext(await requireWorkspace()), correlationId };
-    await editComment(
-      context,
-      parsePathId(songId),
-      parsePathId(threadId),
-      parsePathId(commentId),
-      body,
+    return json(
+      await editComment(
+        context,
+        parsePathId(songId),
+        parsePathId(threadId),
+        parsePathId(commentId),
+        body,
+      ),
     );
-    return noContent();
   });
 }
 

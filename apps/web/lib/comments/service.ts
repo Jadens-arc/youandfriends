@@ -2,6 +2,7 @@ import { permits, withAuditedTransaction } from '@youandfriends/authz';
 import {
   createThreadSchema,
   editCommentSchema,
+  reactSchema,
   fieldErrorsFromZod,
   forbidden,
   isUlid,
@@ -12,12 +13,15 @@ import {
   type CommentAnchor,
   type CreateThreadRequest,
   type EditCommentRequest,
+  type ReactRequest,
   type ReplyRequest,
   type ResolveThreadRequest,
 } from '@youandfriends/contracts';
 import {
   assets,
   assetVersions,
+  commentMentions,
+  commentReactions,
   comments,
   commentThreads,
   mixVersions,
@@ -32,6 +36,8 @@ import type { z } from 'zod';
 import type { LibraryContext } from '@/lib/library/context';
 import type { NotificationSink } from '@/lib/library/metadata';
 
+import { mentionsOf, syncMentions, type Mentionable, type MentionOutcome } from './mentions';
+import { reactionsOf, type ReactionView } from './reactions';
 import { assertAttachableVoiceNote, type VoiceNoteView } from './voice-notes';
 
 /**
@@ -56,11 +62,16 @@ type Tx = Parameters<Parameters<DirectDatabase['transaction']>[0]>[0];
 
 export interface CommentView {
   readonly id: string;
+  /** Null once the author's account is gone. */
+  readonly authorId: string | null;
   readonly author: string | null;
   /** Empty for a deleted comment — and may be empty when a voice note says it instead. */
   readonly body: string;
   /** The recording this comment carries (task `093`). */
   readonly voiceNote: VoiceNoteView | null;
+  /** The people the body's `<@id>` references reached (task `094`), named as they are now. */
+  readonly mentions: readonly Mentionable[];
+  readonly reactions: readonly ReactionView[];
   readonly createdAt: Date;
   readonly editedAt: Date | null;
   readonly deleted: boolean;
@@ -196,12 +207,17 @@ export async function listThreads(context: LibraryContext, songId: string): Prom
     )
     .orderBy(asc(comments.createdAt), asc(comments.id));
 
-  const voiceNotes = await voiceNotesOf(
-    context,
-    rows.flatMap((row) =>
-      row.voiceNoteAssetId === null || row.tombstonedAt !== null ? [] : [row.voiceNoteAssetId],
+  const live = rows.filter((row) => row.tombstonedAt === null).map((row) => row.id);
+  const [voiceNotes, mentions, reactions] = await Promise.all([
+    voiceNotesOf(
+      context,
+      rows.flatMap((row) =>
+        row.voiceNoteAssetId === null || row.tombstonedAt !== null ? [] : [row.voiceNoteAssetId],
+      ),
     ),
-  );
+    mentionsOf(context, live),
+    reactionsOf(context, live),
+  ]);
   const byThread = new Map<string, CommentView[]>();
   for (const row of rows) {
     const deleted = row.tombstonedAt !== null;
@@ -209,12 +225,15 @@ export async function listThreads(context: LibraryContext, songId: string): Prom
     const list = byThread.get(row.threadId) ?? [];
     list.push({
       id: row.id,
+      authorId: row.authorId,
       author: row.author ?? null,
       body: deleted ? '' : row.body,
       voiceNote:
         deleted || row.voiceNoteAssetId === null
           ? null
           : (voiceNotes.get(row.voiceNoteAssetId) ?? null),
+      mentions: deleted ? [] : (mentions.get(row.id) ?? []),
+      reactions: deleted ? [] : (reactions.get(row.id) ?? []),
       createdAt: row.createdAt,
       editedAt: row.editedAt,
       deleted,
@@ -253,7 +272,11 @@ export async function createThread(
   context: CommentsContext,
   songId: string,
   input: CreateThreadRequest,
-): Promise<{ readonly threadId: string; readonly commentId: string }> {
+): Promise<{
+  readonly threadId: string;
+  readonly commentId: string;
+  readonly unreachedMentions: readonly string[];
+}> {
   const { anchor, body, voiceNoteAssetId } = parse(createThreadSchema, input);
   await requireAccess(context, songId, 'comment');
   if (anchor.kind === 'timestamp') {
@@ -312,13 +335,19 @@ export async function createThread(
         voiceNoteAssetId: voiceNoteAssetId ?? null,
         createdAt: at,
       });
+      const mentioned = await syncMentions(tx, context, songId, commentId, body);
       await audit({
         action: 'comment.created',
         targetType: 'song',
         targetId: songId,
-        metadata: { threadId, commentId, anchor: anchor.kind },
+        metadata: {
+          threadId,
+          commentId,
+          anchor: anchor.kind,
+          mentions: mentioned.newlyReached.length,
+        },
       });
-      return { threadId, commentId };
+      return { threadId, commentId, mentioned };
     },
   );
   await context.notify?.({
@@ -327,7 +356,12 @@ export async function createThread(
     targetId: songId,
     actorId: context.userId,
   });
-  return created;
+  await notifyMentioned(context, songId, created.mentioned);
+  return {
+    threadId: created.threadId,
+    commentId: created.commentId,
+    unreachedMentions: created.mentioned.unreached,
+  };
 }
 
 async function lockThread(tx: Tx, context: LibraryContext, songId: string, threadId: string) {
@@ -357,7 +391,7 @@ export async function reply(
   songId: string,
   threadId: string,
   input: ReplyRequest,
-): Promise<{ readonly commentId: string }> {
+): Promise<{ readonly commentId: string; readonly unreachedMentions: readonly string[] }> {
   const { body, voiceNoteAssetId } = parse(replySchema, input);
   await requireAccess(context, songId, 'comment');
   const newId = context.newId ?? newUlid;
@@ -381,13 +415,14 @@ export async function reply(
         createdAt: at,
       });
       await touch(tx, threadId, at);
+      const mentioned = await syncMentions(tx, context, songId, commentId, body);
       await audit({
         action: 'comment.created',
         targetType: 'song',
         targetId: songId,
-        metadata: { threadId, commentId, reply: true },
+        metadata: { threadId, commentId, reply: true, mentions: mentioned.newlyReached.length },
       });
-      return { commentId };
+      return { commentId, mentioned };
     },
   );
   await context.notify?.({
@@ -396,7 +431,8 @@ export async function reply(
     targetId: songId,
     actorId: context.userId,
   });
-  return created;
+  await notifyMentioned(context, songId, created.mentioned);
+  return { commentId: created.commentId, unreachedMentions: created.mentioned.unreached };
 }
 
 async function lockComment(tx: Tx, context: LibraryContext, threadId: string, commentId: string) {
@@ -423,28 +459,94 @@ async function lockComment(tx: Tx, context: LibraryContext, threadId: string, co
 
 /** Change a comment's words — its author only, while they may still comment. */
 export async function editComment(
-  context: LibraryContext,
+  context: CommentsContext,
   songId: string,
   threadId: string,
   commentId: string,
   input: EditCommentRequest,
-): Promise<void> {
+): Promise<{ readonly unreachedMentions: readonly string[] }> {
   const { body } = parse(editCommentSchema, input);
   await requireAccess(context, songId, 'comment');
-  await withAuditedTransaction(context.db, auditContext(context), async ({ tx, audit }) => {
+  const mentioned = await withAuditedTransaction(
+    context.db,
+    auditContext(context),
+    async ({ tx, audit }) => {
+      await lockThread(tx, context, songId, threadId);
+      const comment = await lockComment(tx, context, threadId, commentId);
+      if (comment.authorId !== context.userId) refuse(`comment ${commentId} is not theirs`);
+      if (comment.tombstonedAt !== null) refuse(`comment ${commentId} was deleted`);
+      const at = (context.now ?? (() => new Date()))();
+      await tx.update(comments).set({ body, editedAt: at }).where(eq(comments.id, commentId));
+      await touch(tx, threadId, at);
+      // Only people newly mentioned by the edit hear about it — not everyone again.
+      const outcome = await syncMentions(tx, context, songId, commentId, body);
+      await audit({
+        action: 'comment.updated',
+        targetType: 'song',
+        targetId: songId,
+        metadata: { threadId, commentId, mentions: outcome.newlyReached.length },
+      });
+      return outcome;
+    },
+  );
+  await notifyMentioned(context, songId, mentioned);
+  return { unreachedMentions: mentioned.unreached };
+}
+
+/** Tell the people a comment newly reached. Never the author: they know. */
+async function notifyMentioned(context: CommentsContext, songId: string, outcome: MentionOutcome) {
+  const recipientIds = outcome.newlyReached.filter((id) => id !== context.userId);
+  if (recipientIds.length === 0) return;
+  await context.notify?.({
+    event: 'comment.mentioned',
+    targetType: 'song',
+    targetId: songId,
+    actorId: context.userId,
+    recipientIds,
+  });
+}
+
+/**
+ * React to a comment, or take a reaction back — anyone who may comment, on a live comment.
+ * Idempotent both ways, so a double press or a retried request settles on what was asked.
+ * Not audited: a reaction changes no work and grants nothing.
+ */
+export async function react(
+  context: LibraryContext,
+  songId: string,
+  threadId: string,
+  commentId: string,
+  input: ReactRequest,
+): Promise<void> {
+  const { reaction, on } = parse(reactSchema, input);
+  await requireAccess(context, songId, 'comment');
+  await context.db.transaction(async (tx) => {
     await lockThread(tx, context, songId, threadId);
     const comment = await lockComment(tx, context, threadId, commentId);
-    if (comment.authorId !== context.userId) refuse(`comment ${commentId} is not theirs`);
     if (comment.tombstonedAt !== null) refuse(`comment ${commentId} was deleted`);
-    const at = (context.now ?? (() => new Date()))();
-    await tx.update(comments).set({ body, editedAt: at }).where(eq(comments.id, commentId));
-    await touch(tx, threadId, at);
-    await audit({
-      action: 'comment.updated',
-      targetType: 'song',
-      targetId: songId,
-      metadata: { threadId, commentId },
-    });
+    if (on) {
+      await tx
+        .insert(commentReactions)
+        .values({
+          id: (context.newId ?? newUlid)(),
+          workspaceId: context.workspaceId,
+          commentId,
+          userId: context.userId,
+          reaction,
+        })
+        .onConflictDoNothing();
+    } else {
+      await tx
+        .delete(commentReactions)
+        .where(
+          and(
+            eq(commentReactions.commentId, commentId),
+            eq(commentReactions.workspaceId, context.workspaceId),
+            eq(commentReactions.userId, context.userId),
+            eq(commentReactions.reaction, reaction),
+          ),
+        );
+    }
   });
 }
 
@@ -470,6 +572,12 @@ export async function deleteComment(
       .update(comments)
       .set({ body: '', voiceNoteAssetId: null, tombstonedAt: at, tombstonedBy: context.userId })
       .where(eq(comments.id, commentId));
+    // The words are gone, and with them who they mentioned and how people answered them.
+    for (const table of [commentMentions, commentReactions]) {
+      await tx
+        .delete(table)
+        .where(and(eq(table.commentId, commentId), eq(table.workspaceId, context.workspaceId)));
+    }
     // A voice note's words are the recording: it goes to the trash with the comment, and the
     // trash's purge removes the audio for good (task `028`).
     if (comment.voiceNoteAssetId !== null) {

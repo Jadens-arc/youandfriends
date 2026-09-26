@@ -52,13 +52,21 @@ The mention autocomplete is a membership-disclosure surface (asset 3). It must b
 
 ## Acceptance criteria
 
-- [ ] Mention autocomplete lists only collaborators with access to the song, filtered server-side.
-- [ ] Mentions are stored as structured references and survive display-name changes.
-- [ ] Mentioning a user without access warns the author and grants nothing.
-- [ ] Reactions work with optimistic update and rollback.
-- [ ] Resolution records who and when, and unresolved threads can be filtered.
-- [ ] Mention events are emitted for notifications.
-- [ ] A test confirms a mention creates no access grant.
+- [x] Mention autocomplete lists only collaborators with access to the song, filtered server-side. (`GET /api/songs/:songId/mentionable` resolves who can reach _this song_ through `loadSongCollaborators`: members, grants, and denies. It is offered only to someone who may comment there; a viewer, or anyone else, is answered 404-shaped. The fixture holds a collaborator who can reach only this song, a workspace editor denied on it, a member with access to another song only, and a stranger. Mutation-checked: widening it to the workspace fails six tests.)
+- [x] Mentions are stored as structured references and survive display-name changes. (The body carries `<@USERID>`, and `comment_mentions` records whom it reached. Names are looked up when shown: renaming Sam to Samantha changes every mention of them. The text box shows `@Name`; only names picked from the list become references, and typing "@sam" by hand is just text.)
+- [x] Mentioning a user without access warns the author and grants nothing. (The composer checks before sending and asks "Post anyway / Keep editing". The server's answer, `unreachedMentions`, is the last word and is shown too. The person gets no row and no notice. Readers see "@someone", never who it was.)
+- [x] Reactions work with optimistic update and rollback. (A fixed set of six, stored by name. The count and pressed state change before the server answers; a refusal restores that comment's reactions and says so. Each reaction says in words what it is, the count, and who. Mutation-checked both ways.)
+- [x] Resolution records who and when, and unresolved threads can be filtered. ("Resolved by Alex · 23 Sept 2026, 10:00" with a machine-readable time, plus an All / Unresolved filter. Resolving was already audited as `comment.resolved` with the actor, and a test now pins that.)
+- [x] Mention events are emitted for notifications. (`comment.mentioned` with `recipientIds` goes through the same `NotificationSink` task `095` will consume. It goes only to the people newly reached, never the author; an edit tells only those it newly mentions.)
+- [x] A test confirms a mention creates no access grant. (Mentioning people who cannot see the song leaves `permission_grants` and `workspace_memberships` byte-for-byte unchanged, and their resolved access still refuses `view`.)
+
+**Where a mention leads.** The scope says a mention renders "as a link to the collaborator". Iteration one has no profile page, and the members page is owner-only, so a link there would 404 for most people. Instead, pressing a mention shows the song's threads with that person — ones they wrote in or were mentioned in — with a way back to everyone's. When a people page exists, the mention can link to it.
+
+**In the database.** `comment_mentions` and `comment_reactions` reference the comment (composite with the workspace, cascading) and the **workspace membership** (composite, cascading). No row can name someone outside the workspace, and removing a member removes their mentions and reactions. Both are in `SCOPED_TABLES` and the IDOR registry, with seeded rows. The song-purge fixture now carries a mention and a reaction, so the purge meets both cascades.
+
+**Not audited:** reactions. They change no work and grant nothing.
+
+**Not verified here.** Manual QA 1–3. Notification delivery arrives with task `095`; until then the event is raised and proven by test, but nothing shows it to anyone. Real screen readers and phones are task `120`/`121`.
 
 ## Tests and validation commands
 
@@ -79,7 +87,7 @@ Additive. Reverting loses mentions and reactions; comments remain.
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

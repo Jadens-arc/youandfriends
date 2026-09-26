@@ -11,6 +11,8 @@ import {
   loopRegions,
   lyricsDocuments,
   lyricsRevisions,
+  commentMentions,
+  commentReactions,
   commentThreads,
   comments,
   mediaJobs,
@@ -74,6 +76,9 @@ export const SCOPED_TABLES = {
   // Added in task `090`: the conversation on a song.
   commentThreads,
   comments,
+  // Added in task `094`: who a comment mentions, and how people reacted to it.
+  commentMentions,
+  commentReactions,
   storageObjects,
   snapshots,
   snapshotEntries,

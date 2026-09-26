@@ -94,6 +94,8 @@ export const comments = pgTable(
     tombstonedBy: reference('tombstoned_by').references(() => users.id, { onDelete: 'set null' }),
   },
   (table) => [
+    // The composite target mentions and reactions reference (task `094`).
+    uniqueIndex('comments_id_workspace_key').on(table.id, table.workspaceId),
     index('comments_thread_idx').on(table.workspaceId, table.threadId, table.createdAt),
     // One recording, one comment: two comments racing to claim a voice note cannot both win.
     uniqueIndex('comments_voice_note_key')
@@ -108,6 +110,57 @@ export const comments = pgTable(
     check(
       'comments_tombstone_drops_voice',
       sql`tombstoned_at is null or voice_note_asset_id is null`,
+    ),
+  ],
+);
+
+/**
+ * Who a comment mentions (task `094`) — and only those it could reach: people who could see the
+ * song when it was written. Someone mentioned without access gets no row, no notification, and no
+ * access; the author is told instead. A mention is never an invitation.
+ *
+ * The body carries the reference (`<@USERID>`); this row is what notifications and "mentions of
+ * me" read, so neither has to parse text. The comment reference is composite with the workspace,
+ * cascading, in the migration.
+ */
+export const commentMentions = pgTable(
+  'comment_mentions',
+  {
+    id: id(),
+    workspaceId: workspaceId().references(() => workspaces.id, { onDelete: 'cascade' }),
+    commentId: reference('comment_id').notNull(),
+    userId: reference('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex('comment_mentions_comment_user_key').on(table.commentId, table.userId),
+    index('comment_mentions_user_idx').on(table.workspaceId, table.userId),
+  ],
+);
+
+/** A reaction to a comment (task `094`): one of a fixed set, once per person per reaction. */
+export const commentReactions = pgTable(
+  'comment_reactions',
+  {
+    id: id(),
+    workspaceId: workspaceId().references(() => workspaces.id, { onDelete: 'cascade' }),
+    commentId: reference('comment_id').notNull(),
+    userId: reference('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    reaction: text('reaction', {
+      enum: ['thumbs_up', 'heart', 'fire', 'laugh', 'party', 'eyes'],
+    }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex('comment_reactions_once_key').on(table.commentId, table.userId, table.reaction),
+    index('comment_reactions_comment_idx').on(table.workspaceId, table.commentId),
+    check(
+      'comment_reactions_known',
+      sql`reaction in ('thumbs_up', 'heart', 'fire', 'laugh', 'party', 'eyes')`,
     ),
   ],
 );

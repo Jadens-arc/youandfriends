@@ -13,6 +13,58 @@ import { hasForbiddenCharacter } from './lyrics';
 
 export const COMMENT_MAX_CHARACTERS = 5_000;
 
+/**
+ * A mention (task `094`), written into the body as `<@USERID>`: a structured reference to the
+ * person, never their name, so renaming them cannot orphan it. The name is looked up when the
+ * comment is shown. `comment_mentions` records who it reached.
+ */
+export const MENTION_PATTERN = /<@([0-9A-HJKMNP-TV-Z]{26})>/g;
+
+/** Enough to pull a band into a thread; not enough to page a whole workspace from one comment. */
+export const MAX_MENTIONS = 20;
+
+/** The people a body mentions, each once, in the order first mentioned. */
+export function mentionedUserIds(body: string): string[] {
+  const ids: string[] = [];
+  for (const match of body.matchAll(MENTION_PATTERN)) {
+    const id = match[1];
+    if (id !== undefined && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+const notTooManyMentions = {
+  check: (value: string) => mentionedUserIds(value).length <= MAX_MENTIONS,
+  message: `Mention at most ${MAX_MENTIONS} people in one comment.`,
+};
+
+/**
+ * Reactions (task `094`): a small fixed set, no custom emoji. Stored by name so the database can
+ * hold the set; shown as the emoji.
+ */
+export const REACTIONS = {
+  thumbs_up: '👍',
+  heart: '❤️',
+  fire: '🔥',
+  laugh: '😂',
+  party: '🎉',
+  eyes: '👀',
+} as const;
+export type Reaction = keyof typeof REACTIONS;
+export const REACTION_NAMES = Object.keys(REACTIONS) as [Reaction, ...Reaction[]];
+/** How a reaction is said, for a screen reader: the emoji alone reads inconsistently. */
+export const REACTION_LABELS: Readonly<Record<Reaction, string>> = {
+  thumbs_up: 'thumbs up',
+  heart: 'heart',
+  fire: 'fire',
+  laugh: 'laughing',
+  party: 'party',
+  eyes: 'eyes',
+};
+
+export const reactSchema = z.object({ reaction: z.enum(REACTION_NAMES), on: z.boolean() });
+export type ReactRequest = z.infer<typeof reactSchema>;
+
 export const commentBodySchema = z
   .string()
   .trim()
@@ -20,7 +72,8 @@ export const commentBodySchema = z
   .max(COMMENT_MAX_CHARACTERS, `Keep it under ${COMMENT_MAX_CHARACTERS} characters.`)
   .refine((value) => !hasForbiddenCharacter(value), {
     message: 'Comments may not contain control characters.',
-  });
+  })
+  .refine(notTooManyMentions.check, notTooManyMentions.message);
 
 /** A Yjs relative position as JSON: small, and only what Yjs writes there. */
 const yRelativePositionSchema = z
@@ -67,6 +120,7 @@ const optionalBodySchema = z
   .refine((value) => !hasForbiddenCharacter(value), {
     message: 'Comments may not contain control characters.',
   })
+  .refine(notTooManyMentions.check, notTooManyMentions.message)
   .default('');
 
 /** A comment says something: words, a voice note, or both — never neither. */

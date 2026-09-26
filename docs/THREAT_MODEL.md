@@ -85,6 +85,14 @@ how they resolve. `owner` cannot be offered by any invitation, enforced twice �
 layer's `INVITABLE_ROLES` and a database CHECK constraint — because it is workspace-wide
 administration, never a scope grant (ADR 0010).
 
+**A mention is not an invitation** (task `094`). Mentioning someone writes no grant and no
+membership. Who can be mentioned is resolved on the server — the people who can see _that song_,
+denies included — and is offered only to someone who may comment there, so the suggestion list is
+not a way for a song-level collaborator to enumerate the workspace (asset 3). A mention of anyone
+else is not recorded or notified; the author is warned before posting, and readers see
+"@someone", never who it was. Mentions and reactions reference the workspace membership in the
+database, so no row can name someone outside the workspace, and removing a member removes theirs.
+
 ### T3 — Object storage exposure
 
 An attacker obtains a permanent object URL, or a presigned URL leaks and remains valid.

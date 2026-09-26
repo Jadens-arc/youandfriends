@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `094` is next. `016`, `029` are passed over until their dependencies are `complete`. 72 of 95 iteration-one tasks are `complete`.
+Task `095` is next. `016`, `029` are passed over until their dependencies are `complete`. 73 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -98,8 +98,8 @@ Task `094` is next. `016`, `029` are passed over until their dependencies are `c
 | `090` | Comment schema, threads, and general comments                          | Comments, voice notes, notifications | `042`, `026`                              | `complete` | `3f3af07` | —       |
 | `091` | Timestamped audio comments                                             | Comments, voice notes, notifications | `090`, `072`, `071`                       | `complete` | `e97aa35` | —       |
 | `092` | Lyric-anchored comments                                                | Comments, voice notes, notifications | `090`, `081`, `082`                       | `complete` | `6e74861` | —       |
-| `093` | Voice notes                                                            | Comments, voice notes, notifications | `090`, `053`, `063`                       | `complete` | —         | —       |
-| `094` | Mentions, reactions, and thread resolution                             | Comments, voice notes, notifications | `090`, `032`                              | `pending`  | —         | —       |
+| `093` | Voice notes                                                            | Comments, voice notes, notifications | `090`, `053`, `063`                       | `complete` | `046a2e7` | —       |
+| `094` | Mentions, reactions, and thread resolution                             | Comments, voice notes, notifications | `090`, `032`                              | `complete` | —         | —       |
 | `095` | In-app notification center                                             | Comments, voice notes, notifications | `094`, `024`                              | `pending`  | —         | —       |
 | `096` | Notification preferences and email delivery                            | Comments, voice notes, notifications | `095`, `002`                              | `pending`  | —         | —       |
 | `100` | PWA manifest, icons, and installability                                | Mobile and PWA                       | `014`, `010`                              | `complete` | `3a628af` | —       |

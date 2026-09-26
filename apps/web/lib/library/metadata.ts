@@ -35,6 +35,11 @@ export type NotificationSink = (event: {
   readonly targetType: 'song' | 'project';
   readonly targetId: string;
   readonly actorId: string;
+  /**
+   * The people this event is addressed to, when it has addressees — the people a comment
+   * mentions (task `094`). Absent: everyone following the target.
+   */
+  readonly recipientIds?: readonly string[] | undefined;
 }) => Promise<void>;
 
 export interface MetadataContext extends LibraryContext {

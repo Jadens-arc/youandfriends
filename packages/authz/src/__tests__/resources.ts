@@ -22,6 +22,8 @@ import {
   loopRegions,
   lyricsDocuments,
   lyricsRevisions,
+  commentMentions,
+  commentReactions,
   commentThreads,
   comments,
   mediaJobs,
@@ -38,6 +40,7 @@ import {
 } from '@youandfriends/db';
 import type { DirectDatabase } from '@youandfriends/db';
 import {
+  addMember,
   makeAsset,
   makeAssetVersion,
   makeFolder,
@@ -92,6 +95,22 @@ async function seedUploadSession(db: DirectDatabase, workspaceId: string) {
   });
 
   return { sessionId, songId: song.id };
+}
+
+/** A comment on a song, and a member of the workspace to mention or react (task `094`). */
+async function seedComment(db: DirectDatabase, workspaceId: string) {
+  const { song } = await seedTree(db, workspaceId);
+  const member = await makeUser(db);
+  await addMember(db, workspaceId, member.id, 'commenter');
+  const threadId = testId();
+  const commentId = testId();
+  await db
+    .insert(commentThreads)
+    .values({ id: threadId, workspaceId, songId: song.id, anchorKind: 'general' });
+  await db
+    .insert(comments)
+    .values({ id: commentId, workspaceId, threadId, body: `Thoughts, <@${member.id}>?` });
+  return { commentId, memberId: member.id };
 }
 
 /**
@@ -468,6 +487,32 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
       });
     },
     why: 'The same, at message granularity.',
+  },
+  {
+    status: 'live',
+    name: 'comment_mentions',
+    table: commentMentions,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { commentId, memberId } = await seedComment(db, workspaceId);
+      await db
+        .insert(commentMentions)
+        .values({ id: testId(), workspaceId, commentId, userId: memberId });
+    },
+    why: 'Who is being pulled into which conversation — who works with whom.',
+  },
+  {
+    status: 'live',
+    name: 'comment_reactions',
+    table: commentReactions,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { commentId, memberId } = await seedComment(db, workspaceId);
+      await db
+        .insert(commentReactions)
+        .values({ id: testId(), workspaceId, commentId, userId: memberId, reaction: 'heart' });
+    },
+    why: 'Who read and agreed with what, and when.',
   },
   {
     status: 'pending',

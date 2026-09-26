@@ -1,8 +1,17 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { assets, comments, commentThreads, songs } from '../schema/index';
 import {
+  assets,
+  commentMentions,
+  commentReactions,
+  comments,
+  commentThreads,
+  songs,
+  workspaceMemberships,
+} from '../schema/index';
+import {
+  addMember,
   expectDatabaseError,
   makeAsset,
   makeAssetVersion,
@@ -10,6 +19,7 @@ import {
   makeStorageObject,
   makeSong,
   makeTenant,
+  makeUser,
   SQLSTATE,
   testId,
 } from './factories';
@@ -135,6 +145,119 @@ describeWithDatabase('comment schema', () => {
     );
   });
 
+  /** A comment mentioning a member of its workspace (task `094`). */
+  async function mentionedComment(workspaceId: string, threadId: string) {
+    const member = await makeUser(database.db);
+    await addMember(database.db, workspaceId, member.id, 'commenter');
+    const commentId = testId();
+    await database.db
+      .insert(comments)
+      .values({ id: commentId, workspaceId, threadId, body: `<@${member.id}> listen` });
+    await database.db
+      .insert(commentMentions)
+      .values({ id: testId(), workspaceId, commentId, userId: member.id });
+    return { commentId, memberId: member.id };
+  }
+
+  it('lets only a member of the workspace be mentioned or react, once each', async () => {
+    const mine = await context();
+    const theirs = await context();
+    const t = thread(mine.workspaceId, mine.songId, {});
+    await database.db.insert(commentThreads).values(t);
+    const { commentId, memberId } = await mentionedComment(mine.workspaceId, t.id);
+    const outsider = (await makeUser(database.db)).id;
+    const row = (userId: string) => ({
+      id: testId(),
+      workspaceId: mine.workspaceId,
+      commentId,
+      userId,
+    });
+    // Someone with no membership here, and a member of the other workspace.
+    const theirMember = await makeUser(database.db);
+    await addMember(database.db, theirs.workspaceId, theirMember.id, 'owner');
+    for (const userId of [outsider, theirMember.id]) {
+      await expectDatabaseError(
+        database.db.insert(commentMentions).values(row(userId)),
+        SQLSTATE.foreignKeyViolation,
+        /comment_mentions_member_of_workspace/,
+      );
+      await expectDatabaseError(
+        database.db.insert(commentReactions).values({ ...row(userId), reaction: 'heart' }),
+        SQLSTATE.foreignKeyViolation,
+        /comment_reactions_member_of_workspace/,
+      );
+    }
+    await expectDatabaseError(
+      database.db.insert(commentMentions).values(row(memberId)),
+      SQLSTATE.uniqueViolation,
+      /comment_mentions_comment_user_key/,
+    );
+    await database.db.insert(commentReactions).values({ ...row(memberId), reaction: 'heart' });
+    await expectDatabaseError(
+      database.db.insert(commentReactions).values({ ...row(memberId), reaction: 'heart' }),
+      SQLSTATE.uniqueViolation,
+      /comment_reactions_once_key/,
+    );
+    await database.db.insert(commentReactions).values({ ...row(memberId), reaction: 'fire' });
+    await expectDatabaseError(
+      database.db
+        .insert(commentReactions)
+        .values({ ...row(memberId), reaction: 'skull' as 'heart' }),
+      SQLSTATE.checkViolation,
+      /comment_reactions_known/,
+    );
+    // A comment in another workspace cannot be mentioned from or reacted to from this one.
+    const theirThread = thread(theirs.workspaceId, theirs.songId, {});
+    await database.db.insert(commentThreads).values(theirThread);
+    const theirComment = await mentionedComment(theirs.workspaceId, theirThread.id);
+    await database.db.insert(commentReactions).values({
+      id: testId(),
+      workspaceId: theirs.workspaceId,
+      commentId: theirComment.commentId,
+      userId: theirComment.memberId,
+      reaction: 'heart',
+    });
+    await expectDatabaseError(
+      database.db.insert(commentReactions).values({
+        id: testId(),
+        workspaceId: mine.workspaceId,
+        commentId: theirComment.commentId,
+        userId: memberId,
+        reaction: 'heart',
+      }),
+      SQLSTATE.foreignKeyViolation,
+      /comment_reactions_comment_same_workspace/,
+    );
+    await expectDatabaseError(
+      database.db.insert(commentMentions).values({
+        id: testId(),
+        workspaceId: mine.workspaceId,
+        commentId: theirComment.commentId,
+        userId: memberId,
+      }),
+      SQLSTATE.foreignKeyViolation,
+      /comment_mentions_comment_same_workspace/,
+    );
+
+    // Removing the member removes their mentions and reactions — and nothing of anyone else's.
+    await database.db
+      .delete(workspaceMemberships)
+      .where(
+        and(
+          eq(workspaceMemberships.workspaceId, mine.workspaceId),
+          eq(workspaceMemberships.userId, memberId),
+        ),
+      );
+    for (const table of [commentMentions, commentReactions]) {
+      expect(await database.db.select().from(table).where(eq(table.commentId, commentId))).toEqual(
+        [],
+      );
+      expect(
+        await database.db.select().from(table).where(eq(table.commentId, theirComment.commentId)),
+      ).toHaveLength(1);
+    }
+  });
+
   it('keeps threads and comments inside their own workspace', async () => {
     const mine = await context();
     const theirs = await context();
@@ -182,11 +305,21 @@ describeWithDatabase('comment schema', () => {
     await database.db
       .insert(comments)
       .values({ id: testId(), workspaceId, threadId: t.id, body: '', voiceNoteAssetId: note });
+    // Task `094`: what hangs off a comment — the far end of the cascade the purge must reach.
+    const { commentId, memberId } = await mentionedComment(workspaceId, t.id);
+    await database.db
+      .insert(commentReactions)
+      .values({ id: testId(), workspaceId, commentId, userId: memberId, reaction: 'heart' });
     await database.db.delete(songs).where(eq(songs.id, songId));
     expect(await database.db.select().from(comments).where(eq(comments.threadId, t.id))).toEqual(
       [],
     );
     expect(await database.db.select().from(assets).where(eq(assets.id, note))).toEqual([]);
+    for (const table of [commentMentions, commentReactions]) {
+      expect(await database.db.select().from(table).where(eq(table.commentId, commentId))).toEqual(
+        [],
+      );
+    }
   });
 
   it('refuses to purge a recording a live comment still carries', async () => {

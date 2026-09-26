@@ -6,6 +6,7 @@ import * as React from 'react';
 
 import { CommentMarkers, type TimelineComment } from '@/components/player/waveform/comment-markers';
 import { currentMoment, playAtMoment, type SongPlayback } from '@/lib/comments/playback';
+import { plainText } from '@/lib/comments/mention-format';
 import { sendComment, useSongComments } from '@/lib/comments/store';
 import { formatClock } from '@/lib/player/format';
 import { belongsToFocus } from '@/lib/player/shortcuts';
@@ -76,7 +77,7 @@ export function TimestampComments({
                   ? '(deleted)'
                   : first.body === '' && first.voiceNote != null
                     ? '(voice note)'
-                    : first.body,
+                    : plainText(first.body, first.mentions),
             },
           ];
         });
@@ -110,6 +111,7 @@ export function TimestampComments({
         <Composer
           label={`Comment at ${formatClock(moment.ms / 1000)}${version === undefined ? '' : ` in version ${version.number}`}`}
           submitLabel="Comment"
+          songId={songId}
           onCancel={() => setMoment(null)}
           onSubmit={async (body) => {
             const ok = await sendComment(songId, '', 'POST', {
