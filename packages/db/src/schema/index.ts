@@ -22,6 +22,7 @@ import { commentMentions, commentReactions, commentThreads, comments } from './c
 import { mediaJobs } from './media-jobs';
 import { notificationPreferences, notifications, notificationSettings } from './notifications';
 import { snapshotEntries, snapshots } from './snapshots';
+import { syncDevices, syncTokens } from './sync';
 import { storageObjects } from './storage-objects';
 import { uploadParts, uploadSessions } from './uploads';
 import { folders } from './folders';
@@ -44,6 +45,7 @@ export * from './loop-regions';
 export * from './lyrics';
 export * from './comments';
 export * from './notifications';
+export * from './sync';
 export * from './media-jobs';
 export * from './permissions';
 export * from './projects';
@@ -96,6 +98,8 @@ export const schema = {
   notificationSettings,
   snapshots,
   snapshotEntries,
+  syncDevices,
+  syncTokens,
   users,
   workspaces,
   workspaceMemberships,

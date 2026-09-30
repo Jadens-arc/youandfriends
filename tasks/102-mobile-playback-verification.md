@@ -82,7 +82,11 @@ Verification and documentation. Any fixes are additive; reverting loses them and
 
 ## Status
 
-`pending`
+`blocked`
+
+## Blocker
+
+Every acceptance criterion needs a real iPhone: iOS Safari playback, backgrounding, lock-screen controls, AirPlay, phone-call interruptions, network changes, and Safari's current Opus support. The task itself says emulation does not count. None was available where it was attempted, and no code change was made. To unblock: run it on real devices, per its implementation notes.
 
 ## Commit
 

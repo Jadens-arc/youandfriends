@@ -1,4 +1,4 @@
-import { type WorkspaceId } from '@youandfriends/contracts';
+import { forbidden, type WorkspaceId } from '@youandfriends/contracts';
 import {
   deleteAsset,
   deleteFolder,
@@ -35,6 +35,17 @@ export interface LifecycleContext {
   readonly recoveryWindowDays: number;
   readonly now?: () => Date;
   readonly newId: () => string;
+}
+
+/**
+ * A sync token only ever adds (task `110`, ADR 0005): it has `edit` on its destination projects
+ * so it can upload, and `edit` is also what trashing a file there takes. So the lifecycle refuses
+ * it by kind, here, for every entity — not by trusting that no route happens to offer it.
+ */
+function refuseSyncToken(context: LifecycleContext): void {
+  if (context.actor.kind === 'sync_token') {
+    throw forbidden({ detail: 'a sync token may not delete, restore, or purge' });
+  }
 }
 
 function auditContext(context: LifecycleContext): AuditContext {
@@ -91,6 +102,7 @@ export async function deleteEntity(
   entity: Entity,
   id: string,
 ): Promise<CascadeResult> {
+  refuseSyncToken(context);
   const now = context.now ?? (() => new Date());
   const batch = context.newId();
 
@@ -123,6 +135,7 @@ export async function restoreEntity(
   context: LifecycleContext,
   batch: string,
 ): Promise<CascadeResult> {
+  refuseSyncToken(context);
   return withAuditedTransaction(db, auditContext(context), async ({ tx, audit }) => {
     const result = await restoreBatch(tx, batch, context.workspaceId);
     await emitFor(audit, result, RESTORE_ACTION, { batch });
@@ -197,6 +210,7 @@ export async function runPurge(
   context: LifecycleContext,
   options: PurgeRunOptions,
 ): Promise<PurgeRun> {
+  refuseSyncToken(context);
   const plan = await planPurge(db, options);
   const rendered = describePlan(plan);
 

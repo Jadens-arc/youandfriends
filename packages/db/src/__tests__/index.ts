@@ -23,6 +23,7 @@ export {
   makeFolder,
   makeProject,
   makeSong,
+  makeSyncToken,
   makeTenant,
   makeUser,
   makeWorkspace,

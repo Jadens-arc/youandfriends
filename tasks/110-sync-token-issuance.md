@@ -54,15 +54,22 @@ This is the T7 control surface. Scoped, hashed, revocable, audited, prefixed for
 
 ## Acceptance criteria
 
-- [ ] Tokens are generated in the documented format and shown exactly once.
-- [ ] Secrets are Argon2id-hashed; the full token is never stored.
-- [ ] Verification is constant-time.
-- [ ] The sync-token subject resolves through the standard `authz` path.
-- [ ] Tokens are append-only to Project Files within their destination allow-list and workspace.
-- [ ] Every negative case (lyrics, comments, permissions, deletion, other workspaces) is tested and refused.
-- [ ] Revocation takes effect on the next request.
-- [ ] Issuance, use, and revocation are audited.
-- [ ] `last_used_at` is visible in device management.
+- [x] Tokens are generated in the documented format and shown exactly once. (`yaf_sync_<ULID>_<secret>`, from `buildToken`: 256 random bits, 43 base64url characters. The pairing response carries it once, and the settings page holds it only in memory until "Done", saying it won't be shown again. Nothing can read it back.)
+- [x] Secrets are hashed; the full token is never stored. (**scrypt, not Argon2id** — ADR 0005 is amended with why: ADR 0010's reasoning for a 256-bit random secret, and the native addon's build risk. A database check refuses any `secret_hash` not in the scrypt scheme. A test searches every token, grant, and audit row written and finds neither the token nor its secret.)
+- [x] Verification is constant-time. (`verifySecret` compares with `timingSafeEqual`. An unknown token id is verified against a decoy hash, so it takes as long as a wrong secret, and every failure gives the same answer.)
+- [x] The sync-token subject resolves through the standard `authz` path. (`createAuthorizer` resolves it, via `syncTokenAccess`, for every caller: the destination allow-list is `permission_grants` rows for the `sync_token` subject, and the services the agent uses take it through `assertCan` like anyone else.)
+- [x] Tokens are append-only to Project Files within their destination allow-list and workspace. (A project with an exact grant, `edit` only, while the token, its device, and its pairer's own edit access all hold. Through the real services the Mac creates a snapshot, recorded as `mac_agent`, and opens its ZIP upload into its destination — and is refused for a sibling project and for a song's mix.)
+- [x] Every negative case (lyrics, comments, permissions, deletion, other workspaces) is tested and refused.
+  - **authz:** every action other than `edit`; every action on a song or folder, even with a grant planted there; a sibling project; another workspace, even with a grant pointing there; revoked, expired, and disconnected-device tokens; a pairer demoted or removed; and delete and restore.
+  - **Services:** reading lyrics, starting a comment thread, trashing a file, pairing another device, and uploading to a song's mix.
+  - Mutation-checked: each rule, removed, fails a test. The project-only rule first passed with nothing to refuse, and the fixture now plants grants on a song and a folder so it bites.
+- [x] Revocation takes effect on the next request. (Validity is read from the database on every request, never remembered past one. Tests revoke, then authenticate: refused. Revoking a device revokes its tokens too.)
+- [x] Issuance, use, and revocation are audited. (`sync_token.issued` by the pairer; `sync_token.used` with the token as actor, hourly while in use rather than per request; `sync_token.revoked` per token. Uploads the Mac makes are audited with the token as their actor. Metadata holds ids and counts, never the token.)
+- [x] `last_used_at` is visible in device management. (Settings → Devices lists each device with its destinations, last use, expiry, and connected, expired or disconnected state, and a Disconnect action for its pairer or an owner.)
+
+**API.** The Mac agent's endpoints are `/api/sync/agent/*`: `destinations`, `snapshots` and its `finalize`, and the upload protocol (`uploads`, `parts`, `complete`, `abort`). They are public to the session layer, each requiring `Authorization: Bearer <token>`, and a token is never read from a query string. Pairing and managing devices is `/api/sync/devices`, behind the session.
+
+**Not verified here.** Manual QA 1–4 against a real Mac agent, which tasks `111`–`118` build. The agent's side of pairing and its Keychain storage belong to them.
 
 ## Tests and validation commands
 
@@ -85,7 +92,7 @@ Additive. Reverting after devices are paired breaks sync. Revoke tokens before r
 
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

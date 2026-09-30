@@ -8,6 +8,7 @@ import {
   createTestDatabase,
   makeFolder,
   makeProject,
+  makeSyncToken,
   makeSong,
   makeTenant,
   makeUser,
@@ -352,27 +353,22 @@ describeWithDatabase('sync token subject', () => {
   });
 
   it('reads only the scopes it was explicitly granted', async () => {
-    const { workspace } = await makeTenant(db);
-    const granted = await makeFolder(db, workspace.id, `Synced ${testId()}`);
-    const other = await makeFolder(db, workspace.id, `Private ${testId()}`);
-    const tokenId = testId();
-
-    await db.execute(sql`
-      insert into permission_grants
-        (id, workspace_id, scope_type, scope_id, subject_kind, subject_id, role)
-      values (${testId()}, ${workspace.id}, 'folder', ${granted.id}, 'sync_token', ${tokenId}, 'editor')
-    `);
+    // A real token (task `110`): its allow-list is its grants, on projects only.
+    const { user, workspace } = await makeTenant(db);
+    const granted = await makeProject(db, workspace.id, `Synced ${testId()}`);
+    const other = await makeProject(db, workspace.id, `Private ${testId()}`);
+    const { tokenId } = await makeSyncToken(db, workspace.id, user.id, [granted.id]);
 
     const authorizer = createAuthorizer(db);
     const subject = syncTokenSubject(tokenId);
     const at = (scopeId: string): Target => ({
       workspaceId: workspace.id as WorkspaceId,
-      scopeType: 'folder',
+      scopeType: 'project',
       scopeId,
     });
 
     expect((await authorizer.resolveAccess(subject, at(granted.id))).role).toBe('editor');
-    // Its allow-list is its grants. A sibling folder is outside it.
+    // A sibling project is outside it.
     expect((await authorizer.resolveAccess(subject, at(other.id))).role).toBeNull();
   });
 

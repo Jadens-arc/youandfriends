@@ -183,9 +183,20 @@ The residual gap is written down under "Residual risks accepted".
 A stolen laptop or leaked config yields workspace access.
 
 **Controls.** Per ADR 0005: scoped to one workspace and an explicit destination allow-list,
-append-only to Project Files, Argon2id-hashed at rest, macOS Keychain on device, never in
-config files or logs, revocable instantly, with `last_used_at` visible in settings. A
-recognizable `yaf_sync_` prefix makes the token findable by secret scanners.
+append-only to Project Files, hashed at rest (scrypt — ADR 0005's amendment explains why not
+Argon2id for a 256-bit secret), macOS Keychain on device, never in config files or logs,
+revocable instantly, with `last_used_at` visible in settings. A recognizable `yaf_sync_` prefix
+makes the token findable by secret scanners.
+
+As built (task `110`), the token is resolved inside the authorizer on every check
+(`packages/authz/src/sync-token.ts`). It reaches a project only with an exact grant on it — no
+inheritance to songs or from folders — and only `edit`: never view, download, comment, manage,
+or invite. It works only while the token and its device are live, and only while the person who
+paired it can still edit that project. Deleting, restoring, and purging refuse a sync-token
+actor by kind (`lifecycle.ts`), because `edit` is also what trashing a file takes.
+Authentication runs in constant time against a decoy hash for unknown ids. Use is audited
+hourly; issuing and revoking always. A device belongs to a workspace membership in the
+database, so removing someone disconnects their Macs.
 
 ### T8 — Destructive action and data loss
 

@@ -604,11 +604,24 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     why: 'A share link is a bearer credential. Enumerating them is total compromise.',
   },
   {
-    status: 'pending',
+    status: 'live',
     name: 'sync_tokens',
-    tableName: 'sync_tokens',
-    task: '110',
+    // Deliberately not readable through a scoped handle: its rows hold secret hashes. The only
+    // reads are `authenticateSyncToken`, by id and verified secret, and the device list, which
+    // selects no hash. Cross-workspace isolation is proved in `sync-tokens.test.ts`.
+    table: null,
+    scopeType: null,
+    seed: async () => {},
     why: 'A sync token authorizes a Mac agent. Same.',
+  },
+  {
+    status: 'live',
+    name: 'sync_devices',
+    // Read only through the device list, which is the person's own devices. Same reason.
+    table: null,
+    scopeType: null,
+    seed: async () => {},
+    why: 'Which Macs are connected to whose work, and where they upload.',
   },
 ];
 

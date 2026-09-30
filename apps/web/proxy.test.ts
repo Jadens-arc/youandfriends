@@ -55,6 +55,8 @@ describe('route protection', () => {
       '/offline',
       '/unsubscribe',
       '/api/notifications/unsubscribe',
+      '/api/sync/agent/destinations',
+      '/api/sync/agent/uploads/01J0000000000000000000000/complete',
     ]) {
       expect(isPublicRoute(request(path)), path).toBe(true);
     }
@@ -79,6 +81,10 @@ describe('route protection', () => {
       '/api/notifications',
       '/api/notifications/preferences',
       '/api/notifications/unsubscribe/extra',
+      // The agent's endpoints are public (they check the token); managing devices is not.
+      '/api/sync/devices',
+      '/api/sync/devices/01J0000000000000000000000',
+      '/api/sync/agentx',
     ]) {
       expect(isPublicRoute(request(path)), path).toBe(false);
     }

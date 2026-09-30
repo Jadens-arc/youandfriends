@@ -75,3 +75,14 @@ personal prototype and awkward to revoke without a CRL/OCSP path.
 **OAuth 2.0 device authorization grant** — the right long-term answer and better UX than
 pasting a token. Deferred to task `213`; the token subject model is designed so that a device
 grant can mint the same scoped token without changing the authorization path.
+
+## Amendment — task `110`: scrypt, not Argon2id
+
+The secret is hashed with **scrypt** (`packages/authz/src/token-hash.ts`), the same helper
+invitations use, for the reason ADR 0010 gives. Argon2id's memory-hardness protects a
+_low-entropy_ secret — a password — from offline guessing. This secret is 256 bits from the OS
+random source, so guessing it is infeasible whatever the hash. What the design needs — no
+reversible storage, constant-time comparison, cost parameters stored with each hash so they can
+be raised later — scrypt gives, as part of Node itself. The Argon2id addon is native, and was not
+verified to build in the deployment image. The token format, lookup by id, one-time display, and
+every other decision above stand.

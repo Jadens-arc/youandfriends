@@ -377,3 +377,50 @@ export async function setUpdatedAt(
     );
   });
 }
+
+/**
+ * A paired Mac sync device with one token, granted upload into `projectIds` (task `110`). The
+ * stored hash is a placeholder that no secret verifies: authorization never reads it, and a test
+ * of authentication issues a real token instead.
+ */
+export async function makeSyncToken(
+  db: DirectDatabase,
+  workspaceId: string,
+  createdBy: string,
+  projectIds: readonly string[],
+  overrides: { expiresAt?: Date | null; revoked?: boolean; deviceRevoked?: boolean } = {},
+) {
+  const { permissionGrants, syncDevices, syncTokens } = await import('../schema/index');
+  const deviceId = testId();
+  const tokenId = testId();
+  const now = new Date();
+  await db.insert(syncDevices).values({
+    id: deviceId,
+    workspaceId,
+    name: `Studio Mac ${deviceId.slice(-4)}`,
+    createdBy,
+    ...(overrides.deviceRevoked === true ? { revokedAt: now, revokedBy: createdBy } : {}),
+  });
+  await db.insert(syncTokens).values({
+    id: tokenId,
+    workspaceId,
+    deviceId,
+    secretHash: 'scrypt$placeholder-no-secret-verifies',
+    createdBy,
+    expiresAt: overrides.expiresAt ?? null,
+    ...(overrides.revoked === true ? { revokedAt: now } : {}),
+  });
+  for (const projectId of projectIds) {
+    await db.insert(permissionGrants).values({
+      id: testId(),
+      workspaceId,
+      scopeType: 'project',
+      scopeId: projectId,
+      subjectKind: 'sync_token',
+      subjectId: tokenId,
+      role: 'editor',
+      createdByUserId: createdBy,
+    });
+  }
+  return { deviceId, tokenId };
+}

@@ -48,6 +48,10 @@ export const isPublicRoute = createRouteMatcher([
   // out. The signed token in it is the credential, and all it can do is switch email off.
   '/unsubscribe',
   '/api/notifications/unsubscribe',
+  // The Mac agent's endpoints (task `110`): it has no browser session. Each one authenticates
+  // its sync token itself (`requireSyncAgent`) and refuses everything without one. Device
+  // management, under `/api/sync/devices`, stays behind the session.
+  '/api/sync/agent/(.*)',
 ]);
 
 /**

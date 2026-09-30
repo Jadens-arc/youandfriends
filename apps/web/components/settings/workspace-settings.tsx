@@ -80,6 +80,24 @@ export function WorkspaceSettingsView({
           </Link>
         </div>
       </section>
+
+      <section aria-labelledby="settings-devices" className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 id="settings-devices" className="text-heading text-foreground font-serif">
+            Devices
+          </h2>
+          <Link
+            href="/settings/devices"
+            className={cn(
+              'text-body text-foreground touch-target rounded-sm font-sans underline underline-offset-4',
+              transition,
+              focusRing,
+            )}
+          >
+            Pair or disconnect a Mac
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

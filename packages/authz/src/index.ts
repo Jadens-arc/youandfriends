@@ -124,6 +124,7 @@ export {
   type Target,
 } from './subjects';
 export { loadChain } from './target';
+export { syncTokenMay } from './sync-token';
 export {
   signUnsubscribe,
   verifyUnsubscribe,

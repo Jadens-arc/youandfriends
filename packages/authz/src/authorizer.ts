@@ -5,13 +5,21 @@ import {
   roleAtLeast,
   type Action,
   type EffectiveAccess,
+  type UserId,
   type WorkspaceId,
 } from '@youandfriends/contracts';
 import { permissionGrants, workspaceMemberships, type Database } from '@youandfriends/db';
 import { and, eq } from 'drizzle-orm';
 
 import { resolve, type MembershipBaseline, type ResolvableGrant } from './resolve';
-import { inheritsMembership, subjectId, type Subject, type Target } from './subjects';
+import {
+  inheritsMembership,
+  memberSubject,
+  subjectId,
+  type Subject,
+  type Target,
+} from './subjects';
+import { syncTokenAccess, syncTokenMay } from './sync-token';
 import { loadChain } from './target';
 
 /**
@@ -63,6 +71,14 @@ export function createAuthorizer(db: Database, options: AuthorizerOptions = {}):
     // is not a policy applied to it here; it is a fact about it.
     if (id === null) return NO_ACCESS;
 
+    // A sync token (task `110`) is a subject like any other, with narrower rules of its own —
+    // resolved here so no caller can reach it without them.
+    if (subject.kind === 'sync_token') {
+      return syncTokenAccess(db, subject, target, now(), async (userId) =>
+        permits(await resolveAccess(memberSubject(userId as UserId), target), 'edit'),
+      );
+    }
+
     const chain = await loadChain(db, target);
     // Not found, or in another workspace — indistinguishable on purpose (THREAT_MODEL T1).
     if (chain === null) return NO_ACCESS;
@@ -89,7 +105,9 @@ export function createAuthorizer(db: Database, options: AuthorizerOptions = {}):
 
   async function can(subject: Subject, action: Action, target: Target): Promise<boolean> {
     const access = await resolveAccess(subject, target);
-    const allowed = permits(access, action);
+    // A sync token may only ever add to Project Files, whatever it resolved to.
+    const allowed =
+      permits(access, action) && (subject.kind !== 'sync_token' || syncTokenMay(action));
     await options.onDecision?.({ subject, target, action, access, allowed });
     return allowed;
   }

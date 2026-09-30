@@ -94,6 +94,7 @@ export const AUDIT_ACTIONS = [
   'workspace.created',
   'workspace.settings_changed',
   'sync_token.issued',
+  'sync_token.used',
   'sync_token.revoked',
 ] as const;
 
@@ -181,6 +182,9 @@ export const AUDIT_ACTION_INFO: Readonly<
   'workspace.created': { class: 'administration', emittedBy: '031' },
   'workspace.settings_changed': { class: 'administration', emittedBy: '031' },
   'sync_token.issued': { class: 'administration', emittedBy: '110' },
+  // At most hourly per token: that a device is in use, and when — not each request, which the
+  // uploads it makes already record with the token as their actor.
+  'sync_token.used': { class: 'administration', emittedBy: '110' },
   'sync_token.revoked': { class: 'administration', emittedBy: '110' },
 };
 

@@ -126,7 +126,8 @@ export async function createSnapshot(
       workspaceId: context.workspaceId,
       projectId: request.projectId,
       assetId,
-      source: 'browser_folder',
+      // Where it came from, from who is asking — never from the request body.
+      source: context.subject.kind === 'sync_token' ? 'mac_agent' : 'browser_folder',
       name: request.name,
       createdBy: context.userId,
     });

@@ -20,6 +20,7 @@ export * from './ids';
 export * from './uploads';
 export * from './versions';
 export * from './snapshots';
+export * from './sync';
 export * from './library';
 export * from './lyrics';
 export * from './comments';
