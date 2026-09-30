@@ -36,12 +36,14 @@ const buttonVariants = cva(
         /** For the navigation rail and player, where the light ring is invisible. */
         onEspresso: cn('text-on-espresso hover:bg-on-espresso/10', focusRingOnEspresso),
       },
+      // Every size is at least 44×44 px on a phone (task `101`, WCAG 2.5.5): the compact sizes
+      // are for a pointer, and a thumb gets the full target whatever the caller remembered.
       size: {
-        sm: 'h-8 px-2.5 text-caption',
-        md: 'h-9 px-3.5',
+        sm: 'h-8 px-2.5 text-caption max-md:min-h-11 max-md:min-w-11',
+        md: 'h-9 px-3.5 max-md:min-h-11 max-md:min-w-11',
         lg: 'h-11 px-5 text-heading',
-        /** Square icon button. Touch sizing is handled by the caller's layout on mobile. */
-        icon: 'size-9',
+        /** Square icon button: 36 px for a pointer, 44 px on a phone. */
+        icon: 'size-9 max-md:size-11',
       },
     },
     defaultVariants: { variant: 'secondary', size: 'md' },

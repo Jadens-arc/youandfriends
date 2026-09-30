@@ -60,6 +60,8 @@ function marker(thread: AnchorThread, open: (id: string) => void): HTMLElement {
   button.type = 'button';
   button.contentEditable = 'false';
   button.className = 'lyrics-comment-marker';
+  // Sits in the line of lyrics it marks: exempt from the phone target floor (WCAG 2.5.5).
+  button.setAttribute('data-inline-target', '');
   button.dataset.thread = thread.id;
   button.setAttribute('aria-label', thread.label);
   button.title = thread.label;

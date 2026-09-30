@@ -27,6 +27,8 @@ interface View {
 
 type Channel = 'in_app' | 'email';
 
+const TARGET = 'touch-target';
+
 async function save(body: unknown): Promise<View | null> {
   const response = await fetch('/api/notifications/preferences', {
     method: 'PUT',
@@ -144,28 +146,33 @@ export function NotificationPreferencesForm() {
                     </span>
                   ) : null}
                 </span>
-                <input
-                  type="checkbox"
-                  aria-label={`${label} — in the app`}
-                  aria-describedby={id}
-                  checked={prefs.in_app}
-                  disabled={locked}
-                  onChange={(input) =>
-                    toggle(event, 'in_app', input.target.checked, `${label} in the app`)
-                  }
-                  className={cn('size-5 max-md:size-6', focusRing)}
-                />
-                {emailing ? (
+                {/* The label is the target: 44×44 on a phone, around a box that stays box-sized. */}
+                <label className={TARGET}>
                   <input
                     type="checkbox"
-                    aria-label={`${label} — by email`}
+                    aria-label={`${label} — in the app`}
                     aria-describedby={id}
-                    checked={prefs.email}
+                    checked={prefs.in_app}
+                    disabled={locked}
                     onChange={(input) =>
-                      toggle(event, 'email', input.target.checked, `${label} by email`)
+                      toggle(event, 'in_app', input.target.checked, `${label} in the app`)
                     }
-                    className={cn('size-5 max-md:size-6', focusRing)}
+                    className={cn('size-5', focusRing)}
                   />
+                </label>
+                {emailing ? (
+                  <label className={TARGET}>
+                    <input
+                      type="checkbox"
+                      aria-label={`${label} — by email`}
+                      aria-describedby={id}
+                      checked={prefs.email}
+                      onChange={(input) =>
+                        toggle(event, 'email', input.target.checked, `${label} by email`)
+                      }
+                      className={cn('size-5', focusRing)}
+                    />
+                  </label>
                 ) : null}
               </div>
             );

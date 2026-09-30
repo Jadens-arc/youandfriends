@@ -30,7 +30,7 @@ export function FolderBreadcrumbs({ crumbs, className }: FolderBreadcrumbsProps)
           <Link
             href={'/library' as Route}
             className={cn(
-              'text-muted-foreground hover:text-foreground rounded-sm',
+              'text-muted-foreground hover:text-foreground touch-target justify-start rounded-sm',
               transition,
               focusRing,
             )}
@@ -51,12 +51,13 @@ export function FolderBreadcrumbs({ crumbs, className }: FolderBreadcrumbsProps)
                 <Link
                   href={hrefFor(crumbs, index)}
                   className={cn(
-                    'text-muted-foreground hover:text-foreground truncate rounded-sm',
+                    'text-muted-foreground hover:text-foreground touch-target min-w-0 justify-start rounded-sm',
                     transition,
                     focusRing,
                   )}
                 >
-                  {crumb.name}
+                  {/* Truncated inside: the link is a flex box on touch screens, for its height. */}
+                  <span className="min-w-0 truncate">{crumb.name}</span>
                 </Link>
               )}
             </li>

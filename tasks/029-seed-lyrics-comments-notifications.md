@@ -84,4 +84,4 @@ The task's seed-command validations (`pnpm --filter @youandfriends/db seed`, twi
 
 ## Commit
 
-_(not yet)_
+`5743f88`

@@ -174,8 +174,11 @@ describe('writing lyrics on a phone (task 085)', () => {
     expect(toolbar.className).toMatch(/max-md:\[&_button\]:min-h-11/);
     expect(toolbar.className).toMatch(/max-md:\[&_button\]:min-w-11/);
     expect(toolbar.style.bottom).toBe('0px');
+    // Resting on the screen's edge, it clears a notched phone's home indicator.
+    expect(toolbar.getAttribute('style')).toContain('safe-area-inset-bottom');
     viewport.keyboard(340);
     expect(toolbar.style.bottom).toBe('340px');
+    expect(toolbar.getAttribute('style')).not.toContain('safe-area-inset-bottom');
     viewport.keyboard(0);
     expect(toolbar.style.bottom).toBe('0px');
   });

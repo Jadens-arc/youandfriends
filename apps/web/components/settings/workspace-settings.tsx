@@ -51,7 +51,7 @@ export function WorkspaceSettingsView({
             <Link
               href="/settings/members"
               className={cn(
-                'text-body text-foreground rounded-sm font-sans underline underline-offset-4',
+                'text-body text-foreground touch-target rounded-sm font-sans underline underline-offset-4',
                 transition,
                 focusRing,
               )}
@@ -71,7 +71,7 @@ export function WorkspaceSettingsView({
           <Link
             href="/settings/notifications"
             className={cn(
-              'text-body text-foreground rounded-sm font-sans underline underline-offset-4',
+              'text-body text-foreground touch-target rounded-sm font-sans underline underline-offset-4',
               transition,
               focusRing,
             )}

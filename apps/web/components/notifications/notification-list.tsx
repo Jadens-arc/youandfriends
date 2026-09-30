@@ -81,7 +81,7 @@ function Entry({
     <Link
       href={href as Route}
       onClick={onOpen}
-      className={cn('flex flex-col gap-0.5 rounded-sm', focusRing)}
+      className={cn('touch-height flex flex-col gap-0.5 rounded-sm', focusRing)}
     >
       {text}
     </Link>

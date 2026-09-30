@@ -43,6 +43,8 @@ export function MentionText({
             key={index}
             type="button"
             data-mention={segment.id}
+            // Inside a line of words: exempt from the phone target floor (WCAG 2.5.5).
+            data-inline-target=""
             onClick={() => onPerson(person)}
             aria-label={`@${segment.name} — show the conversation with ${segment.name}`}
             className={cn(

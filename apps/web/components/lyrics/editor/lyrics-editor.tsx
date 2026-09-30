@@ -403,7 +403,14 @@ function SectionToolbar({
       role="toolbar"
       aria-label="Section"
       data-docked={docked === null ? undefined : 'true'}
-      style={docked === null ? undefined : { bottom: docked }}
+      style={
+        docked === null
+          ? undefined
+          : // On the screen's edge, clear the home indicator; above a keyboard, nothing to clear.
+            docked === 0
+            ? { bottom: 0, paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }
+            : { bottom: docked }
+      }
       className={cn(
         'border-border-subtle flex flex-wrap items-center gap-2 border-b pb-2 font-sans',
         // A thumb's reach on a phone: every control 44 px.

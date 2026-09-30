@@ -80,7 +80,7 @@ export function VersionActions({
           <a
             href={`${base}/${encodeURIComponent(version.id)}/download`}
             className={cn(
-              'text-caption text-foreground hover:bg-border-subtle inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 font-sans',
+              'text-caption text-foreground hover:bg-border-subtle touch-height inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 font-sans',
               transition,
               focusRing,
             )}

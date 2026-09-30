@@ -32,6 +32,47 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /*
+   * A thumb-sized floor under every control on a phone or tablet (task `101`, WCAG 2.5.5): 44×44 px for
+   * buttons, 44 px tall for fields, selects, and disclosure summaries — whatever the component
+   * remembered. `:where` keeps it at zero specificity, so a component's own size still applies
+   * above the floor. A target inside a line of text (a mention in a comment, a marker in the
+   * lyrics) is exempt under WCAG's inline exception and opts out with `data-inline-target`.
+   */
+  /* Narrow screens, and any touch screen — a tablet is thumbs too. */
+  @media (max-width: 47.99rem), (pointer: coarse) {
+    :where(
+      button,
+      select,
+      summary,
+      [role='button'],
+      [role='tab'],
+      [role='option'],
+      [role='menuitem'],
+      input:not([type='checkbox'], [type='radio'], [type='hidden'], [type='file'], [type='range'])
+    ):not([data-inline-target]) {
+      min-height: 2.75rem;
+    }
+
+    :where(button, [role='button']):not([data-inline-target]) {
+      min-width: 2.75rem;
+    }
+
+    /* For a link or label standing on its own (a breadcrumb, a checkbox's hit area). */
+    :where(.touch-target) {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.75rem;
+      min-width: 2.75rem;
+    }
+
+    /* For a block that lays out its own content — a notification — needing only the height. */
+    :where(.touch-height) {
+      min-height: 2.75rem;
+    }
+  }
+
   /* Visible, tasteful focus rings — never removed for a visual result (docs/DESIGN.md §12). */
   :focus-visible {
     outline: 2px solid var(--color-ring);
