@@ -100,4 +100,4 @@ The menu-bar app must be built and run on a Mac: the build, the no-dock behaviou
 
 ## Commit
 
-_(not yet)_
+`f56e979`

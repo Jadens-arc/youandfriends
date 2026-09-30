@@ -54,7 +54,11 @@ Same as `027`: never commit user music or real recordings (T9), and the seed mus
 
 **Not seeded: a lyric-range comment.** Its anchor is a Yjs relative position into one particular Yjs state, which `packages/db` cannot build without the editor's schema (`apps/web`). A made-up anchor would render as orphaned — a different thing from what it would claim to show. The scope bullet said "once task `091` defines the anchor"; it now exists, but seeding it honestly needs the editor's conversion in the seed, which is a change beyond this task.
 
-**Not run here:** the `pnpm --filter @youandfriends/db seed` commands in the validation list. They need the development database's connection settings, and in this session migrating that database and reading the environment file holding them were both declined. The same `seed` and `reset` functions ran against real scratch databases in `seed.test.ts`: seeding twice, reset, and rebuild.
+**Seed commands, run.** The four commands in the validation list ran against a throwaway local
+database, created for the purpose and dropped afterwards — not the development database. Every
+count was the same after the first and second `seed` (6 songs, 3 lyrics documents, 4 threads, 7
+comments, 1 mention, 1 reaction, 4 notifications, 13 storage objects). `--reset` left zero of each.
+A third `seed` rebuilt them.
 
 ## Tests and validation commands
 
@@ -76,11 +80,7 @@ Development-only data. No schema change.
 
 ## Status
 
-`blocked`
-
-## Blocker
-
-The task's seed-command validations (`pnpm --filter @youandfriends/db seed`, twice, then `seed -- --reset`) have not been run. They need the development database, and reading its connection settings was declined in this session. Everything else passes. To unblock: run those three commands against the development database and mark this `complete`.
+`complete`
 
 ## Commit
 
