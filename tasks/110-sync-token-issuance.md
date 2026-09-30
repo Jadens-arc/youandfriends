@@ -96,4 +96,4 @@ Additive. Reverting after devices are paired breaks sync. Revoke tokens before r
 
 ## Commit
 
-_(not yet)_
+`8f9fb1e`

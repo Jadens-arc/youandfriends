@@ -1,0 +1,26 @@
+[package]
+name = "youandfriends-sync"
+version = "0.1.0"
+description = "You & Friends Sync — the macOS menu-bar agent."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "youandfriends-sync"
+path = "src/main.rs"
+
+[dependencies]
+youandfriends-sync-core = { path = "../core" }
+
+# macOS only, by design (task `111`). On any other platform this crate builds as a stub that
+# says so and exits, so the Cargo workspace still checks and tests everywhere.
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+
+[target.'cfg(target_os = "macos")'.build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[lints]
+workspace = true

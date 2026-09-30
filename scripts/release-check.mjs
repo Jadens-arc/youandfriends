@@ -6,7 +6,7 @@
  *
  * Later tasks register their own gates:
  *   `020` migration dry run     · `023` db/authz integration · `052` storage contract (MinIO)
- *   `066` media fixtures        · `118` Rust clippy + tests  · `120` Playwright
+ *   `066` media fixtures        · `111` Rust clippy + tests, Mac app build · `120` Playwright
  *   `122` dependency threshold and secret scan
  *
  * Two rules this script exists to enforce:
@@ -72,6 +72,24 @@ const GATES = [
   },
   { name: 'build', command: 'pnpm build' },
   {
+    // Registered by task `111`; task `118` fills it with the agent's suite. The Rust workspace
+    // sits outside the Node graph (ADR 0007), so it is its own gate. On a machine without a Rust
+    // toolchain it SKIPS LOUDLY; everywhere else it runs, macOS or not — the core crate is
+    // platform-independent, and the Tauri shell builds as a stub off macOS.
+    name: 'rust clippy + tests',
+    command: 'cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace',
+    skipReason: cargoSkipReason,
+  },
+  {
+    // Registered by task `111`. The menu-bar app itself builds only on macOS, by design.
+    name: 'mac agent app (macOS)',
+    command: 'pnpm --filter @youandfriends/sync-mac tauri:build',
+    skipReason: () =>
+      process.platform === 'darwin'
+        ? cargoSkipReason()
+        : `this is ${process.platform}; the Tauri app builds only on macOS`,
+  },
+  {
     // Registered by task `020`. `docs/OPERATIONS.md` §4 requires a dry run before every
     // production migration: a migration that fails halfway leaves a state no rollback script
     // anticipated. The command itself announces a skip when no database is configured, so a
@@ -91,7 +109,6 @@ const GATES = [
 
 /** Gates a later task will register. Listed so their absence is visible, not forgotten. */
 const PENDING_GATES = [
-  ['rust clippy + tests', 'task 118'],
   ['playwright (desktop + iPhone)', 'task 120'],
   ['secret scan', 'task 122'],
 ];
@@ -106,6 +123,12 @@ function ffmpegSkipReason() {
   return missing.length === 0
     ? null
     : `${missing.join(' and ')} not installed, so the media fixture suite cannot run`;
+}
+
+function cargoSkipReason() {
+  return spawnSync('cargo', ['--version'], { stdio: 'ignore' }).status === 0
+    ? null
+    : 'no Rust toolchain (cargo) is installed, so the Mac agent cannot be checked';
 }
 
 function minioSkipReason() {

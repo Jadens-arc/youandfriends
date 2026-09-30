@@ -1,0 +1,17 @@
+# The Rust side of the monorepo (ADR 0007): the Mac sync agent, and nothing else. It sits beside
+# the Node graph rather than inside it — pnpm never sees it, and its gates run as their own steps.
+[workspace]
+resolver = "2"
+members = ["apps/sync-mac/core", "apps/sync-mac/src-tauri"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.80"
+license = "UNLICENSED"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

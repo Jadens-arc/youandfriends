@@ -1,0 +1,35 @@
+{
+  "name": "@youandfriends/sync-mac",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "You & Friends Sync — the macOS menu-bar agent's window. The Rust side is in src-tauri and core, outside the Node graph (ADR 0007).",
+  "scripts": {
+    "dev": "vite --port 5174 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "tauri:build": "node scripts/tauri.mjs build",
+    "tauri:dev": "node scripts/tauri.mjs dev"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.9.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.9.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "@youandfriends/config": "workspace:*",
+    "@youandfriends/ui": "workspace:*",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.0",
+    "vitest": "^3.2.7"
+  }
+}

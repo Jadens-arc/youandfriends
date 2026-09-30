@@ -55,13 +55,23 @@ A Tauri app has filesystem access that a browser does not. Restrict the command 
 
 ## Acceptance criteria
 
-- [ ] A Tauri 2 app builds and runs as a macOS menu-bar item with no dock icon.
-- [ ] The Rust backend exposes a narrow, typed command surface.
-- [ ] The React UI builds and uses Studio Notebook tokens where practical.
-- [ ] Development signing works and the notarization path is documented.
-- [ ] `cargo test` and `cargo clippy` run in the quality gates.
-- [ ] Non-macOS environments skip the build loudly rather than failing confusingly.
-- [ ] Tauri capabilities are minimal; no general filesystem command is exposed.
+- [ ] A Tauri 2 app builds and runs as a macOS menu-bar item with no dock icon. (**Written, not built.** `src-tauri` sets the `Accessory` activation policy and `LSUIElement`, and builds a tray icon with a status line, "Open…", and "Quit". It could not be compiled here: this is Linux without the macOS SDK. A cross-check for `aarch64-apple-darwin` stops at `objc2-exception-helper`'s C build. See Blocker.)
+- [ ] The Rust backend exposes a narrow, typed command surface. (Designed and written: one command, `agent_status`, returning a closed `AgentStatus` from the core crate, whose shape and wording are tested. The Tauri side that exposes it is unbuilt, as above.)
+- [x] The React UI builds and uses Studio Notebook tokens where practical. (`@youandfriends/sync-mac`: Vite and React, styled from `@youandfriends/ui`'s own `tokens.css` through Tailwind, not a copied palette. Typecheck, lint, tests, and build pass. It validates the agent's answer rather than trusting it, and shows "unavailable" for an unknown shape.)
+- [ ] Development signing works and the notarization path is documented. (Documented in `README.md`: Developer ID certificate, hardened runtime, `notarytool`, `stapler`. `signingIdentity` is null for unsigned development builds. That signing _works_ is unverified without a Mac.)
+- [x] `cargo test` and `cargo clippy` run in the quality gates. (A root Cargo workspace beside the Node graph (ADR 0007). The `rust clippy + tests` gate in `release-check` runs `cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace`, and it runs here: clean, tests pass. It skips loudly where there is no Rust toolchain.)
+- [x] Non-macOS environments skip the build loudly rather than failing confusingly.
+  - Tauri is a macOS-only dependency, so off macOS the binary compiles to a stub that prints SKIPPED and exits 2.
+  - `tauri:build` / `tauri:dev` print SKIPPED.
+  - The `mac agent app (macOS)` gate reports SKIPPED with the platform.
+  - All three were seen here.
+- [x] Tauri capabilities are minimal; no general filesystem command is exposed. (By construction, checked by reading. `build.rs` declares the app's commands through an app manifest, so each needs a permission. The only capability grants `allow-agent-status` to the one window. No plugin is loaded: no fs, shell, or http. The CSP allows only the app itself and IPC. Tauri's own validation of these files runs only on a macOS build.)
+
+**Structure.**
+
+- `apps/sync-mac/core`, the crate `youandfriends-sync-core`, holds everything that can be platform-independent, so tasks `112`–`115` land where they can be tested anywhere.
+- `src-tauri` is a thin macOS shell around it.
+- The app icon reuses the product's existing icon rather than inventing one; a full macOS icon set (`.icns`) is for distribution.
 
 ## Tests and validation commands
 
@@ -82,7 +92,11 @@ New app. Reverting removes the agent entirely; the web upload path is unaffected
 
 ## Status
 
-`pending`
+`blocked`
+
+## Blocker
+
+The menu-bar app must be built and run on a Mac: the build, the no-dock behaviour, development signing, and Tauri's own check of the capability files. This environment is Linux without the macOS SDK. Everything else is done and gated: the core crate, the UI, the Rust gates, and the loud skips. To unblock: on macOS run `pnpm --filter @youandfriends/sync-mac tauri:dev`, confirm a menu-bar item and no dock icon, and fix whatever the first compile of `src-tauri` reports.
 
 ## Commit
 

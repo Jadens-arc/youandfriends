@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "You & Friends Sync",
+  "version": "0.1.0",
+  "identifier": "org.youandfriends.sync",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5174",
+    "beforeDevCommand": "pnpm --filter @youandfriends/sync-mac dev",
+    "beforeBuildCommand": "pnpm --filter @youandfriends/sync-mac build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "You & Friends Sync",
+        "width": 360,
+        "height": 480,
+        "resizable": false,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; connect-src 'self' ipc: http://ipc.localhost",
+      "capabilities": ["default"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "icon": ["icons/icon.png"],
+    "category": "Productivity",
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": null
+    }
+  }
+}

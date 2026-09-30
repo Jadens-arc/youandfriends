@@ -44,7 +44,7 @@ Rationale for each significant choice is in [`docs/adr/`](docs/adr/).
 | pnpm 10          | `corepack enable && corepack prepare pnpm@10.33.0 --activate`  |
 | Docker           | For Postgres and MinIO in tests (from task `052`)              |
 | ffmpeg + ffprobe | Required by `@youandfriends/media` from task `060`. See below. |
-| Rust toolchain   | For the macOS sync agent (from task `111`). **macOS only.**    |
+| Rust toolchain   | For the macOS sync agent (from task `111`). See below.         |
 | A Clerk app      | For signing in (from task `030`). Setup below.                 |
 
 Tasks whose prerequisites are absent **skip loudly** in the test suite — they never pass
@@ -65,6 +65,22 @@ silently.
 > ```
 >
 > Set `YOUANDFRIENDS_FFMPEG_PATH` / `YOUANDFRIENDS_FFPROBE_PATH` if the binaries are not on `PATH`.
+
+> **The Mac sync agent** (`apps/sync-mac`, task `111`) is a Rust Cargo workspace beside the Node
+> graph (ADR 0007). Its logic, `youandfriends-sync-core`, builds and tests on any platform:
+>
+> ```bash
+> cargo test --workspace
+> cargo clippy --workspace --all-targets -- -D warnings
+> ```
+>
+> The menu-bar app itself is **macOS only**: Xcode command-line tools, Rust 1.80+, then
+> `pnpm --filter @youandfriends/sync-mac tauri:build` (or `tauri:dev`). On any other platform
+> that command, and the app's gate, say SKIPPED — they do not fail with a linker error.
+> Development builds are unsigned or signed with your own Apple Development identity. For
+> distribution, the path is: a Developer ID Application certificate, set as
+> `bundle.macOS.signingIdentity`, hardened runtime, then `xcrun notarytool submit … --wait` and
+> `xcrun stapler staple` on the `.dmg`. Notarized distribution is not part of iteration one.
 
 > **`NODE_ENV`** — `next build` must run with `NODE_ENV=production`. The build scripts set it
 > explicitly, because an inherited `NODE_ENV=development` makes prerendering fail with a

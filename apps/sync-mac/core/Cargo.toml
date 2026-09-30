@@ -1,0 +1,17 @@
+[package]
+name = "youandfriends-sync-core"
+version = "0.1.0"
+description = "The Mac sync agent's logic, without the app around it: builds and tests on any platform."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true

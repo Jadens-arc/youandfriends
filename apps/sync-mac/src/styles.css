@@ -1,0 +1,14 @@
+/* The agent window uses the product's own tokens: one palette, not a second one to drift. */
+@import 'tailwindcss';
+@import '@youandfriends/ui/styles/tokens.css';
+
+body {
+  margin: 0;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    sans-serif;
+}

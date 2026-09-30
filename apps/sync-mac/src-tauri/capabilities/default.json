@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Everything the window may ask the agent for: its status. No file system, no shell, no network plugin — task 115's uploads run in Rust, not from the window.",
+  "windows": ["main"],
+  "permissions": ["allow-agent-status"]
+}
