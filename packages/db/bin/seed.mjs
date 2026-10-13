@@ -61,6 +61,10 @@ try {
     console.log(`  ${result.folders} folders, ${result.projects} projects, ${result.songs} songs`);
     console.log(`  ${result.mixVersions} mix versions`);
     console.log(
+      `  ${result.threads} comment threads with ${result.comments} comments (one a voice note), ` +
+        `lyrics on three songs, ${result.notifications} notifications`,
+    );
+    console.log(
       `  ${result.mixVersions} storage_object rows describing ` +
         `${(result.fixtureBytes / 1024).toFixed(0)} KB of generated tones — never real music`,
     );

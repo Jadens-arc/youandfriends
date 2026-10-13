@@ -46,11 +46,11 @@ Same as `027`: never commit user music or real recordings (T9), and the seed mus
 
 ## Acceptance criteria
 
-- [ ] Lyrics documents exist with structured blocks, and at least one song has none.
-- [ ] A general comment thread and a timestamp-anchored thread both exist.
-- [ ] A voice note comment exists, backed by a generated fixture.
-- [ ] Notifications exist in read and unread states.
-- [ ] The seed remains idempotent and `--reset` still clears everything it creates.
+- [x] Lyrics documents exist with structured blocks, and at least one song has none.
+- [x] A general comment thread and a timestamp-anchored thread both exist.
+- [x] A voice note comment exists, backed by a generated fixture.
+- [x] Notifications exist in read and unread states.
+- [x] The seed remains idempotent and `--reset` still clears everything it creates.
 
 ## Tests and validation commands
 
@@ -70,9 +70,41 @@ pnpm --filter @youandfriends/db test
 
 Development-only data. No schema change.
 
+## Implementation record
+
+- `packages/db/src/seed/conversation.ts`, called from `seed()` and `reset()` with deterministic
+  ids throughout.
+- Lyrics: structured sections on three songs, validated against `lyricsDocumentSchema` in the
+  test. "Low Tide" and "Untitled Sketch" have none.
+- Five threads on "Blue Hour" and "Careless Weather":
+  - general, with replies, a mention stored as a reference, and reactions;
+  - timestamp-anchored at 1.5 s on version 4, inside its 3 s fixture;
+  - lyric-anchored;
+  - resolved;
+  - and a one-comment thread.
+- A voice note comment, backed by a `voice_note` asset whose version is the generated 2 s
+  tone — never a recording.
+- Notifications: Avery has unread ones (a mention, a grouped three-comment row) and a read one.
+  Tom's are all read. Sam has none.
+- `--reset` removes exactly these rows, in its existing transaction, before the songs go.
+
+**Deviation:** the lyric-anchored thread has no Yjs positions, because seeded lyrics have no
+collaborative state yet. It renders as a comment whose words have changed. That is a real
+state, but not a placed highlight.
+
+**Validation not run as listed:** in this session the permission system blocked
+`pnpm --filter @youandfriends/db migrate` and the `seed` CLI. `seed.test.ts` covers the same
+ground against a freshly migrated scratch database: build, idempotent re-run, reset, and
+rebuild, plus a test for the new rows. It passes. The CLI itself should still be run once by
+hand.
+
+## Review flag
+
+Fast-tracked at the user's request (2026-10-13); no test-reviewer pass. The seed CLI was not run by hand (see above).
+
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

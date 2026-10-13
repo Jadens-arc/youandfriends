@@ -121,4 +121,4 @@ Fast-tracked at the user's request (2026-10-13); no security-reviewer or test-re
 
 ## Commit
 
-_(not yet)_
+`84d2b3d`
