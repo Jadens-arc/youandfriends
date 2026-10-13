@@ -18,7 +18,7 @@ import { derivatives, assetVersions, mixVersions } from './versions';
 import { favorites } from './favorites';
 import { loopRegions } from './loop-regions';
 import { lyricsDocuments, lyricsRevisions } from './lyrics';
-import { commentThreads, comments } from './comments';
+import { commentMentions, commentReactions, commentThreads, comments } from './comments';
 import { mediaJobs } from './media-jobs';
 import { snapshotEntries, snapshots } from './snapshots';
 import { storageObjects } from './storage-objects';
@@ -83,6 +83,8 @@ export const schema = {
   lyricsRevisions,
   commentThreads,
   comments,
+  commentMentions,
+  commentReactions,
   snapshots,
   snapshotEntries,
   users,

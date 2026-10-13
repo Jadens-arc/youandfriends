@@ -94,6 +94,7 @@ export const comments = pgTable(
     tombstonedBy: reference('tombstoned_by').references(() => users.id, { onDelete: 'set null' }),
   },
   (table) => [
+    uniqueIndex('comments_id_workspace_key').on(table.id, table.workspaceId),
     index('comments_thread_idx').on(table.workspaceId, table.threadId, table.createdAt),
     // One recording, one comment: two comments racing to claim a voice note cannot both win.
     uniqueIndex('comments_voice_note_key')
@@ -109,5 +110,58 @@ export const comments = pgTable(
       'comments_tombstone_drops_voice',
       sql`tombstoned_at is null or voice_note_asset_id is null`,
     ),
+  ],
+);
+
+/**
+ * Who a comment mentions (task `094`): structured references to people, never `@name` text, so a
+ * rename does not orphan the mention. The words carry a `<@userId>` token where the mention sits;
+ * this table is the index the notification center reads. A mention grants nothing — the service
+ * refuses one naming someone who cannot already open the song.
+ *
+ * Composite with the comment in the migration, cascading: a mention belongs to its comment.
+ */
+export const commentMentions = pgTable(
+  'comment_mentions',
+  {
+    id: id(),
+    workspaceId: workspaceId().references(() => workspaces.id, { onDelete: 'cascade' }),
+    commentId: reference('comment_id').notNull(),
+    userId: reference('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex('comment_mentions_comment_user_key').on(table.commentId, table.userId),
+    index('comment_mentions_user_idx').on(table.workspaceId, table.userId),
+  ],
+);
+
+/**
+ * One person's reaction to one comment (task `094`). The emoji comes from a fixed set — the
+ * contracts' `COMMENT_REACTIONS`, restated in the check — so a reaction can never carry arbitrary
+ * text. Composite with the comment, cascading.
+ */
+export const commentReactions = pgTable(
+  'comment_reactions',
+  {
+    id: id(),
+    workspaceId: workspaceId().references(() => workspaces.id, { onDelete: 'cascade' }),
+    commentId: reference('comment_id').notNull(),
+    userId: reference('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    emoji: text('emoji').notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex('comment_reactions_comment_user_emoji_key').on(
+      table.commentId,
+      table.userId,
+      table.emoji,
+    ),
+    index('comment_reactions_comment_idx').on(table.workspaceId, table.commentId),
+    check('comment_reactions_emoji_known', sql`emoji in ('👍', '❤️', '🔥', '😂', '🎵', '👀')`),
   ],
 );

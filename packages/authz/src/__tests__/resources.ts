@@ -22,6 +22,8 @@ import {
   loopRegions,
   lyricsDocuments,
   lyricsRevisions,
+  commentMentions,
+  commentReactions,
   commentThreads,
   comments,
   mediaJobs,
@@ -470,6 +472,34 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     why: 'The same, at message granularity.',
   },
   {
+    status: 'live',
+    name: 'comment_mentions',
+    table: commentMentions,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const commentId = await seedComment(db, workspaceId);
+      const user = await makeUser(db);
+      await db
+        .insert(commentMentions)
+        .values({ id: testId(), workspaceId, commentId, userId: user.id });
+    },
+    why: 'Who was pulled into which conversation — membership and working relationships.',
+  },
+  {
+    status: 'live',
+    name: 'comment_reactions',
+    table: commentReactions,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const commentId = await seedComment(db, workspaceId);
+      const user = await makeUser(db);
+      await db
+        .insert(commentReactions)
+        .values({ id: testId(), workspaceId, commentId, userId: user.id, emoji: '🔥' });
+    },
+    why: 'Who responded to what, and when: activity on private discussion.',
+  },
+  {
     status: 'pending',
     name: 'notifications',
     tableName: 'notifications',
@@ -561,3 +591,17 @@ export const pendingResources = SENSITIVE_RESOURCES.filter(
 
 /** Tables that are not tenant-owned, and so cannot have a cross-workspace case. */
 export const NON_TENANT_TABLES = ['users', 'workspaces', '__drizzle_migrations'] as const;
+
+/** A song, a thread on it, and one comment in the thread (task `094`'s resources hang off it). */
+async function seedComment(db: DirectDatabase, workspaceId: string): Promise<string> {
+  const { song } = await seedTree(db, workspaceId);
+  const threadId = testId();
+  await db
+    .insert(commentThreads)
+    .values({ id: threadId, workspaceId, songId: song.id, anchorKind: 'general' });
+  const commentId = testId();
+  await db
+    .insert(comments)
+    .values({ id: commentId, workspaceId, threadId, body: 'Listen from the bridge.' });
+  return commentId;
+}

@@ -44,8 +44,11 @@ function readTasks() {
       const commit = rawCommit.includes('not yet') ? '—' : rawCommit.replace(/`/g, '').slice(0, 7);
 
       const blocker = field(source, 'Blocker') || '—';
+      // A task landed without the full review cycle carries a `## Review flag` section saying
+      // what was not done; the index lists them so they are not forgotten.
+      const reviewFlag = field(source, 'Review flag').split('\n')[0].trim();
 
-      return { number, title, phase, deps, status, commit, blocker, iteration };
+      return { number, title, phase, deps, status, commit, blocker, iteration, reviewFlag };
     });
 }
 
@@ -68,6 +71,7 @@ function render(tasks) {
   const deferred = tasks.filter((t) => t.iteration.includes('deferred'));
 
   const complete = iterationOne.filter((t) => t.status === 'complete');
+  const flagged = tasks.filter((t) => t.reviewFlag !== '');
   const inProgress = iterationOne.find((t) => t.status === 'in-progress');
   const blocked = iterationOne.filter((t) => t.status === 'blocked');
 
@@ -132,7 +136,19 @@ These are not omissions. Each is a real task with dependencies, to be scheduled 
 iteration-one milestone.
 
 ${table(deferred)}
+${
+  flagged.length === 0
+    ? ''
+    : `
+## Flagged for review
 
+These landed without the read-only security and test review agents, at the user's request to
+move quickly. Each task file's \`## Review flag\` section says what was not done and what to look
+at. Clear the section once a review has been done.
+
+${flagged.map((t) => `- \`${t.number}\` — ${t.reviewFlag}`).join('\n')}
+`
+}
 ## Notes on specific tasks
 
 - \`208\`, \`209\` — Billing and public signup require product and legal decisions that are

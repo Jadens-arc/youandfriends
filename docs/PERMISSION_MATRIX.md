@@ -127,6 +127,8 @@ which requires workspace ownership, so an unguarded read of it is not one call a
 | `lyrics_revisions`      | covered    | Every earlier draft of the same.                                                                                                 |
 | `comment_threads`       | covered    | Private discussion between collaborators.                                                                                        |
 | `comments`              | covered    | The same, at message granularity.                                                                                                |
+| `comment_mentions`      | covered    | Who was pulled into which conversation — membership and working relationships.                                                   |
+| `comment_reactions`     | covered    | Who responded to what, and when: activity on private discussion.                                                                 |
 | `upload_sessions`       | covered    | An in-flight session is a writable handle to storage.                                                                            |
 | `upload_parts`          | covered    | Each row names a part already in the bucket, with its ETag. Reading another workspace’s parts is half of hijacking their upload. |
 | `invitations`           | covered    | An email address plus a role plus a scope — exactly who is being brought in, and to what.                                        |

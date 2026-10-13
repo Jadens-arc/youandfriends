@@ -25,6 +25,22 @@ export interface CommentView {
   readonly deleted: boolean;
   readonly canEdit: boolean;
   readonly canDelete: boolean;
+  /** Who the words mention (task `094`); absent from older responses. */
+  readonly mentions?: readonly MentionView[];
+  /** Reactions, one entry per emoji used (task `094`); absent from older responses. */
+  readonly reactions?: readonly ReactionView[];
+}
+
+export interface MentionView {
+  readonly userId: string;
+  readonly displayName: string | null;
+}
+
+export interface ReactionView {
+  readonly emoji: string;
+  readonly count: number;
+  readonly mine: boolean;
+  readonly by: readonly string[];
 }
 
 export type AnchorView =
@@ -131,4 +147,106 @@ export async function sendComment(
   });
   if (response.ok) await refreshComments(songId);
   return response.ok;
+}
+
+/**
+ * Change the local copy now and tell everything showing it, before the server has answered
+ * (task `094`'s reactions). Returns the state as it was, for {@link restoreComments}.
+ */
+export function updateCommentsLocally(
+  songId: string,
+  change: (data: CommentsData) => CommentsData,
+): CommentsState {
+  const entry = entryFor(songId);
+  const before = entry.state;
+  if (typeof before === 'object') {
+    entry.state = change(before);
+    for (const listener of entry.listeners) listener();
+  }
+  return before;
+}
+
+/** Put back what {@link updateCommentsLocally} replaced — the server said no. */
+export function restoreComments(songId: string, state: CommentsState): void {
+  const entry = entryFor(songId);
+  entry.state = state;
+  for (const listener of entry.listeners) listener();
+}
+
+/** One comment's reactions with this person's `emoji` reaction added or taken away. */
+export function withReaction(
+  reactions: readonly ReactionView[],
+  emoji: string,
+  on: boolean,
+  me: string,
+  order: readonly string[],
+): ReactionView[] {
+  const current = reactions.find((reaction) => reaction.emoji === emoji);
+  const others = reactions.filter((reaction) => reaction.emoji !== emoji);
+  let next: ReactionView | null;
+  if (on) {
+    next =
+      current === undefined
+        ? { emoji, count: 1, mine: true, by: [me] }
+        : current.mine
+          ? current
+          : { ...current, count: current.count + 1, mine: true, by: [...current.by, me] };
+  } else if (current === undefined || !current.mine) {
+    next = current ?? null;
+  } else {
+    const by = [...current.by];
+    const at = by.lastIndexOf(me);
+    if (at >= 0) by.splice(at, 1);
+    next = current.count <= 1 ? null : { ...current, count: current.count - 1, mine: false, by };
+  }
+  const all = next === null ? others : [...others, next];
+  return all.sort((a, b) => order.indexOf(a.emoji) - order.indexOf(b.emoji));
+}
+
+/**
+ * React to a comment, instantly: the local copy changes first, then the server is asked; if it
+ * refuses or cannot be reached, the change is rolled back. Resolves to whether it stuck.
+ */
+export async function toggleReaction(
+  songId: string,
+  threadId: string,
+  commentId: string,
+  emoji: string,
+  on: boolean,
+  order: readonly string[],
+): Promise<boolean> {
+  const before = updateCommentsLocally(songId, (data) => ({
+    ...data,
+    threads: data.threads.map((thread) =>
+      thread.id !== threadId
+        ? thread
+        : {
+            ...thread,
+            comments: thread.comments.map((comment) =>
+              comment.id !== commentId
+                ? comment
+                : {
+                    ...comment,
+                    reactions: withReaction(comment.reactions ?? [], emoji, on, 'You', order),
+                  },
+            ),
+          },
+    ),
+  }));
+  let ok = false;
+  try {
+    const response = await fetch(
+      `${commentsUrl(songId)}/${encodeURIComponent(threadId)}/comments/${encodeURIComponent(commentId)}/reactions`,
+      {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ emoji, on }),
+      },
+    );
+    ok = response.ok;
+  } catch {
+    ok = false;
+  }
+  if (!ok) restoreComments(songId, before);
+  return ok;
 }

@@ -91,7 +91,7 @@ describe('CommentsPanel (task 090)', () => {
     await mount();
     const summary = screen.getByText('1 resolved thread');
     expect(summary.closest('details')).not.toHaveAttribute('open');
-    expect(screen.getByText('Resolved by Alex')).toBeInTheDocument();
+    expect(screen.getByText(/Resolved by Alex/)).toBeInTheDocument();
   });
 
   it('starts a general thread, replies, and resolves', async () => {

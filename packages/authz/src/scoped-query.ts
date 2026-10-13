@@ -13,6 +13,8 @@ import {
   lyricsRevisions,
   commentThreads,
   comments,
+  commentMentions,
+  commentReactions,
   mediaJobs,
   mixVersions,
   permissionGrants,
@@ -74,6 +76,9 @@ export const SCOPED_TABLES = {
   // Added in task `090`: the conversation on a song.
   commentThreads,
   comments,
+  // Added in task `094`: who a comment mentions, and reactions to it.
+  commentMentions,
+  commentReactions,
   storageObjects,
   snapshots,
   snapshotEntries,

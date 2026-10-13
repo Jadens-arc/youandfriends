@@ -169,6 +169,7 @@ export function LyricComments({
           <Composer
             label={`Comment on “${excerpt(draft.quote)}”`}
             submitLabel="Comment"
+            songId={songId}
             onCancel={() => setDraft(null)}
             onSubmit={async (body) => {
               const ok = await sendComment(songId, '', 'POST', {

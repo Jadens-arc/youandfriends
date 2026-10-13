@@ -1,28 +1,38 @@
-import { permits, withAuditedTransaction } from '@youandfriends/authz';
+import { loadSongCollaborators, permits, withAuditedTransaction } from '@youandfriends/authz';
 import {
   createThreadSchema,
   editCommentSchema,
   fieldErrorsFromZod,
+  COMMENT_REACTIONS,
   forbidden,
   isUlid,
+  MAX_MENTIONS,
+  mentionedUserIds,
   newUlid,
+  reactionSchema,
   replySchema,
   resolveThreadSchema,
   validationFailed,
   type CommentAnchor,
   type CreateThreadRequest,
+  type CommentReaction,
   type EditCommentRequest,
+  type ReactionRequest,
   type ReplyRequest,
   type ResolveThreadRequest,
 } from '@youandfriends/contracts';
 import {
   assets,
   assetVersions,
+  commentMentions,
+  commentReactions,
   comments,
   commentThreads,
+  getSongHeader,
   mixVersions,
   songs,
   users,
+  workspaceMemberships,
   type DirectDatabase,
 } from '@youandfriends/db';
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
@@ -43,7 +53,12 @@ import { assertAttachableVoiceNote, type VoiceNoteView } from './voice-notes';
  *   words and keeps the row as a tombstone, so the thread still reads as a conversation.
  * - A thread of another song, workspace, or a trashed song is 404-shaped, like everything else.
  *
- * Every write is audited against the song, so it joins the song's activity.
+ * Every write is audited against the song, so it joins the song's activity — except reactions,
+ * which are a tap, not a statement, and carry nothing anyone would later need to account for.
+ *
+ * Mentions (task `094`) are `<@userId>` tokens in the words, indexed in `comment_mentions`. A
+ * mention may only name someone who can already open the song: it never grants access, and a
+ * mention of anyone else is refused with a message telling the author so.
  */
 
 export interface CommentsContext extends LibraryContext {
@@ -67,6 +82,29 @@ export interface CommentView {
   readonly mine: boolean;
   readonly canEdit: boolean;
   readonly canDelete: boolean;
+  /** The people the words mention, by id, with their names as they are now. */
+  readonly mentions: readonly MentionView[];
+  /** One entry per emoji anyone has used, in the fixed order. */
+  readonly reactions: readonly ReactionView[];
+}
+
+export interface MentionView {
+  readonly userId: string;
+  /** `null` when the person is no longer in the workspace. */
+  readonly displayName: string | null;
+}
+
+export interface ReactionView {
+  readonly emoji: CommentReaction;
+  readonly count: number;
+  readonly mine: boolean;
+  /** Who reacted, by name, for the hover list and the screen reader. */
+  readonly by: readonly string[];
+}
+
+export interface MentionableView {
+  readonly userId: string;
+  readonly displayName: string;
 }
 
 export interface ThreadView {
@@ -202,6 +240,11 @@ export async function listThreads(context: LibraryContext, songId: string): Prom
       row.voiceNoteAssetId === null || row.tombstonedAt !== null ? [] : [row.voiceNoteAssetId],
     ),
   );
+  const live = rows.filter((row) => row.tombstonedAt === null).map((row) => row.id);
+  const [mentions, reactions] = await Promise.all([
+    mentionsOf(context, live),
+    reactionsOf(context, live),
+  ]);
   const byThread = new Map<string, CommentView[]>();
   for (const row of rows) {
     const deleted = row.tombstonedAt !== null;
@@ -221,6 +264,8 @@ export async function listThreads(context: LibraryContext, songId: string): Prom
       mine,
       canEdit: !deleted && mine && canComment,
       canDelete: !deleted && ((mine && canComment) || canModerate),
+      mentions: deleted ? [] : (mentions.get(row.id) ?? []),
+      reactions: deleted ? [] : (reactions.get(row.id) ?? []),
     });
     byThread.set(row.threadId, list);
   }
@@ -236,6 +281,193 @@ export async function listThreads(context: LibraryContext, songId: string): Prom
       comments: byThread.get(thread.id) ?? [],
     })),
   };
+}
+
+/** Each live comment's mentions, with the person's name as it is now. */
+async function mentionsOf(
+  context: LibraryContext,
+  commentIds: readonly string[],
+): Promise<Map<string, MentionView[]>> {
+  const result = new Map<string, MentionView[]>();
+  if (commentIds.length === 0) return result;
+  const rows = await context.db
+    .select({
+      commentId: commentMentions.commentId,
+      userId: commentMentions.userId,
+      displayName: users.displayName,
+      member: workspaceMemberships.userId,
+    })
+    .from(commentMentions)
+    .innerJoin(users, eq(users.id, commentMentions.userId))
+    .leftJoin(
+      workspaceMemberships,
+      and(
+        eq(workspaceMemberships.userId, commentMentions.userId),
+        eq(workspaceMemberships.workspaceId, context.workspaceId),
+      ),
+    )
+    .where(
+      and(
+        eq(commentMentions.workspaceId, context.workspaceId),
+        inArray(commentMentions.commentId, [...commentIds]),
+      ),
+    );
+  for (const row of rows) {
+    const list = result.get(row.commentId) ?? [];
+    // Someone who has left the workspace is shown as "someone": their name is no longer ours.
+    list.push({ userId: row.userId, displayName: row.member === null ? null : row.displayName });
+    result.set(row.commentId, list);
+  }
+  return result;
+}
+
+/** Each live comment's reactions, grouped by emoji in the fixed order. */
+async function reactionsOf(
+  context: LibraryContext,
+  commentIds: readonly string[],
+): Promise<Map<string, ReactionView[]>> {
+  const result = new Map<string, ReactionView[]>();
+  if (commentIds.length === 0) return result;
+  const rows = await context.db
+    .select({
+      commentId: commentReactions.commentId,
+      userId: commentReactions.userId,
+      emoji: commentReactions.emoji,
+      displayName: users.displayName,
+    })
+    .from(commentReactions)
+    .innerJoin(users, eq(users.id, commentReactions.userId))
+    .where(
+      and(
+        eq(commentReactions.workspaceId, context.workspaceId),
+        inArray(commentReactions.commentId, [...commentIds]),
+      ),
+    )
+    .orderBy(asc(commentReactions.createdAt), asc(commentReactions.userId));
+  const grouped = new Map<string, Map<string, { by: string[]; mine: boolean }>>();
+  for (const row of rows) {
+    const byEmoji =
+      grouped.get(row.commentId) ?? new Map<string, { by: string[]; mine: boolean }>();
+    const entry = byEmoji.get(row.emoji) ?? { by: [], mine: false };
+    entry.by.push(row.displayName);
+    if (row.userId === context.userId) entry.mine = true;
+    byEmoji.set(row.emoji, entry);
+    grouped.set(row.commentId, byEmoji);
+  }
+  for (const [commentId, byEmoji] of grouped) {
+    result.set(
+      commentId,
+      COMMENT_REACTIONS.flatMap((emoji) => {
+        const entry = byEmoji.get(emoji);
+        return entry === undefined
+          ? []
+          : [{ emoji, count: entry.by.length, mine: entry.mine, by: entry.by }];
+      }),
+    );
+  }
+  return result;
+}
+
+/** Who can open a song: the only people a mention may name. Server-side, from the resolver. */
+async function songReach(context: LibraryContext, songId: string): Promise<Set<string>> {
+  const header = await getSongHeader(context.db, context.workspaceId, songId);
+  if (header === null) refuse(`song ${songId} is not live`);
+  const reach = await loadSongCollaborators(
+    context.db,
+    context.workspaceId,
+    { id: songId, projectId: header.projectId, folderPath: header.folderPath },
+    context.now ?? (() => new Date()),
+  );
+  return new Set(reach);
+}
+
+/**
+ * The people a commenter may mention on this song (task `094`): everyone who can open it, and
+ * nobody else. The list is membership information (threat model asset 3), so it is filtered here,
+ * on the server, to the song — never the whole workspace — and offered only to commenters.
+ */
+export async function listMentionable(
+  context: LibraryContext,
+  songId: string,
+): Promise<{ readonly people: readonly MentionableView[] }> {
+  await requireAccess(context, songId, 'comment');
+  const reach = await songReach(context, songId);
+  reach.delete(context.userId);
+  if (reach.size === 0) return { people: [] };
+  const rows = await context.db
+    .select({ userId: users.id, displayName: users.displayName })
+    .from(users)
+    .where(inArray(users.id, [...reach]))
+    .orderBy(asc(users.displayName), asc(users.id));
+  return { people: rows };
+}
+
+/**
+ * The people these words mention, each checked against who can open the song. A mention never
+ * grants access: naming someone who cannot open the song is refused, and the author is told why,
+ * rather than notifying a person who would only meet a 404.
+ */
+async function checkedMentions(
+  context: LibraryContext,
+  songId: string,
+  body: string,
+): Promise<string[]> {
+  const mentioned = mentionedUserIds(body);
+  if (mentioned.length === 0) return [];
+  if (mentioned.length > MAX_MENTIONS) {
+    throw validationFailed([
+      { path: 'body', message: `Mention at most ${MAX_MENTIONS} people in one comment.` },
+    ]);
+  }
+  const reach = await songReach(context, songId);
+  if (mentioned.some((userId) => !reach.has(userId))) {
+    throw validationFailed([
+      {
+        path: 'body',
+        message:
+          'Someone you mentioned cannot open this song. A mention does not give access — share the song with them first.',
+      },
+    ]);
+  }
+  return mentioned;
+}
+
+async function recordMentions(
+  tx: Tx,
+  context: LibraryContext,
+  commentId: string,
+  userIds: readonly string[],
+  at: Date,
+) {
+  if (userIds.length === 0) return;
+  await tx
+    .insert(commentMentions)
+    .values(
+      userIds.map((userId) => ({
+        id: (context.newId ?? newUlid)(),
+        workspaceId: context.workspaceId,
+        commentId,
+        userId,
+        createdAt: at,
+      })),
+    )
+    .onConflictDoNothing();
+}
+
+async function notifyMentioned(
+  context: CommentsContext,
+  songId: string,
+  recipientIds: readonly string[],
+) {
+  const others = recipientIds.filter((userId) => userId !== context.userId);
+  if (others.length === 0) return;
+  await context.notify?.({
+    event: 'comment.mentioned',
+    targetType: 'song',
+    targetId: songId,
+    actorId: context.userId,
+    recipientIds: others,
+  });
 }
 
 function auditContext(context: LibraryContext) {
@@ -256,6 +488,7 @@ export async function createThread(
 ): Promise<{ readonly threadId: string; readonly commentId: string }> {
   const { anchor, body, voiceNoteAssetId } = parse(createThreadSchema, input);
   await requireAccess(context, songId, 'comment');
+  const mentioned = await checkedMentions(context, songId, body);
   if (anchor.kind === 'timestamp') {
     // The moment belongs to the song; the version records what was playing when it was heard.
     // It must be one of this song's — never another song's, or another workspace's.
@@ -312,11 +545,12 @@ export async function createThread(
         voiceNoteAssetId: voiceNoteAssetId ?? null,
         createdAt: at,
       });
+      await recordMentions(tx, context, commentId, mentioned, at);
       await audit({
         action: 'comment.created',
         targetType: 'song',
         targetId: songId,
-        metadata: { threadId, commentId, anchor: anchor.kind },
+        metadata: { threadId, commentId, anchor: anchor.kind, mentions: mentioned.length },
       });
       return { threadId, commentId };
     },
@@ -327,6 +561,7 @@ export async function createThread(
     targetId: songId,
     actorId: context.userId,
   });
+  await notifyMentioned(context, songId, mentioned);
   return created;
 }
 
@@ -360,6 +595,7 @@ export async function reply(
 ): Promise<{ readonly commentId: string }> {
   const { body, voiceNoteAssetId } = parse(replySchema, input);
   await requireAccess(context, songId, 'comment');
+  const mentioned = await checkedMentions(context, songId, body);
   const newId = context.newId ?? newUlid;
   const created = await withAuditedTransaction(
     context.db,
@@ -380,12 +616,13 @@ export async function reply(
         voiceNoteAssetId: voiceNoteAssetId ?? null,
         createdAt: at,
       });
+      await recordMentions(tx, context, commentId, mentioned, at);
       await touch(tx, threadId, at);
       await audit({
         action: 'comment.created',
         targetType: 'song',
         targetId: songId,
-        metadata: { threadId, commentId, reply: true },
+        metadata: { threadId, commentId, reply: true, mentions: mentioned.length },
       });
       return { commentId };
     },
@@ -396,6 +633,7 @@ export async function reply(
     targetId: songId,
     actorId: context.userId,
   });
+  await notifyMentioned(context, songId, mentioned);
   return created;
 }
 
@@ -423,7 +661,7 @@ async function lockComment(tx: Tx, context: LibraryContext, threadId: string, co
 
 /** Change a comment's words — its author only, while they may still comment. */
 export async function editComment(
-  context: LibraryContext,
+  context: CommentsContext,
   songId: string,
   threadId: string,
   commentId: string,
@@ -431,21 +669,54 @@ export async function editComment(
 ): Promise<void> {
   const { body } = parse(editCommentSchema, input);
   await requireAccess(context, songId, 'comment');
-  await withAuditedTransaction(context.db, auditContext(context), async ({ tx, audit }) => {
-    await lockThread(tx, context, songId, threadId);
-    const comment = await lockComment(tx, context, threadId, commentId);
-    if (comment.authorId !== context.userId) refuse(`comment ${commentId} is not theirs`);
-    if (comment.tombstonedAt !== null) refuse(`comment ${commentId} was deleted`);
-    const at = (context.now ?? (() => new Date()))();
-    await tx.update(comments).set({ body, editedAt: at }).where(eq(comments.id, commentId));
-    await touch(tx, threadId, at);
-    await audit({
-      action: 'comment.updated',
-      targetType: 'song',
-      targetId: songId,
-      metadata: { threadId, commentId },
-    });
-  });
+  const mentioned = await checkedMentions(context, songId, body);
+  const added = await withAuditedTransaction(
+    context.db,
+    auditContext(context),
+    async ({ tx, audit }) => {
+      await lockThread(tx, context, songId, threadId);
+      const comment = await lockComment(tx, context, threadId, commentId);
+      if (comment.authorId !== context.userId) refuse(`comment ${commentId} is not theirs`);
+      if (comment.tombstonedAt !== null) refuse(`comment ${commentId} was deleted`);
+      const at = (context.now ?? (() => new Date()))();
+      await tx.update(comments).set({ body, editedAt: at }).where(eq(comments.id, commentId));
+      // The index follows the words: mentions taken out are dropped, new ones recorded.
+      const before = await tx
+        .select({ userId: commentMentions.userId })
+        .from(commentMentions)
+        .where(
+          and(
+            eq(commentMentions.workspaceId, context.workspaceId),
+            eq(commentMentions.commentId, commentId),
+          ),
+        );
+      const had = new Set(before.map((row) => row.userId));
+      const dropped = [...had].filter((userId) => !mentioned.includes(userId));
+      if (dropped.length > 0) {
+        await tx
+          .delete(commentMentions)
+          .where(
+            and(
+              eq(commentMentions.workspaceId, context.workspaceId),
+              eq(commentMentions.commentId, commentId),
+              inArray(commentMentions.userId, dropped),
+            ),
+          );
+      }
+      const fresh = mentioned.filter((userId) => !had.has(userId));
+      await recordMentions(tx, context, commentId, fresh, at);
+      await touch(tx, threadId, at);
+      await audit({
+        action: 'comment.updated',
+        targetType: 'song',
+        targetId: songId,
+        metadata: { threadId, commentId },
+      });
+      return fresh;
+    },
+  );
+  // Only people newly mentioned hear about an edit; nobody is told twice.
+  await notifyMentioned(context, songId, added);
 }
 
 /**
@@ -470,6 +741,23 @@ export async function deleteComment(
       .update(comments)
       .set({ body: '', voiceNoteAssetId: null, tombstonedAt: at, tombstonedBy: context.userId })
       .where(eq(comments.id, commentId));
+    // The words are gone, and with them who they named and how anyone felt about them.
+    await tx
+      .delete(commentMentions)
+      .where(
+        and(
+          eq(commentMentions.workspaceId, context.workspaceId),
+          eq(commentMentions.commentId, commentId),
+        ),
+      );
+    await tx
+      .delete(commentReactions)
+      .where(
+        and(
+          eq(commentReactions.workspaceId, context.workspaceId),
+          eq(commentReactions.commentId, commentId),
+        ),
+      );
     // A voice note's words are the recording: it goes to the trash with the comment, and the
     // trash's purge removes the audio for good (task `028`).
     if (comment.voiceNoteAssetId !== null) {
@@ -552,5 +840,49 @@ export async function setResolved(
       targetId: songId,
       metadata: { threadId },
     });
+  });
+}
+
+/**
+ * Add or take back one reaction (task `094`) — anyone who may comment, on a live comment. Both
+ * directions are idempotent, so a double tap or a retried request lands where it was meant to.
+ */
+export async function setReaction(
+  context: LibraryContext,
+  songId: string,
+  threadId: string,
+  commentId: string,
+  input: ReactionRequest,
+): Promise<void> {
+  const { emoji, on } = parse(reactionSchema, input);
+  await requireAccess(context, songId, 'comment');
+  await context.db.transaction(async (tx) => {
+    await lockThread(tx, context, songId, threadId);
+    const comment = await lockComment(tx, context, threadId, commentId);
+    if (comment.tombstonedAt !== null) refuse(`comment ${commentId} was deleted`);
+    if (on) {
+      await tx
+        .insert(commentReactions)
+        .values({
+          id: (context.newId ?? newUlid)(),
+          workspaceId: context.workspaceId,
+          commentId,
+          userId: context.userId,
+          emoji,
+          createdAt: (context.now ?? (() => new Date()))(),
+        })
+        .onConflictDoNothing();
+    } else {
+      await tx
+        .delete(commentReactions)
+        .where(
+          and(
+            eq(commentReactions.workspaceId, context.workspaceId),
+            eq(commentReactions.commentId, commentId),
+            eq(commentReactions.userId, context.userId),
+            eq(commentReactions.emoji, emoji),
+          ),
+        );
+    }
   });
 }

@@ -110,6 +110,7 @@ export function TimestampComments({
         <Composer
           label={`Comment at ${formatClock(moment.ms / 1000)}${version === undefined ? '' : ` in version ${version.number}`}`}
           submitLabel="Comment"
+          songId={songId}
           onCancel={() => setMoment(null)}
           onSubmit={async (body) => {
             const ok = await sendComment(songId, '', 'POST', {
