@@ -26,6 +26,7 @@ export {
 
 export { cn } from './lib/cn';
 export { usePrefersReducedMotion } from './lib/use-prefers-reduced-motion';
+export { PHONE_QUERY, useIsPhone, useMediaQuery } from './lib/use-media-query';
 export {
   disabledState,
   focusRing,

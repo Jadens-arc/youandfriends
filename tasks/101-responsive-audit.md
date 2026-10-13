@@ -105,4 +105,4 @@ Fast-tracked at the user's request (2026-10-13). Audited in source only; nothing
 
 ## Commit
 
-_(not yet)_
+`ceb77b2`

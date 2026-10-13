@@ -1,9 +1,11 @@
 'use client';
 
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '../lib/cn';
+import { focusRing } from '../lib/focus';
 import { usePrefersReducedMotion } from '../lib/use-prefers-reduced-motion';
 import { SheetContent, type SheetContentProps } from './sheet';
 
@@ -16,7 +18,27 @@ const DISMISS_VELOCITY = 0.5;
 /** Resistance applied to upward drag, so the sheet resists rather than refuses. */
 const UPWARD_RESISTANCE = 4;
 
-export type BottomSheetContentProps = Omit<SheetContentProps, 'side' | 'dragHandleProps'>;
+/**
+ * The heights a sheet settles at (task `103`). A sheet snaps between them, never floats: free
+ * positioning feels imprecise under a thumb. `full` stops short of the top so the page behind
+ * still shows it is a sheet, and clears the notch.
+ */
+export type SheetSnap = 'peek' | 'half' | 'full';
+
+const SNAP_HEIGHTS: Readonly<Record<SheetSnap, string>> = {
+  peek: '40dvh',
+  half: '62dvh',
+  full: 'calc(100dvh - 2.5rem - env(safe-area-inset-top))',
+};
+
+export type BottomSheetContentProps = Omit<SheetContentProps, 'side' | 'dragHandleProps'> & {
+  /**
+   * Heights this sheet snaps between, smallest first. Absent, the sheet is as tall as its
+   * content. With more than one, dragging up grows it, dragging down shrinks it and then
+   * dismisses, and a visible button does the same from a keyboard.
+   */
+  readonly snapPoints?: readonly SheetSnap[];
+};
 
 /**
  * Bottom sheet with drag-to-dismiss (docs/DESIGN.md §10).
@@ -37,8 +59,12 @@ export type BottomSheetContentProps = Omit<SheetContentProps, 'side' | 'dragHand
 export const BottomSheetContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   BottomSheetContentProps
->(function BottomSheetContent({ className, children, style, ...props }, forwardedRef) {
+>(function BottomSheetContent({ className, children, style, snapPoints, ...props }, forwardedRef) {
   const reducedMotion = usePrefersReducedMotion();
+  const [snapIndex, setSnapIndex] = React.useState(0);
+  const snaps = snapPoints ?? [];
+  const snap = snaps[snapIndex];
+  const larger = snaps[snapIndex + 1];
   const closeRef = React.useRef<HTMLButtonElement>(null);
   const drag = React.useRef<{ startY: number; startTime: number } | null>(null);
 
@@ -75,9 +101,15 @@ export const BottomSheetContent = React.forwardRef<
     const elapsed = performance.now() - started.startTime;
     const velocity = elapsed > 0 ? distance / elapsed : 0;
 
-    if (distance > DISMISS_DISTANCE || velocity > DISMISS_VELOCITY) {
+    const down = distance > DISMISS_DISTANCE || velocity > DISMISS_VELOCITY;
+    const up = distance < -DISMISS_DISTANCE / 2 || velocity < -DISMISS_VELOCITY;
+    if (down && snapIndex > 0) {
+      setSnapIndex(snapIndex - 1);
+    } else if (down) {
       // Click the real close control so Radix runs its own teardown and focus restoration.
       closeRef.current?.click();
+    } else if (up && larger !== undefined) {
+      setSnapIndex(snapIndex + 1);
     }
 
     setOffset(0);
@@ -97,8 +129,13 @@ export const BottomSheetContent = React.forwardRef<
           '[transition-property:transform] [transition-duration:var(--duration-slow)] [transition-timing-function:var(--ease-spring)]',
         className,
       )}
-      style={{ ...style, transform: offset === 0 ? undefined : `translateY(${offset}px)` }}
+      style={{
+        ...style,
+        ...(snap === undefined ? {} : { height: SNAP_HEIGHTS[snap], maxHeight: SNAP_HEIGHTS.full }),
+        transform: offset === 0 ? undefined : `translateY(${offset}px)`,
+      }}
       data-dragging={dragging ? '' : undefined}
+      data-snap={snap}
       dragHandleProps={{
         'data-drag-handle': '',
         onPointerDown: handlePointerDown,
@@ -110,6 +147,26 @@ export const BottomSheetContent = React.forwardRef<
     >
       {children}
 
+      {/* The keyboard and screen-reader way to do what dragging the handle does. */}
+      {snaps.length > 1 ? (
+        <button
+          type="button"
+          onClick={() => setSnapIndex(larger === undefined ? 0 : snapIndex + 1)}
+          className={cn(
+            'text-muted-foreground hover:text-foreground absolute top-4 right-12 rounded-sm p-1',
+            'max-md:top-2 max-md:right-14 max-md:flex max-md:size-11 max-md:items-center max-md:justify-center',
+            focusRing,
+          )}
+        >
+          {larger === undefined ? (
+            <ChevronDown className="size-4" aria-hidden />
+          ) : (
+            <ChevronUp className="size-4" aria-hidden />
+          )}
+          <span className="sr-only">{larger === undefined ? 'Show less' : 'Show more'}</span>
+        </button>
+      ) : null}
+
       {/* The dismissal path drag delegates to. Visually redundant with SheetContent's own
           close control, so it is hidden from everything, including assistive technology. */}
       <DialogPrimitive.Close ref={closeRef} aria-hidden tabIndex={-1} className="hidden" />
@@ -118,3 +175,16 @@ export const BottomSheetContent = React.forwardRef<
 });
 
 export { DISMISS_DISTANCE, DISMISS_VELOCITY };
+
+/**
+ * The scrolling part of a sheet with snap points: it fills what the snap leaves and scrolls
+ * itself, contained, so reaching its end never scrolls the page behind (task `103`).
+ */
+export function BottomSheetBody({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
+  return (
+    <div
+      className={cn('-mx-6 min-h-0 flex-1 overflow-y-auto overscroll-contain px-6', className)}
+      {...props}
+    />
+  );
+}

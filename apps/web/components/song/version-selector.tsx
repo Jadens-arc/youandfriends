@@ -1,6 +1,18 @@
 'use client';
 
-import { Badge, Button, cn, focusRing, transition } from '@youandfriends/ui';
+import {
+  Badge,
+  BottomSheetBody,
+  BottomSheetContent,
+  Button,
+  cn,
+  focusRing,
+  Sheet,
+  SheetTitle,
+  SheetTrigger,
+  transition,
+  useIsPhone,
+} from '@youandfriends/ui';
 import { Check, Link2 } from 'lucide-react';
 import * as React from 'react';
 
@@ -63,6 +75,54 @@ export function initialVersionId(
 
 function versionName(version: SongVersion): string {
   return `Version ${version.number}`;
+}
+
+/**
+ * The version stack on a phone (task `103`): the chosen version in a row, and the whole stack
+ * in a bottom sheet a tap away, so the waveform and details stay on screen instead of being
+ * pushed below a long list. The sheet holds the same radio group as the desk; choosing closes
+ * it, and focus returns to the row.
+ */
+function VersionPickerSheet({
+  versions,
+  selected,
+  onSelect,
+  now,
+}: {
+  readonly versions: readonly SongVersion[];
+  readonly selected: SongVersion | null;
+  readonly onSelect: (id: string) => void;
+  readonly now: Date;
+}) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button variant="secondary" className="w-full justify-between">
+          <span>{selected === null ? 'Choose a version' : versionName(selected)}</span>
+          <span className="text-muted-foreground text-caption">
+            {versions.length} versions · Change
+          </span>
+        </Button>
+      </SheetTrigger>
+      <BottomSheetContent snapPoints={['half', 'full']} aria-describedby={undefined}>
+        <SheetTitle className="text-heading text-foreground font-serif">Versions</SheetTitle>
+        {/* A tap chooses and closes; arrow keys move the choice and leave the sheet open. */}
+        <BottomSheetBody
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest('[role="radio"]') !== null) setOpen(false);
+          }}
+        >
+          <VersionSelector
+            versions={versions}
+            selectedId={selected?.id ?? null}
+            onSelect={onSelect}
+            now={now}
+          />
+        </BottomSheetBody>
+      </BottomSheetContent>
+    </Sheet>
+  );
 }
 
 /**
@@ -294,6 +354,7 @@ export function VersionPanel({
   );
   const [copied, setCopied] = React.useState(false);
   const selected = versions.find((version) => version.id === selectedId) ?? null;
+  const phone = useIsPhone();
 
   async function copyLink() {
     if (selected === null) return;
@@ -383,12 +444,21 @@ export function VersionPanel({
               {copied ? 'Link copied' : 'Copy link to this version'}
             </Button>
           </div>
-          <VersionSelector
-            versions={versions}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            now={now}
-          />
+          {phone && versions.length > 1 ? (
+            <VersionPickerSheet
+              versions={versions}
+              selected={selected}
+              onSelect={setSelectedId}
+              now={now}
+            />
+          ) : (
+            <VersionSelector
+              versions={versions}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              now={now}
+            />
+          )}
           {capabilities.edit ? <UploadVersion songId={songId} songTitle={songTitle} /> : null}
           <p aria-live="polite" className="sr-only">
             {copied ? 'Link to this version copied' : ''}

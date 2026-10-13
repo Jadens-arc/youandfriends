@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **113** |
 
-Task `102` is next. `016` is passed over until its dependencies are `complete`. 77 of 96 iteration-one tasks are `complete`. **1 blocked.**
+Task `102` is next. `016` is passed over until its dependencies are `complete`. 78 of 96 iteration-one tasks are `complete`. **1 blocked.**
 
 ## Iteration one
 
@@ -103,9 +103,9 @@ Task `102` is next. `016` is passed over until its dependencies are `complete`. 
 | `095` | In-app notification center                                             | Comments, voice notes, notifications | `094`, `024`                              | `complete` | `7770266` | —                                                                                                |
 | `096` | Notification preferences and email delivery                            | Comments, voice notes, notifications | `095`, `002`                              | `complete` | `84d2b3d` | —                                                                                                |
 | `100` | PWA manifest, icons, and installability                                | Mobile and PWA                       | `014`, `010`                              | `complete` | `3a628af` | —                                                                                                |
-| `101` | Responsive audit across all implemented flows                          | Mobile and PWA                       | `077`, `085`, `095`, `055`                | `complete` | —         | —                                                                                                |
+| `101` | Responsive audit across all implemented flows                          | Mobile and PWA                       | `077`, `085`, `095`, `055`                | `complete` | `ceb77b2` | —                                                                                                |
 | `102` | Mobile playback verification and iOS limitations                       | Mobile and PWA                       | `076`, `077`, `062`                       | `pending`  | —         | —                                                                                                |
-| `103` | Bottom sheets and mobile navigation refinement                         | Mobile and PWA                       | `101`, `014`                              | `pending`  | —         | —                                                                                                |
+| `103` | Bottom sheets and mobile navigation refinement                         | Mobile and PWA                       | `101`, `014`                              | `complete` | —         | —                                                                                                |
 | `104` | Responsive verification in a real browser                              | Mobile and PWA                       | `101`                                     | `blocked`  | —         | Needs Clerk development keys in the environment: the app serves nothing without them, by design. |
 | `110` | Sync token issuance and device management                              | macOS sync agent                     | `032`, `023`, `024`                       | `pending`  | —         | —                                                                                                |
 | `111` | Tauri 2 menu-bar application scaffold                                  | macOS sync agent                     | `001`, `110`                              | `pending`  | —         | —                                                                                                |
@@ -159,6 +159,7 @@ at. Clear the section once a review has been done.
 - `095` — Fast-tracked at the user's request (2026-10-13); no security-reviewer or test-reviewer pass. The version-upload and media-worker notifications have no dedicated tests.
 - `096` — Fast-tracked at the user's request (2026-10-13); no security-reviewer or test-reviewer pass. The two new public routes and the unsubscribe signing scheme deserve a security read; Resend has never been exercised live.
 - `101` — Fast-tracked at the user's request (2026-10-13). Audited in source only; nothing was looked at in a browser — that is task `104`.
+- `103` — Fast-tracked at the user's request (2026-10-13); no test-reviewer pass. Gesture feel and scroll containment have only been exercised in jsdom.
 
 ## Notes on specific tasks
 

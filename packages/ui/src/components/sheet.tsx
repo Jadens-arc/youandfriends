@@ -94,6 +94,8 @@ export const SheetContent = React.forwardRef<
         <DialogPrimitive.Close
           className={cn(
             'text-muted-foreground hover:text-foreground absolute top-4 right-4 rounded-sm p-1',
+            // A 44 px target on a phone (task `101`); the icon stays the same size.
+            'max-md:top-2 max-md:right-2 max-md:flex max-md:size-11 max-md:items-center max-md:justify-center',
             transition,
             focusRing,
           )}

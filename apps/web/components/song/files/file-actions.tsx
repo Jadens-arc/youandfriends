@@ -9,16 +9,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Input,
 } from '@youandfriends/ui';
-import { MoreHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
+import { ActionMenu } from '@/components/shell/mobile/sheets/action-menu';
 import { postJson } from '@/lib/api/client';
 import type { SongFile } from '@/lib/songs/workspace';
 
@@ -196,26 +192,24 @@ export function FileActions({
   const [mode, setMode] = React.useState<FileActionMode | null>(null);
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Actions for ${file.name}`}
-            className="size-9"
-          >
-            <MoreHorizontal aria-hidden />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setMode('rename')}>Rename…</DropdownMenuItem>
-          {file.kind === 'project_file' ? (
-            <DropdownMenuItem onSelect={() => setMode('move')}>Move to folder…</DropdownMenuItem>
-          ) : null}
-          <DropdownMenuItem onSelect={() => setMode('tags')}>Tags…</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setMode('trash')}>Move to trash…</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ActionMenu
+        label={`Actions for ${file.name}`}
+        title={file.name}
+        actions={[
+          { key: 'rename', label: 'Rename…', onSelect: () => setMode('rename') },
+          ...(file.kind === 'project_file'
+            ? [{ key: 'move', label: 'Move to folder…', onSelect: () => setMode('move') }]
+            : []),
+          { key: 'tags', label: 'Tags…', onSelect: () => setMode('tags') },
+          {
+            key: 'trash',
+            label: 'Move to trash…',
+            onSelect: () => setMode('trash'),
+            destructive: true,
+            separated: true,
+          },
+        ]}
+      />
       {mode === null ? null : (
         <FileActionDialog
           file={file}

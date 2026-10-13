@@ -1,19 +1,11 @@
 'use client';
 
-import {
-  Button,
-  cn,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  focusRing,
-  transition,
-} from '@youandfriends/ui';
+import { Button, cn, focusRing, transition } from '@youandfriends/ui';
 import { ChevronRight, Folder as FolderIcon, FolderPlus, MoreVertical } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 
+import { ActionMenu } from '@/components/shell/mobile/sheets/action-menu';
 import type { VisibleFolder } from '@/lib/library/tree';
 
 export interface MobileDrilldownProps {
@@ -87,34 +79,29 @@ export function MobileDrilldown({
                     <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
                   </Link>
                   {editable ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={`More actions for ${folder.name}`}
-                          className={cn(
-                            'text-muted-foreground flex size-11 shrink-0 items-center justify-center rounded-sm',
-                            focusRing,
-                          )}
-                        >
-                          <MoreVertical className="size-4" aria-hidden />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => onRequestCreate(folder.id)}>
-                          New subfolder
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => onRequestRename(folder)}>
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => onRequestMove(folder)}>
-                          Move to…
-                        </DropdownMenuItem>
-                        <DropdownMenuItem destructive onSelect={() => onRequestDelete(folder)}>
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    // A sheet on a phone, a dropdown wherever this drill-down is wider (task `103`).
+                    <ActionMenu
+                      label={`More actions for ${folder.name}`}
+                      title={folder.name}
+                      trigger={<MoreVertical className="size-4" aria-hidden />}
+                      triggerClassName="text-muted-foreground size-11 shrink-0"
+                      actions={[
+                        {
+                          key: 'subfolder',
+                          label: 'New subfolder',
+                          onSelect: () => onRequestCreate(folder.id),
+                        },
+                        { key: 'rename', label: 'Rename', onSelect: () => onRequestRename(folder) },
+                        { key: 'move', label: 'Move to…', onSelect: () => onRequestMove(folder) },
+                        {
+                          key: 'delete',
+                          label: 'Delete',
+                          onSelect: () => onRequestDelete(folder),
+                          destructive: true,
+                          separated: true,
+                        },
+                      ]}
+                    />
                   ) : null}
                 </li>
               );

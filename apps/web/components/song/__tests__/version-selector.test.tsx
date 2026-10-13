@@ -143,3 +143,37 @@ describe('VersionPanel', () => {
     expect(screen.getByRole('region', { name: 'Waveform for Headlights' })).toBeVisible();
   });
 });
+
+describe('VersionPanel on a phone (task 103)', () => {
+  it('keeps the stack in a bottom sheet: a tap chooses a version and closes it', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('max-width'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const user = userEvent.setup();
+    render(
+      <VersionPanel
+        versions={VERSIONS}
+        linkedVersionId={null}
+        now={NOW}
+        songTitle="Headlights"
+        {...PANEL}
+      />,
+    );
+    // The radio group is not on the page until asked for.
+    expect(screen.queryByRole('radiogroup', { name: 'Versions' })).toBeNull();
+    const trigger = screen.getByRole('button', { name: /Version 2.*Change/ });
+    await user.click(trigger);
+    const sheet = await screen.findByRole('dialog', { name: 'Versions' });
+    await user.click(within(sheet).getByRole('radio', { name: /Version 3/ }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Version 3' })).toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    vi.unstubAllGlobals();
+  });
+});
