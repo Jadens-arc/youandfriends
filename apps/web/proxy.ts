@@ -1,6 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
 
+import { SIGN_IN_PATH, SIGN_UP_PATH } from '@/lib/auth/routes';
 import { isShowcaseEnabled, SHOWCASE_PATH } from '@/lib/showcase';
 
 /**
@@ -110,16 +111,21 @@ function unconfigured(): NextResponse {
  * why a guard placed in the callback never fired, and the first attempt at this shipped a 500
  * that said nothing. Found by deploying it and reading the stack, not by reasoning about it.
  */
-const authenticatedProxy = clerkMiddleware(async (auth, request: NextRequest) => {
-  if (!isPublicRoute(request)) {
-    // Throws on failure, and the throw is the point. Redirecting to sign-in is Clerk's
-    // behaviour for a browser request; an API route gets a 404-shaped refusal from the
-    // handlers themselves.
-    await auth.protect();
-  }
+const authenticatedProxy = clerkMiddleware(
+  async (auth, request: NextRequest) => {
+    if (!isPublicRoute(request)) {
+      // Throws on failure, and the throw is the point. Redirecting to sign-in is Clerk's
+      // behaviour for a browser request; an API route gets a 404-shaped refusal from the
+      // handlers themselves.
+      await auth.protect();
+    }
 
-  return NextResponse.next();
-});
+    return NextResponse.next();
+  },
+  // The app's own sign-in, not the hosted portal — see `lib/auth/routes.ts` for the loop the
+  // portal caused in production.
+  () => ({ signInUrl: SIGN_IN_PATH, signUpUrl: SIGN_UP_PATH }),
+);
 
 export default function proxy(
   request: NextRequest,

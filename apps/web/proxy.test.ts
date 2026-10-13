@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { config, isPublicRoute, showcaseGuard } from './proxy';
+import { SIGN_IN_PATH, SIGN_UP_PATH } from './lib/auth/routes';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -80,6 +81,35 @@ describe('route protection', () => {
     ]) {
       expect(isPublicRoute(request(path)), path).toBe(false);
     }
+  });
+});
+
+describe('where signing in happens', () => {
+  // In production, sending people to Clerk's hosted Account Portal looped: the portal saw them
+  // signed in and sent them home; the app, never receiving the session cookie, sent them back.
+  // Signing in on the app's own pages sets the session first-party. Asserted from source for the
+  // reason the next block gives: invoking `clerkMiddleware` needs a Clerk runtime.
+  const proxySource = readFileSync(join(process.cwd(), 'proxy.ts'), 'utf8');
+  const layoutSource = readFileSync(join(process.cwd(), 'app/layout.tsx'), 'utf8');
+
+  it('points the proxy at the app’s own sign-in and sign-up pages', () => {
+    expect(proxySource).toMatch(/signInUrl: SIGN_IN_PATH, signUpUrl: SIGN_UP_PATH/);
+  });
+
+  it('points the client at them too, and lands a fresh sign-in in the library', () => {
+    for (const [prop, value] of [
+      ['signInUrl', 'SIGN_IN_PATH'],
+      ['signUpUrl', 'SIGN_UP_PATH'],
+      ['signInFallbackRedirectUrl', 'AFTER_SIGN_IN_PATH'],
+    ]) {
+      expect(layoutSource).toContain(`${prop}={${value}}`);
+    }
+  });
+
+  it('keeps those pages public, so reaching them cannot itself require signing in', () => {
+    expect(isPublicRoute(request(SIGN_IN_PATH))).toBe(true);
+    expect(isPublicRoute(request(SIGN_UP_PATH))).toBe(true);
+    expect(isPublicRoute(request(`${SIGN_IN_PATH}/factor-one`))).toBe(true);
   });
 });
 

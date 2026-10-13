@@ -114,4 +114,4 @@ Fast-tracked at the user's request (2026-10-13); no test-reviewer pass. Gesture 
 
 ## Commit
 
-_(not yet)_
+`10f1314`
