@@ -400,7 +400,7 @@ export function LyricsPanel({
         />
         {kept === null ? null : (
           <details className="text-caption font-sans">
-            <summary className="text-muted-foreground cursor-pointer">
+            <summary className="text-muted-foreground cursor-pointer max-md:min-h-11">
               Your text before loading the newer version
             </summary>
             <textarea

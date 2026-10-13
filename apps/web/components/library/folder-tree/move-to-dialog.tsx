@@ -126,7 +126,7 @@ function MoveDestinationRow({
         type="button"
         onClick={onSelect}
         disabled={disabled}
-        className="text-body hover:bg-border-subtle disabled:text-muted-foreground flex w-full items-center gap-2 px-3 py-2 text-left font-sans disabled:cursor-not-allowed"
+        className="text-body hover:bg-border-subtle disabled:text-muted-foreground flex w-full items-center gap-2 px-3 py-2 text-left font-sans disabled:cursor-not-allowed max-md:min-h-11"
       >
         <FolderIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
         <span className="flex-1 truncate">{label}</span>

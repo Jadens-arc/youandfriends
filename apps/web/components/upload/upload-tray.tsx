@@ -200,7 +200,7 @@ export function UploadTray({ queue = uploadQueue() }: { readonly queue?: UploadQ
           onClick={() => setCollapsed(!collapsed)}
           aria-expanded={!collapsed}
           className={cn(
-            'text-body text-foreground flex min-h-9 flex-1 items-center gap-2 rounded-sm text-left font-sans font-medium',
+            'text-body text-foreground flex min-h-9 flex-1 items-center gap-2 rounded-sm text-left font-sans font-medium max-md:min-h-11',
             transition,
             focusRing,
           )}

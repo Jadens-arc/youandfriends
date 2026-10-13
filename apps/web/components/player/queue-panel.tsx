@@ -124,7 +124,7 @@ export function QueuePanel({
                   aria-label={`Play ${name}`}
                   onClick={() => void controller.playFromQueue(position)}
                   className={cn(
-                    'flex min-w-0 flex-1 flex-col rounded-sm text-left',
+                    'flex min-w-0 flex-1 flex-col rounded-sm text-left max-md:min-h-11',
                     transition,
                     focusRing,
                   )}

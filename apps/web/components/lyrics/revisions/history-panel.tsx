@@ -206,7 +206,7 @@ export function HistoryPanel({
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Before the bridge rewrite"
                 className={cn(
-                  'border-border bg-card text-body text-foreground h-9 rounded-md border px-2',
+                  'border-border bg-card text-body text-foreground h-9 rounded-md border px-2 max-md:min-h-11',
                   focusRing,
                 )}
               />
@@ -236,7 +236,7 @@ export function HistoryPanel({
                     aria-expanded={isSelected}
                     onClick={() => (isSelected ? setSelected(null) : void select(revision.id))}
                     className={cn(
-                      'border-border-subtle flex flex-col items-start rounded-md border px-3 py-2 text-left',
+                      'border-border-subtle flex flex-col items-start rounded-md border px-3 py-2 text-left max-md:min-h-11',
                       isSelected && 'border-foreground',
                       focusRing,
                     )}

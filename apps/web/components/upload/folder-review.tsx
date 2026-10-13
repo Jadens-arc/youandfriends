@@ -50,7 +50,7 @@ function Group({
   if (files.length === 0) return null;
   return (
     <details open={defaultOpen} className="border-border bg-card rounded-md border">
-      <summary className="text-body text-foreground cursor-pointer px-3 py-2 font-sans font-medium">
+      <summary className="text-body text-foreground cursor-pointer px-3 py-2 font-sans font-medium max-md:min-h-11">
         {title} <span className="text-muted-foreground tabular">({files.length})</span>
       </summary>
       <ul className="divide-border-subtle border-border-subtle max-h-72 divide-y overflow-auto border-t">

@@ -109,7 +109,7 @@ export function InlineField({
         setDraft(event.target.value),
       onBlur: () => void save(),
       className: cn(
-        'border-border bg-card text-foreground w-full rounded-md border px-2 py-1',
+        'border-border bg-card text-foreground w-full rounded-md border px-2 py-1 max-md:min-h-11',
         focusRing,
         className,
       ),
@@ -231,7 +231,7 @@ export function InlineStatus({
           }
         }}
         className={cn(
-          'border-border bg-card text-caption text-foreground h-8 rounded-sm border px-2 font-sans font-medium',
+          'border-border bg-card text-caption text-foreground h-8 rounded-sm border px-2 font-sans font-medium max-md:h-11',
           focusRing,
         )}
       >

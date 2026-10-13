@@ -108,4 +108,4 @@ Fast-tracked at the user's request (2026-10-13); no test-reviewer pass. The seed
 
 ## Commit
 
-_(not yet)_
+`2c80c8e`

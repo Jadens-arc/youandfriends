@@ -28,7 +28,7 @@ const ROLE_LABEL: Record<InvitableRole, string> = {
 };
 
 const SELECT_CLASS = cn(
-  'border-border bg-card text-body text-foreground flex h-9 w-full rounded border px-3 font-sans',
+  'border-border bg-card text-body text-foreground flex h-9 w-full rounded border px-3 font-sans max-md:h-11',
 );
 
 /**

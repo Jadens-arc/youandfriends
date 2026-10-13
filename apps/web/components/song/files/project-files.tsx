@@ -130,7 +130,7 @@ function FileLine({
               key={tag}
               type="button"
               onClick={() => onTag(tag)}
-              className={cn('rounded-sm', focusRing)}
+              className={cn('inline-flex items-center rounded-sm max-md:min-h-11', focusRing)}
               aria-label={`Show files tagged ${tag}`}
             >
               <Badge>{tag}</Badge>
@@ -159,7 +159,7 @@ function FolderView(props: {
           <details open className="group">
             <summary
               className={cn(
-                'text-body text-foreground flex min-h-10 cursor-pointer items-center gap-2 px-3 font-sans',
+                'text-body text-foreground flex min-h-10 cursor-pointer items-center gap-2 px-3 font-sans max-md:min-h-11',
                 focusRing,
               )}
             >
@@ -205,7 +205,7 @@ export function ProjectFiles({
     a.localeCompare(b),
   );
   const selectClass = cn(
-    'border-border bg-card text-caption text-foreground h-9 rounded-md border px-2 font-sans',
+    'border-border bg-card text-caption text-foreground h-9 rounded-md border px-2 font-sans max-md:h-11',
     focusRing,
   );
 

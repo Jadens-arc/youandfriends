@@ -579,7 +579,7 @@ export function CommentsPanel({
         >
           <summary
             className={cn(
-              'text-caption text-muted-foreground w-fit cursor-pointer rounded-sm',
+              'text-caption text-muted-foreground w-fit cursor-pointer rounded-sm max-md:min-h-11',
               focusRing,
             )}
           >

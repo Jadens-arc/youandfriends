@@ -216,7 +216,7 @@ function NotificationRow({
             href={item.href as Route}
             onClick={onOpen}
             className={cn(
-              'text-body text-foreground rounded-sm font-sans hover:underline',
+              'text-body text-foreground rounded-sm font-sans hover:underline max-md:inline-block max-md:py-2.5',
               item.read ? '' : 'font-semibold',
               focusRing,
             )}
@@ -278,7 +278,7 @@ function NotificationRow({
                   href={entry.href as Route}
                   onClick={onOpen}
                   className={cn(
-                    'text-caption text-foreground block rounded-sm font-sans hover:underline',
+                    'text-caption text-foreground block rounded-sm font-sans hover:underline max-md:min-h-11',
                     focusRing,
                   )}
                 >
