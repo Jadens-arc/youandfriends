@@ -34,6 +34,7 @@ import {
   users,
   workspaceMemberships,
   type DirectDatabase,
+  type NotificationLink,
 } from '@youandfriends/db';
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -458,6 +459,7 @@ async function notifyMentioned(
   context: CommentsContext,
   songId: string,
   recipientIds: readonly string[],
+  about: { readonly preview: string; readonly link: NotificationLink },
 ) {
   const others = recipientIds.filter((userId) => userId !== context.userId);
   if (others.length === 0) return;
@@ -467,7 +469,29 @@ async function notifyMentioned(
     targetId: songId,
     actorId: context.userId,
     recipientIds: others,
+    preview: about.preview,
+    link: about.link,
   });
+}
+
+/** Where a notification about a thread lands (task `095`): the thread, on its own tab. */
+function threadLink(threadId: string, anchor: CommentAnchor['kind']): NotificationLink {
+  return { threadId, anchor, tab: anchor === 'lyric' ? 'lyrics' : 'activity' };
+}
+
+/** A comment's glimpse for a notification: its words, or that it is a voice note. */
+function previewOf(body: string, voiceNote: boolean): string {
+  return body.trim() === '' && voiceNote ? 'A voice note' : body;
+}
+
+async function threadAnchor(context: LibraryContext, threadId: string) {
+  const [row] = await context.db
+    .select({ anchorKind: commentThreads.anchorKind })
+    .from(commentThreads)
+    .where(
+      and(eq(commentThreads.id, threadId), eq(commentThreads.workspaceId, context.workspaceId)),
+    );
+  return row?.anchorKind ?? 'general';
 }
 
 function auditContext(context: LibraryContext) {
@@ -555,13 +579,18 @@ export async function createThread(
       return { threadId, commentId };
     },
   );
+  const about = {
+    preview: previewOf(body, voiceNoteAssetId !== undefined),
+    link: threadLink(created.threadId, anchor.kind),
+  };
   await context.notify?.({
-    event: 'comment.created',
+    event: voiceNoteAssetId === undefined ? 'comment.created' : 'voice_note.created',
     targetType: 'song',
     targetId: songId,
     actorId: context.userId,
+    ...about,
   });
-  await notifyMentioned(context, songId, mentioned);
+  await notifyMentioned(context, songId, mentioned, about);
   return created;
 }
 
@@ -627,13 +656,18 @@ export async function reply(
       return { commentId };
     },
   );
+  const about = {
+    preview: previewOf(body, voiceNoteAssetId !== undefined),
+    link: threadLink(threadId, await threadAnchor(context, threadId)),
+  };
   await context.notify?.({
-    event: 'comment.replied',
+    event: voiceNoteAssetId === undefined ? 'comment.replied' : 'voice_note.created',
     targetType: 'song',
     targetId: songId,
     actorId: context.userId,
+    ...about,
   });
-  await notifyMentioned(context, songId, mentioned);
+  await notifyMentioned(context, songId, mentioned, about);
   return created;
 }
 
@@ -716,7 +750,12 @@ export async function editComment(
     },
   );
   // Only people newly mentioned hear about an edit; nobody is told twice.
-  await notifyMentioned(context, songId, added);
+  if (added.length > 0) {
+    await notifyMentioned(context, songId, added, {
+      preview: body,
+      link: threadLink(threadId, await threadAnchor(context, threadId)),
+    });
+  }
 }
 
 /**

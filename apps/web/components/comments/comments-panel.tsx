@@ -3,6 +3,7 @@
 import { COMMENT_MAX_CHARACTERS } from '@youandfriends/contracts';
 import { Button, cn, focusRing } from '@youandfriends/ui';
 import { CheckCircle2, MessageSquare, RotateCcw } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
 import { playAtMoment, type SongPlayback } from '@/lib/comments/playback';
@@ -31,6 +32,40 @@ import { VoiceRecorder } from './voice-note/voice-recorder';
 type Loaded = CommentsData;
 
 const when = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+/** The DOM id prefix of a thread in the Comments tab — what a notification's deep link targets. */
+export const COMMENT_THREAD_PREFIX = 'comment-thread-';
+
+/**
+ * The thread named by `?thread=` (task `095`): once the comments are loaded, scroll it into view
+ * and move focus to it, once. Returns its id while it is the linked one.
+ */
+export function useLinkedThread(
+  loaded: CommentsData | null | 'error',
+  prefix: string,
+  onFound?: (thread: ThreadView) => void,
+): ThreadView | null {
+  const wanted = useSearchParams()?.get('thread') ?? null;
+  const thread =
+    wanted === null || loaded === null || loaded === 'error'
+      ? null
+      : (loaded.threads.find((candidate) => candidate.id === wanted) ?? null);
+  const done = React.useRef(false);
+  const threadId = thread?.id ?? null;
+  React.useEffect(() => {
+    if (done.current || threadId === null) return;
+    done.current = true;
+    if (thread !== null) onFound?.(thread);
+    requestAnimationFrame(() => {
+      const element = document.getElementById(`${prefix}${threadId}`);
+      element?.scrollIntoView?.({ block: 'center' });
+      element?.focus({ preventScroll: true });
+    });
+    // Once per landing: the thread's later changes are not a new arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId, prefix]);
+  return thread;
+}
 
 async function send(url: string, method: string, body?: unknown): Promise<boolean> {
   return (await sendFor(url, method, body)) === true;
@@ -332,6 +367,7 @@ export function Thread({
   playback,
   domId,
   lead = null,
+  highlighted = false,
 }: {
   readonly thread: ThreadView;
   readonly songId: string;
@@ -342,6 +378,8 @@ export function Thread({
   readonly domId?: string;
   /** Shown above the comments — a lyric thread's quote. */
   readonly lead?: React.ReactNode;
+  /** The thread a notification linked to (task `095`): outlined, so the eye lands on it. */
+  readonly highlighted?: boolean;
 }) {
   const [replying, setReplying] = React.useState(false);
   const base = `/api/songs/${encodeURIComponent(songId)}/comments/${encodeURIComponent(thread.id)}`;
@@ -351,7 +389,10 @@ export function Thread({
       id={domId}
       tabIndex={domId === undefined ? undefined : -1}
       aria-label={threadName(thread)}
-      className="border-border-subtle bg-card flex flex-col gap-3 rounded-md border p-3"
+      className={cn(
+        'bg-card flex flex-col gap-3 rounded-md border p-3',
+        highlighted ? 'border-foreground border-2' : 'border-border-subtle',
+      )}
     >
       {thread.anchor.kind === 'timestamp' ? (
         <MomentChip anchor={thread.anchor} playback={playback} />
@@ -451,6 +492,12 @@ export function CommentsPanel({
   const state = useSongComments(songId);
   const loaded: Loaded | null | 'error' = state === 'loading' ? null : state;
   const [unresolvedOnly, setUnresolvedOnly] = React.useState(false);
+  const linkedThread = useLinkedThread(loaded, COMMENT_THREAD_PREFIX);
+  const linked = linkedThread?.id ?? null;
+  // A link to a resolved thread (task `095`) unfolds the resolved list to show it, until the
+  // person folds it themselves.
+  const [resolvedOpen, setResolvedOpen] = React.useState<boolean | null>(null);
+  const showResolved = resolvedOpen ?? (linkedThread !== null && linkedThread.resolvedAt !== null);
   const base = `/api/songs/${encodeURIComponent(songId)}/comments`;
   const load = React.useCallback(() => refreshComments(songId), [songId]);
 
@@ -517,13 +564,19 @@ export function CommentsPanel({
           canComment={loaded.canComment}
           onChanged={load}
           playback={playback}
+          domId={`${COMMENT_THREAD_PREFIX}${thread.id}`}
+          highlighted={linked === thread.id}
         />
       ))}
       {unresolvedOnly && open.length === 0 && resolved.length > 0 ? (
         <p className="text-body text-muted-foreground">Every thread is resolved.</p>
       ) : null}
       {resolved.length === 0 || unresolvedOnly ? null : (
-        <details className="flex flex-col gap-3">
+        <details
+          className="flex flex-col gap-3"
+          open={showResolved}
+          onToggle={(event) => setResolvedOpen(event.currentTarget.open)}
+        >
           <summary
             className={cn(
               'text-caption text-muted-foreground w-fit cursor-pointer rounded-sm',
@@ -541,6 +594,8 @@ export function CommentsPanel({
                 canComment={loaded.canComment}
                 onChanged={load}
                 playback={playback}
+                domId={`${COMMENT_THREAD_PREFIX}${thread.id}`}
+                highlighted={linked === thread.id}
               />
             ))}
           </div>

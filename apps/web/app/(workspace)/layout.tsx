@@ -1,3 +1,4 @@
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { AudioHost } from '@/components/player/audio-host';
 import { CommandEntry } from '@/components/shell/command-entry';
 import { BottomNavigation } from '@/components/shell/mobile/bottom-navigation';
@@ -38,6 +39,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="border-border hidden h-14 shrink-0 items-center justify-between gap-4 border-b px-4 md:flex">
           <CommandEntry />
+          <NotificationBell />
         </header>
 
         {/* Mobile: drill-down header with the back affordance. Hidden on desktop by its own

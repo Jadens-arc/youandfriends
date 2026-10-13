@@ -28,6 +28,7 @@ import {
   comments,
   mediaJobs,
   mixVersions,
+  notifications,
   permissionGrants,
   projects,
   snapshotEntries,
@@ -500,10 +501,24 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
     why: 'Who responded to what, and when: activity on private discussion.',
   },
   {
-    status: 'pending',
+    status: 'live',
     name: 'notifications',
-    tableName: 'notifications',
-    task: '095',
+    table: notifications,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      const user = await makeUser(db);
+      await db.insert(notifications).values({
+        id: testId(),
+        workspaceId,
+        recipientId: user.id,
+        event: 'comment.created',
+        targetType: 'song',
+        targetId: song.id,
+        groupKey: `comment:song:${song.id}`,
+        items: [{ event: 'comment.created', actorId: null, preview: 'secret words', link: null }],
+      });
+    },
     why: 'Reveals activity, timing, and who is working with whom.',
   },
   {

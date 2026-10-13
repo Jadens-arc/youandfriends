@@ -3,6 +3,7 @@ import { createDirectClient } from '@youandfriends/db';
 import { assertCapabilities, type Capabilities } from '@youandfriends/media';
 import { createR2Transfer, r2ConfigFrom } from '@youandfriends/storage';
 
+import { createMediaNotifier } from './notify';
 import type { PipelineDeps } from './pipeline';
 
 /**
@@ -19,8 +20,10 @@ export function workerDeps(): PipelineDeps {
   if (deps !== null) return deps;
   const env = parseServerEnv();
   const derivativesConfig = r2ConfigFrom(env, 'derivatives');
+  const db = createDirectClient(env, { max: 2 }).db;
   deps = {
-    db: createDirectClient(env, { max: 2 }).db,
+    db,
+    notify: createMediaNotifier(db),
     originals: createR2Transfer(r2ConfigFrom(env, 'originals')),
     derivatives: createR2Transfer(derivativesConfig),
     derivativesBucket: derivativesConfig.bucket,

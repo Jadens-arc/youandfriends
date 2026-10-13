@@ -15,6 +15,7 @@ import {
   comments,
   commentMentions,
   commentReactions,
+  notifications,
   mediaJobs,
   mixVersions,
   permissionGrants,
@@ -79,6 +80,8 @@ export const SCOPED_TABLES = {
   // Added in task `094`: who a comment mentions, and reactions to it.
   commentMentions,
   commentReactions,
+  // Added in task `095`: one person's notifications.
+  notifications,
   storageObjects,
   snapshots,
   snapshotEntries,

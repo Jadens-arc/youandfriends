@@ -29,3 +29,16 @@ export type NotificationEvent = z.infer<typeof notificationEventSchema>;
 export const NOTIFICATION_CHANNELS = ['in_app', 'email'] as const;
 export const notificationChannelSchema = z.enum(NOTIFICATION_CHANNELS);
 export type NotificationChannel = z.infer<typeof notificationChannelSchema>;
+
+/** Mark notifications read or unread (task `095`): the ones named, or every one, read. */
+export const markNotificationsSchema = z
+  .object({
+    ids: z.array(z.string().max(26)).max(200).optional(),
+    all: z.literal(true).optional(),
+    read: z.boolean(),
+  })
+  .refine((value) => value.all === true || (value.ids !== undefined && value.ids.length > 0), {
+    message: 'Name the notifications, or ask for all of them.',
+    path: ['ids'],
+  });
+export type MarkNotificationsRequest = z.infer<typeof markNotificationsSchema>;

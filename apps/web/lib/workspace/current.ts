@@ -7,6 +7,7 @@ import type { Subject } from '@youandfriends/authz';
 
 import { currentSession } from '@/lib/auth/current-session';
 import { transactionalDatabase } from '@/lib/database';
+import { createNotifier } from '@/lib/notifications/generate';
 
 import type { MemberManagementContext } from './members';
 import { resolveWorkspace, WORKSPACE_COOKIE, type CurrentWorkspace } from './resolve';
@@ -69,5 +70,10 @@ export function workspaceRequest(context: WorkspaceContext): WorkspaceRequest {
 
 /** The per-request handle role-change and removal use cases take. */
 export function memberManagementContext(context: WorkspaceContext): MemberManagementContext {
-  return { ...workspaceRequest(context), actingUserId: context.userId };
+  const request = workspaceRequest(context);
+  return {
+    ...request,
+    actingUserId: context.userId,
+    notify: createNotifier(request.db, request.workspaceId),
+  };
 }

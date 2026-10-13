@@ -20,6 +20,7 @@ import { loopRegions } from './loop-regions';
 import { lyricsDocuments, lyricsRevisions } from './lyrics';
 import { commentMentions, commentReactions, commentThreads, comments } from './comments';
 import { mediaJobs } from './media-jobs';
+import { notifications } from './notifications';
 import { snapshotEntries, snapshots } from './snapshots';
 import { storageObjects } from './storage-objects';
 import { uploadParts, uploadSessions } from './uploads';
@@ -43,6 +44,7 @@ export * from './loop-regions';
 export * from './lyrics';
 export * from './comments';
 export * from './media-jobs';
+export * from './notifications';
 export * from './permissions';
 export * from './projects';
 export * from './recents';
@@ -85,6 +87,7 @@ export const schema = {
   comments,
   commentMentions,
   commentReactions,
+  notifications,
   snapshots,
   snapshotEntries,
   users,

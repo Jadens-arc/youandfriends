@@ -169,6 +169,13 @@
       "when": 1791920224032,
       "tag": "0023_comment_mentions_reactions",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791920991663,
+      "tag": "0024_notifications",
+      "breakpoints": true
     }
   ]
 }

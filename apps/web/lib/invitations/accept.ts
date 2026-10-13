@@ -21,6 +21,9 @@ import {
 } from '@youandfriends/db';
 import { eq } from 'drizzle-orm';
 
+import { createNotifier } from '@/lib/notifications/generate';
+import type { NotificationSink } from '@/lib/notifications/sink';
+
 /**
  * Accepting an invitation from its token.
  *
@@ -58,6 +61,8 @@ export interface AcceptRequest {
   readonly now?: (() => Date) | undefined;
   readonly newId?: (() => string) | undefined;
   readonly correlationId?: string | undefined;
+  /** Tells the inviter (task `095`); defaults to the workspace's notifier. */
+  readonly notify?: NotificationSink | undefined;
 }
 
 export async function acceptInvitationToken(
@@ -162,5 +167,21 @@ export async function acceptInvitationToken(
   );
 
   if (outcome === null) return { kind: 'refused', reason: GENERIC_REFUSAL };
+  // Tell whoever sent it (task `095`). A folder has no page of its own to land on, so a folder
+  // invitation is announced on the workspace.
+  if (invitation.invitedByUserId !== null) {
+    const notify =
+      request.notify ??
+      createNotifier(request.db, invitation.workspaceId as WorkspaceId, { now: () => now });
+    const scope = invitation.scopeType;
+    await notify({
+      event: 'access.changed',
+      targetType: scope === 'folder' ? 'workspace' : scope,
+      targetId: scope === 'folder' ? invitation.workspaceId : invitation.scopeId,
+      actorId: request.acceptingUserId,
+      recipientIds: [invitation.invitedByUserId],
+      preview: 'Accepted your invitation.',
+    });
+  }
   return { kind: 'accepted', workspaceId: invitation.workspaceId, ...outcome };
 }

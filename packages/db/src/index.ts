@@ -196,3 +196,18 @@ export {
   type SearchRows,
   type SearchScopeRows,
 } from './queries/search';
+export {
+  listNotificationRows,
+  markNotificationsRead,
+  markNotificationsUnread,
+  notificationGroupKey,
+  pruneNotifications,
+  recordNotifications,
+  NOTIFICATION_ITEMS_KEPT,
+  NOTIFICATION_READ_RETENTION_MS,
+  NOTIFICATION_ROWS_KEPT,
+  type NotificationItem,
+  type NotificationLink,
+  type NotificationRow,
+  type RecordNotificationsInput,
+} from './queries/notifications';

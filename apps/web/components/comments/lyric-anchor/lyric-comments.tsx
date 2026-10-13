@@ -19,7 +19,7 @@ import {
   type LyricAnchorScope,
 } from '@/lib/lyrics/anchors';
 
-import { Composer, Thread } from '../comments-panel';
+import { Composer, Thread, useLinkedThread } from '../comments-panel';
 import type { AnchorThread } from './extension';
 
 /**
@@ -93,6 +93,12 @@ export function LyricComments({
   useEditorTick(editor);
   const [draft, setDraft] = React.useState<LyricAnchor | null>(null);
   const [message, setMessage] = React.useState('');
+  // A notification's link to a lyric thread (task `095`) lands on it, once the editor is ready.
+  const linked = useLinkedThread(
+    state === 'loading' || editor === null ? null : state,
+    'lyric-thread-',
+    (thread) => onShow(thread.id),
+  );
   if (state === 'loading' || state === 'error' || editor === null) return null;
   const threads = state.threads.filter(isLyricThread);
   const hasSelection = !editor.state.selection.empty;
@@ -189,6 +195,7 @@ export function LyricComments({
         <Thread
           key={thread.id}
           domId={`lyric-thread-${thread.id}`}
+          highlighted={linked?.id === thread.id}
           thread={thread}
           songId={songId}
           canComment={state.canComment}

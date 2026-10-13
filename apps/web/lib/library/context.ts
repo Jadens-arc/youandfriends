@@ -5,6 +5,8 @@ import type { DirectDatabase } from '@youandfriends/db';
 import { createR2Driver, r2ConfigFrom, StorageNotConfiguredError } from '@youandfriends/storage';
 
 import { transactionalDatabase } from '@/lib/database';
+import { createNotifier } from '@/lib/notifications/generate';
+import type { NotificationSink } from '@/lib/notifications/sink';
 import type { WorkspaceContext } from '@/lib/workspace/current';
 
 import type { CoverSigner } from './covers';
@@ -27,6 +29,8 @@ export interface LibraryContext {
   readonly correlationId?: string | undefined;
   /** Signs cover rendition reads (task `069`); absent when no derivatives bucket is configured. */
   readonly coverSigner?: CoverSigner | undefined;
+  /** Where domain events go to become notifications (task `095`); absent, they are dropped. */
+  readonly notify?: NotificationSink | undefined;
 }
 
 export function libraryContext(context: WorkspaceContext): LibraryContext {
@@ -39,6 +43,7 @@ export function libraryContext(context: WorkspaceContext): LibraryContext {
     userId: context.userId,
     correlationId: context.correlationId,
     coverSigner: coverSigner(),
+    notify: createNotifier(db, context.workspace.workspaceId),
   };
 }
 
