@@ -80,9 +80,17 @@ pnpm build
 
 Verification and documentation. Any fixes are additive; reverting loses them and the recorded findings.
 
+## Blocker record
+
+2026-10-13: the agent session has no iOS device. This task is verification on real hardware by definition, so nothing was changed. The code paths it checks (tasks `070`, `076`, `077`) are covered by unit tests.
+
 ## Status
 
-`pending`
+`blocked`
+
+## Blocker
+
+Needs a physical iPhone and a person to use it: background playback, lock screen, AirPlay, calls, and network changes cannot be exercised by an agent.
 
 ## Commit
 
