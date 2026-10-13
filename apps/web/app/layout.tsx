@@ -7,6 +7,7 @@ import { surface } from '@youandfriends/ui/tokens';
 import { ServiceWorker } from '@/components/pwa/service-worker';
 import { splashLinks } from '@/lib/pwa/splash';
 import { clerkAppearance } from '@/lib/auth/appearance';
+import { AFTER_SIGN_IN_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from '@/lib/auth/routes';
 
 import { fontVariables } from './fonts';
 
@@ -46,7 +47,13 @@ export const viewport: Viewport = {
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider appearance={clerkAppearance}>
+    <ClerkProvider
+      appearance={clerkAppearance}
+      signInUrl={SIGN_IN_PATH}
+      signUpUrl={SIGN_UP_PATH}
+      signInFallbackRedirectUrl={AFTER_SIGN_IN_PATH}
+      signUpFallbackRedirectUrl={AFTER_SIGN_IN_PATH}
+    >
       <html lang="en" className={fontVariables}>
         <head>
           {/*

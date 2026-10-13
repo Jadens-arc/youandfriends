@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { PRODUCT_NAME } from '@youandfriends/config';
 
 import { clerkAppearance } from '@/lib/auth/appearance';
+import { SIGN_IN_PATH, SIGN_UP_PATH } from '@/lib/auth/routes';
 
 export const metadata: Metadata = { title: `Sign in · ${PRODUCT_NAME}` };
 
@@ -13,5 +14,12 @@ export const metadata: Metadata = { title: `Sign in · ${PRODUCT_NAME}` };
  * that has one.
  */
 export default function SignInPage() {
-  return <SignIn appearance={clerkAppearance} />;
+  return (
+    <SignIn
+      appearance={clerkAppearance}
+      path={SIGN_IN_PATH}
+      routing="path"
+      signUpUrl={SIGN_UP_PATH}
+    />
+  );
 }
