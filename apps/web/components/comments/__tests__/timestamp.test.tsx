@@ -256,6 +256,28 @@ describe('commenting on a moment (task 091)', () => {
   });
 });
 
+describe('a moment comment on a phone (task 103)', () => {
+  it('plays the moment and opens its conversation in a bottom sheet', async () => {
+    stubFetch();
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('max-width'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    render(<TimestampComments playback={PLAYBACK} durationMs={240_000} />);
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'Comment at 0:20 by Alex: Great intro.' }));
+    expect(player.load).toHaveBeenCalled();
+    const sheet = await screen.findByRole('dialog', { name: 'Comment' });
+    expect(within(sheet).getByText('Great intro.')).toBeInTheDocument();
+    expect(sheet).toHaveAttribute('data-snap', 'half');
+  });
+});
+
 describe('moments in the comments list (task 091)', () => {
   it('shows a moment in mono tabular figures, and seeks when this song is playing', async () => {
     stubFetch();

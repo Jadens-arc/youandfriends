@@ -57,7 +57,14 @@ export function ModuleItem({
         {href === undefined ? (
           primary
         ) : (
-          <Link href={href} className={cn('rounded-sm hover:underline', transition, focusRing)}>
+          <Link
+            href={href}
+            className={cn(
+              'rounded-sm hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center',
+              transition,
+              focusRing,
+            )}
+          >
             {primary}
           </Link>
         )}

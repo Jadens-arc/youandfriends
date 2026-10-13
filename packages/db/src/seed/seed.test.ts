@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { databaseUrl } from '@youandfriends/config/fixtures';
+import { lyricsDocumentSchema } from '@youandfriends/contracts';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -8,6 +9,7 @@ import { createTestDatabase, unavailableReason, type TestDatabase } from '../__t
 import {
   assetVersions,
   assets,
+  derivatives,
   folders,
   mixVersions,
   permissionGrants,
@@ -18,6 +20,12 @@ import {
   users,
   workspaceMemberships,
   workspaces,
+  commentMentions,
+  commentReactions,
+  comments,
+  commentThreads,
+  lyricsDocuments,
+  notifications,
 } from '../schema/index';
 import {
   SEED_FOLDERS,
@@ -35,12 +43,18 @@ import {
   MAX_COMMITTED_FIXTURE_BYTES,
   WAV_FORMATS,
 } from './fixtures/audio';
+import { SEED_LYRICS, SEED_THREADS } from './conversation';
 import { assertSeedAllowed, SEED_ALLOW_HOST_VAR, SeedRefusedError } from './guard';
 import { deterministicId } from './ids';
 import { reset, seed } from './index';
 
 const reason = unavailableReason();
 const describeWithDatabase = reason === null ? describe : describe.skip;
+
+/** Recordings the conversation seed adds (task `029`): versions and objects, but not mixes. */
+const VOICE_NOTES = SEED_THREADS.flatMap((thread) => thread.comments).filter(
+  (comment) => comment.voiceNote === true,
+).length;
 if (reason !== null) {
   console.warn(`SKIPPING seed tests: ${reason}`);
 }
@@ -348,6 +362,12 @@ describeWithDatabase('running the seed', () => {
   it('is idempotent', async () => {
     await seed(database.db, permit);
     const before = (await database.db.select().from(mixVersions)).length;
+    const objects = (await database.db.select().from(storageObjects)).length;
+    const conversation = {
+      threads: (await database.db.select().from(commentThreads)).length,
+      comments: (await database.db.select().from(comments)).length,
+      notifications: (await database.db.select().from(notifications)).length,
+    };
 
     await seed(database.db, permit);
 
@@ -355,7 +375,12 @@ describeWithDatabase('running the seed', () => {
     // how someone eventually resets the wrong database.
     expect((await database.db.select().from(mixVersions)).length).toBe(before);
     expect(await database.db.select().from(folders)).toHaveLength(SEED_FOLDERS.length);
-    expect(await database.db.select().from(storageObjects)).toHaveLength(before);
+    expect(await database.db.select().from(storageObjects)).toHaveLength(objects);
+    expect({
+      threads: (await database.db.select().from(commentThreads)).length,
+      comments: (await database.db.select().from(comments)).length,
+      notifications: (await database.db.select().from(notifications)).length,
+    }).toEqual(conversation);
   }, 60_000);
 
   it('stacks versions and makes the newest current', async () => {
@@ -544,8 +569,9 @@ describeWithDatabase('running the seed', () => {
     // Against a model-derived total, not against whatever the last run happened to write.
     const expected = SEED_SONGS.reduce((total, song) => total + song.versions, 0);
     expect(await database.db.select().from(mixVersions)).toHaveLength(expected);
-    expect(await database.db.select().from(assetVersions)).toHaveLength(expected);
-    expect(await database.db.select().from(storageObjects)).toHaveLength(expected);
+    // Plus one recording per seeded voice note (task `029`), which is a version but not a mix.
+    expect(await database.db.select().from(assetVersions)).toHaveLength(expected + VOICE_NOTES);
+    expect(await database.db.select().from(storageObjects)).toHaveLength(expected + VOICE_NOTES);
   }, 60_000);
 
   it('clears its content on reset, and rebuilds it', async () => {
@@ -565,6 +591,13 @@ describeWithDatabase('running the seed', () => {
       ['storageObjects', storageObjects],
       ['permissionGrants', permissionGrants],
       ['favorites', favorites],
+      ['lyricsDocuments', lyricsDocuments],
+      ['commentThreads', commentThreads],
+      ['comments', comments],
+      ['commentMentions', commentMentions],
+      ['commentReactions', commentReactions],
+      ['notifications', notifications],
+      ['derivatives', derivatives],
     ] as const) {
       expect(await database.db.select().from(table), name).toEqual([]);
     }
@@ -598,5 +631,59 @@ describeWithDatabase('running the seed', () => {
     const surviving = await database.db.select().from(folders);
     expect(surviving.map((row) => row.id).sort()).toEqual([foreignFolder.id, handMade.id].sort());
     expect(await database.db.select().from(workspaces)).toHaveLength(2);
+  }, 60_000);
+
+  it('lands lyrics, conversation, a voice note, and notifications — including the empty cases', async () => {
+    await seed(database.db, permit);
+    const db = database.db;
+
+    // Lyrics with structured blocks the editor accepts, and songs deliberately without any.
+    const lyrics = await db.select().from(lyricsDocuments);
+    expect(lyrics.map((row) => row.songId).sort()).toEqual(
+      Object.keys(SEED_LYRICS)
+        .map((key) => deterministicId(`song:${key}`))
+        .sort(),
+    );
+    for (const row of lyrics) {
+      expect(lyricsDocumentSchema.safeParse(row.document).success, row.songId).toBe(true);
+      expect(row.plainText.length).toBeGreaterThan(0);
+    }
+    expect(lyrics.map((row) => row.songId)).not.toContain(deterministicId('song:second-sleep-2'));
+
+    // A general thread and a timestamp thread, the moment inside the anchored version's audio.
+    const threads = await db.select().from(commentThreads);
+    expect(new Set(threads.map((thread) => thread.anchorKind))).toEqual(
+      new Set(['general', 'timestamp', 'lyric']),
+    );
+    const moment = threads.find((thread) => thread.anchorKind === 'timestamp');
+    const [anchored] = await db
+      .select({ durationMs: assetVersions.durationMs })
+      .from(mixVersions)
+      .innerJoin(assetVersions, eq(assetVersions.id, mixVersions.assetVersionId))
+      .where(eq(mixVersions.id, moment?.anchorVersionId ?? ''));
+    expect(moment?.anchorMs).toBeLessThan(anchored?.durationMs ?? 0);
+    expect(threads.some((thread) => thread.resolvedAt !== null)).toBe(true);
+
+    // A voice note, backed by a generated tone's version.
+    const [voice] = await db
+      .select({ processing: assetVersions.processingState, kind: assets.kind })
+      .from(comments)
+      .innerJoin(assets, eq(assets.id, comments.voiceNoteAssetId))
+      .innerJoin(assetVersions, eq(assetVersions.assetId, assets.id));
+    expect(voice).toEqual({ processing: 'complete', kind: 'voice_note' });
+
+    // A mention stored as a reference, matching the token in the words.
+    const [mention] = await db.select().from(commentMentions);
+    const [mentioning] = await db
+      .select()
+      .from(comments)
+      .where(eq(comments.id, mention?.commentId ?? ''));
+    expect(mentioning?.body).toContain(`<@${mention?.userId}>`);
+
+    // Notifications, read and unread — and one collaborator with none at all.
+    const rows = await db.select().from(notifications);
+    expect(rows.some((row) => row.readAt === null)).toBe(true);
+    expect(rows.some((row) => row.readAt !== null)).toBe(true);
+    expect(rows.map((row) => row.recipientId)).not.toContain(deterministicId('user:sam'));
   }, 60_000);
 });

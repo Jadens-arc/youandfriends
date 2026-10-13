@@ -25,6 +25,7 @@ import {
   SEED_USERS,
   SEED_WORKSPACE_ID,
 } from './data';
+import { resetConversation, seedConversation } from './conversation';
 import { generateAllFixtures } from './fixtures/audio';
 import type { SeedPermit } from './guard';
 import { deterministicId } from './ids';
@@ -50,6 +51,10 @@ export interface SeedResult {
   readonly mixVersions: number;
   readonly grants: number;
   readonly fixtureBytes: number;
+  /** Task `029`: the conversation on the songs. */
+  readonly threads: number;
+  readonly comments: number;
+  readonly notifications: number;
 }
 
 const id = deterministicId;
@@ -284,7 +289,12 @@ export async function seed(db: DirectDatabase, _permit: SeedPermit): Promise<See
     })
     .onConflictDoNothing();
 
+  const shortest = fixtures[0];
+  if (shortest === undefined) throw new Error('no audio fixtures were generated');
+  const conversation = await seedConversation(db, shortest);
+
   return {
+    ...conversation,
     workspaceId: SEED_WORKSPACE_ID,
     users: SEED_USERS.length,
     folders: SEED_FOLDERS.length,
@@ -339,6 +349,8 @@ export async function reset(db: DirectDatabase, _permit: SeedPermit): Promise<vo
   );
 
   await withTransaction(db, async (tx) => {
+    // Task `029`'s rows first: threads and voice notes hang off the songs below.
+    await resetConversation(tx);
     await tx.delete(favorites).where(inArray(favorites.id, favoriteIds));
     await tx.delete(permissionGrants).where(inArray(permissionGrants.id, grantIds));
 

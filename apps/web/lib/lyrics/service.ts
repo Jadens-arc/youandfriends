@@ -251,6 +251,7 @@ export async function saveLyrics(
       targetType: 'song',
       targetId: songId,
       actorId: context.userId,
+      link: { tab: 'lyrics' },
     });
   }
   return { version: result.version };

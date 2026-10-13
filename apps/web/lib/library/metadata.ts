@@ -7,12 +7,13 @@ import {
   updateProjectSchema,
   updateSongSchema,
   validationFailed,
-  type NotificationEvent,
   type UpdateProjectRequest,
   type UpdateSongRequest,
 } from '@youandfriends/contracts';
 import { assets, projects, songs } from '@youandfriends/db';
 import { and, eq, isNull } from 'drizzle-orm';
+
+import type { NotificationSink } from '@/lib/notifications/sink';
 
 import type { LibraryContext } from './context';
 
@@ -25,17 +26,8 @@ import type { LibraryContext } from './context';
  * writes nothing, not an empty event.
  */
 
-/**
- * Something a collaborator may want to hear about. Delivery arrives with tasks `095`–`096`;
- * until then the event is raised and a context without a sink drops it — the cause is wired
- * now so the notification center does not have to rediscover every place that changes things.
- */
-export type NotificationSink = (event: {
-  readonly event: NotificationEvent;
-  readonly targetType: 'song' | 'project';
-  readonly targetId: string;
-  readonly actorId: string;
-}) => Promise<void>;
+/** Raised for every metadata change (task `043`); delivered by task `095`'s generator. */
+export type { NotificationSink };
 
 export interface MetadataContext extends LibraryContext {
   readonly notify?: NotificationSink | undefined;
@@ -119,6 +111,7 @@ export async function updateSong(
     targetType: 'song',
     targetId: songId,
     actorId: context.userId,
+    preview: `Changed ${Object.keys(after).join(', ')}`,
   });
 }
 
@@ -192,5 +185,6 @@ export async function updateProject(
     targetType: 'project',
     targetId: projectId,
     actorId: context.userId,
+    preview: `Changed ${Object.keys(after).join(', ')}`,
   });
 }

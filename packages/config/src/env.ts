@@ -53,6 +53,9 @@ const serverSchema = z.object({
 
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_ADDRESS: z.string().email().optional(),
+  // Task `096`: where links in an email point, and the key unsubscribe links are signed with.
+  YOUANDFRIENDS_APP_URL: z.string().url().optional(),
+  YOUANDFRIENDS_EMAIL_SIGNING_SECRET: z.string().min(32).optional(),
 
   SENTRY_DSN: z.string().url().optional(),
 
@@ -166,4 +169,40 @@ export function hasSentryDsn(
   env: Pick<ServerEnv, 'SENTRY_DSN' | 'NEXT_PUBLIC_SENTRY_DSN'>,
 ): boolean {
   return Boolean(env.SENTRY_DSN ?? env.NEXT_PUBLIC_SENTRY_DSN);
+}
+
+/** What email delivery needs (task `096`), or why it is unavailable. */
+export type EmailConfig =
+  | {
+      readonly available: true;
+      readonly apiKey: string;
+      readonly from: string;
+      readonly appUrl: string;
+      readonly signingSecret: string;
+    }
+  | { readonly available: false; readonly missing: readonly string[] };
+
+/**
+ * Email is available only when every piece of it is configured. Anything less is reported as
+ * unavailable, by name — the preferences page says so rather than offering a toggle that does
+ * nothing (CLAUDE.md §7).
+ */
+export function emailConfigFrom(env: ServerEnv): EmailConfig {
+  const wanted = {
+    RESEND_API_KEY: env.RESEND_API_KEY,
+    RESEND_FROM_ADDRESS: env.RESEND_FROM_ADDRESS,
+    YOUANDFRIENDS_APP_URL: env.YOUANDFRIENDS_APP_URL,
+    YOUANDFRIENDS_EMAIL_SIGNING_SECRET: env.YOUANDFRIENDS_EMAIL_SIGNING_SECRET,
+  };
+  const missing = Object.entries(wanted)
+    .filter(([, value]) => value === undefined || value === '')
+    .map(([name]) => name);
+  if (missing.length > 0) return { available: false, missing };
+  return {
+    available: true,
+    apiKey: wanted.RESEND_API_KEY ?? '',
+    from: wanted.RESEND_FROM_ADDRESS ?? '',
+    appUrl: (wanted.YOUANDFRIENDS_APP_URL ?? '').replace(/\/+$/, ''),
+    signingSecret: wanted.YOUANDFRIENDS_EMAIL_SIGNING_SECRET ?? '',
+  };
 }

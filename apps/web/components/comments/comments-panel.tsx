@@ -3,6 +3,7 @@
 import { COMMENT_MAX_CHARACTERS } from '@youandfriends/contracts';
 import { Button, cn, focusRing } from '@youandfriends/ui';
 import { CheckCircle2, MessageSquare, RotateCcw } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
 import { playAtMoment, type SongPlayback } from '@/lib/comments/playback';
@@ -15,6 +16,10 @@ import {
 } from '@/lib/comments/store';
 import { formatClock } from '@/lib/player/format';
 
+import { MentionTextarea, useMentionable } from './mentions/mention-input';
+import { MentionText } from './mentions/mention-text';
+import { toEditable, toStored, type Person } from './mentions/tokens';
+import { ReactionBar } from './reactions/reaction-bar';
 import { VoiceNotePlayer } from './voice-note/voice-note-player';
 import { VoiceRecorder } from './voice-note/voice-recorder';
 
@@ -28,32 +33,97 @@ type Loaded = CommentsData;
 
 const when = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
+/** The DOM id prefix of a thread in the Comments tab — what a notification's deep link targets. */
+export const COMMENT_THREAD_PREFIX = 'comment-thread-';
+
+/**
+ * The thread named by `?thread=` (task `095`): once the comments are loaded, scroll it into view
+ * and move focus to it, once. Returns its id while it is the linked one.
+ */
+export function useLinkedThread(
+  loaded: CommentsData | null | 'error',
+  prefix: string,
+  onFound?: (thread: ThreadView) => void,
+): ThreadView | null {
+  const wanted = useSearchParams()?.get('thread') ?? null;
+  const thread =
+    wanted === null || loaded === null || loaded === 'error'
+      ? null
+      : (loaded.threads.find((candidate) => candidate.id === wanted) ?? null);
+  const done = React.useRef(false);
+  const threadId = thread?.id ?? null;
+  React.useEffect(() => {
+    if (done.current || threadId === null) return;
+    done.current = true;
+    if (thread !== null) onFound?.(thread);
+    requestAnimationFrame(() => {
+      const element = document.getElementById(`${prefix}${threadId}`);
+      element?.scrollIntoView?.({ block: 'center' });
+      element?.focus({ preventScroll: true });
+    });
+    // Once per landing: the thread's later changes are not a new arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId, prefix]);
+  return thread;
+}
+
 async function send(url: string, method: string, body?: unknown): Promise<boolean> {
-  const response = await fetch(url, {
-    method,
-    headers: body === undefined ? {} : { 'content-type': 'application/json' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  return response.ok;
+  return (await sendFor(url, method, body)) === true;
+}
+
+/**
+ * Send, and on refusal say why when the server gave a reason a person can act on — a mention of
+ * someone who cannot open the song (task `094`) is the case that matters.
+ */
+async function sendFor(url: string, method: string, body?: unknown): Promise<true | string> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: body === undefined ? {} : { 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  } catch {
+    return 'That was not saved. Check your connection and try again.';
+  }
+  if (response.ok) return true;
+  try {
+    const problem = (await response.json()) as { fields?: { message?: unknown }[] };
+    const message = problem.fields?.[0]?.message;
+    if (typeof message === 'string') return message;
+  } catch {
+    // Not JSON: fall through to the general message.
+  }
+  return 'That was not saved. Try again.';
 }
 
 export function Composer({
   label,
   submitLabel,
   initial = '',
+  initialPeople = [],
+  songId,
   onSubmit,
   onCancel,
 }: {
   readonly label: string;
   readonly submitLabel: string;
+  /** Stored words to start from; mentions in them are shown by name. */
   readonly initial?: string;
-  readonly onSubmit: (body: string) => Promise<boolean>;
+  /** The people `initial` mentions, so they stay mentions when it is saved again. */
+  readonly initialPeople?: readonly Person[];
+  /** Turns on @-mentions (task `094`) over the people who can open this song. */
+  readonly songId?: string;
+  /** Resolves `true` when saved, `false` or a reason when not. */
+  readonly onSubmit: (body: string) => Promise<boolean | string>;
   readonly onCancel?: () => void;
 }) {
-  const [body, setBody] = React.useState(initial);
+  const [body, setBody] = React.useState(() => toEditable(initial, initialPeople));
+  const [picked, setPicked] = React.useState<readonly Person[]>(initialPeople);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const id = React.useId();
+  const people = useMentionable(songId);
   return (
     <form
       className="flex flex-col gap-2"
@@ -64,13 +134,14 @@ export function Composer({
           return;
         }
         setBusy(true);
-        void onSubmit(body).then((ok) => {
+        void onSubmit(toStored(body, picked)).then((ok) => {
           setBusy(false);
-          if (ok) {
+          if (ok === true) {
             setBody('');
+            setPicked([]);
             setError(null);
           } else {
-            setError('That was not saved. Try again.');
+            setError(typeof ok === 'string' ? ok : 'That was not saved. Try again.');
           }
         });
       }}
@@ -78,19 +149,42 @@ export function Composer({
       <label htmlFor={id} className="text-caption text-muted-foreground">
         {label}
       </label>
-      <textarea
-        id={id}
-        value={body}
-        maxLength={COMMENT_MAX_CHARACTERS}
-        rows={3}
-        onChange={(event) => setBody(event.target.value)}
-        aria-invalid={error !== null}
-        aria-describedby={error === null ? undefined : `${id}-error`}
-        className={cn(
-          'border-border bg-card text-body text-foreground w-full resize-y rounded-md border p-2 font-sans',
-          focusRing,
-        )}
-      />
+      {songId === undefined ? (
+        <textarea
+          id={id}
+          value={body}
+          maxLength={COMMENT_MAX_CHARACTERS}
+          rows={3}
+          onChange={(event) => setBody(event.target.value)}
+          aria-invalid={error !== null}
+          aria-describedby={error === null ? undefined : `${id}-error`}
+          className={cn(
+            'border-border bg-card text-body text-foreground w-full resize-y rounded-md border p-2 font-sans',
+            focusRing,
+          )}
+        />
+      ) : (
+        <MentionTextarea
+          id={id}
+          value={body}
+          onChange={setBody}
+          people={people}
+          onPick={(person) => setPicked((list) => [...list, person])}
+          maxLength={COMMENT_MAX_CHARACTERS}
+          rows={3}
+          aria-invalid={error !== null}
+          aria-describedby={error === null ? `${id}-hint` : `${id}-error`}
+          className={cn(
+            'border-border bg-card text-body text-foreground w-full resize-y rounded-md border p-2 font-sans',
+            focusRing,
+          )}
+        />
+      )}
+      {songId === undefined || error !== null ? null : (
+        <p id={`${id}-hint`} className="sr-only">
+          Type @ to mention someone who can open this song.
+        </p>
+      )}
       {error === null ? null : (
         <p id={`${id}-error`} role="alert" className="text-caption text-destructive">
           {error}
@@ -119,14 +213,19 @@ export function Composer({
 function Comment({
   comment,
   songId,
+  threadId,
   base,
+  canComment,
   onChanged,
 }: {
   readonly comment: CommentView;
   readonly songId: string;
+  readonly threadId: string;
   readonly base: string;
+  readonly canComment: boolean;
   readonly onChanged: () => Promise<void>;
 }) {
+  const mentions = comment.mentions ?? [];
   const [editing, setEditing] = React.useState(false);
   if (comment.deleted) {
     return <li className="text-caption text-muted-foreground italic">This comment was deleted.</li>;
@@ -146,12 +245,20 @@ function Comment({
           label="Edit your comment"
           submitLabel="Save"
           initial={comment.body}
+          initialPeople={mentions.flatMap((mention) =>
+            mention.displayName === null
+              ? []
+              : [{ userId: mention.userId, displayName: mention.displayName }],
+          )}
+          songId={songId}
           onCancel={() => setEditing(false)}
           onSubmit={async (body) => {
-            const ok = await send(`${base}/comments/${encodeURIComponent(comment.id)}`, 'PATCH', {
-              body,
-            });
-            if (ok) {
+            const ok = await sendFor(
+              `${base}/comments/${encodeURIComponent(comment.id)}`,
+              'PATCH',
+              { body },
+            );
+            if (ok === true) {
               setEditing(false);
               await onChanged();
             }
@@ -161,8 +268,17 @@ function Comment({
       ) : comment.body === '' ? null : (
         // Plain text, whitespace kept: React escapes it, so markup in a comment stays text.
         <p className="text-body text-foreground font-sans break-words whitespace-pre-wrap">
-          {comment.body}
+          <MentionText body={comment.body} mentions={mentions} />
         </p>
+      )}
+      {editing ? null : (
+        <ReactionBar
+          songId={songId}
+          threadId={threadId}
+          commentId={comment.id}
+          reactions={comment.reactions ?? []}
+          canReact={canComment}
+        />
       )}
       {comment.voiceNote == null ? null : (
         <VoiceNotePlayer songId={songId} voiceNote={comment.voiceNote} author={comment.author} />
@@ -251,6 +367,7 @@ export function Thread({
   playback,
   domId,
   lead = null,
+  highlighted = false,
 }: {
   readonly thread: ThreadView;
   readonly songId: string;
@@ -261,6 +378,8 @@ export function Thread({
   readonly domId?: string;
   /** Shown above the comments — a lyric thread's quote. */
   readonly lead?: React.ReactNode;
+  /** The thread a notification linked to (task `095`): outlined, so the eye lands on it. */
+  readonly highlighted?: boolean;
 }) {
   const [replying, setReplying] = React.useState(false);
   const base = `/api/songs/${encodeURIComponent(songId)}/comments/${encodeURIComponent(thread.id)}`;
@@ -270,7 +389,10 @@ export function Thread({
       id={domId}
       tabIndex={domId === undefined ? undefined : -1}
       aria-label={threadName(thread)}
-      className="border-border-subtle bg-card flex flex-col gap-3 rounded-md border p-3"
+      className={cn(
+        'bg-card flex flex-col gap-3 rounded-md border p-3',
+        highlighted ? 'border-foreground border-2' : 'border-border-subtle',
+      )}
     >
       {thread.anchor.kind === 'timestamp' ? (
         <MomentChip anchor={thread.anchor} playback={playback} />
@@ -287,17 +409,21 @@ export function Thread({
             key={comment.id}
             comment={comment}
             songId={songId}
+            threadId={thread.id}
             base={base}
+            canComment={canComment}
             onChanged={onChanged}
           />
         ))}
       </ol>
-      {resolved ? (
+      {thread.resolvedAt === null ? null : (
         <p className="text-caption text-muted-foreground flex items-center gap-1">
           <CheckCircle2 aria-hidden className="size-3.5" />
           Resolved{thread.resolvedBy === null ? '' : ` by ${thread.resolvedBy}`}
+          {' · '}
+          <time dateTime={thread.resolvedAt}>{when.format(new Date(thread.resolvedAt))}</time>
         </p>
-      ) : null}
+      )}
       {canComment ? (
         <div className="flex flex-wrap gap-2">
           {replying || resolved ? null : (
@@ -327,10 +453,11 @@ export function Thread({
           <Composer
             label="Your reply"
             submitLabel="Reply"
+            songId={songId}
             onCancel={() => setReplying(false)}
             onSubmit={async (body) => {
-              const ok = await send(`${base}/replies`, 'POST', { body });
-              if (ok) {
+              const ok = await sendFor(`${base}/replies`, 'POST', { body });
+              if (ok === true) {
                 setReplying(false);
                 await onChanged();
               }
@@ -364,6 +491,13 @@ export function CommentsPanel({
 }) {
   const state = useSongComments(songId);
   const loaded: Loaded | null | 'error' = state === 'loading' ? null : state;
+  const [unresolvedOnly, setUnresolvedOnly] = React.useState(false);
+  const linkedThread = useLinkedThread(loaded, COMMENT_THREAD_PREFIX);
+  const linked = linkedThread?.id ?? null;
+  // A link to a resolved thread (task `095`) unfolds the resolved list to show it, until the
+  // person folds it themselves.
+  const [resolvedOpen, setResolvedOpen] = React.useState<boolean | null>(null);
+  const showResolved = resolvedOpen ?? (linkedThread !== null && linkedThread.resolvedAt !== null);
   const base = `/api/songs/${encodeURIComponent(songId)}/comments`;
   const load = React.useCallback(() => refreshComments(songId), [songId]);
 
@@ -378,19 +512,33 @@ export function CommentsPanel({
   const resolved = loaded.threads.filter((thread) => thread.resolvedAt !== null);
   return (
     <section aria-labelledby="song-comments-heading" className="flex flex-col gap-3 font-sans">
-      <h2
-        id="song-comments-heading"
-        className="text-caption text-muted-foreground font-medium tracking-wide uppercase"
-      >
-        Comments
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2
+          id="song-comments-heading"
+          className="text-caption text-muted-foreground font-medium tracking-wide uppercase"
+        >
+          Comments
+        </h2>
+        {resolved.length === 0 ? null : (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-pressed={unresolvedOnly}
+            className="max-md:min-h-11"
+            onClick={() => setUnresolvedOnly((only) => !only)}
+          >
+            {unresolvedOnly ? 'Showing unresolved only' : 'Show unresolved only'}
+          </Button>
+        )}
+      </div>
       {loaded.canComment ? (
         <Composer
           label="Start a conversation about this song"
           submitLabel="Comment"
+          songId={songId}
           onSubmit={async (body) => {
-            const ok = await send(base, 'POST', { anchor: { kind: 'general' }, body });
-            if (ok) await load();
+            const ok = await sendFor(base, 'POST', { anchor: { kind: 'general' }, body });
+            if (ok === true) await load();
             return ok;
           }}
         />
@@ -416,13 +564,22 @@ export function CommentsPanel({
           canComment={loaded.canComment}
           onChanged={load}
           playback={playback}
+          domId={`${COMMENT_THREAD_PREFIX}${thread.id}`}
+          highlighted={linked === thread.id}
         />
       ))}
-      {resolved.length === 0 ? null : (
-        <details className="flex flex-col gap-3">
+      {unresolvedOnly && open.length === 0 && resolved.length > 0 ? (
+        <p className="text-body text-muted-foreground">Every thread is resolved.</p>
+      ) : null}
+      {resolved.length === 0 || unresolvedOnly ? null : (
+        <details
+          className="flex flex-col gap-3"
+          open={showResolved}
+          onToggle={(event) => setResolvedOpen(event.currentTarget.open)}
+        >
           <summary
             className={cn(
-              'text-caption text-muted-foreground w-fit cursor-pointer rounded-sm',
+              'text-caption text-muted-foreground w-fit cursor-pointer rounded-sm max-md:min-h-11',
               focusRing,
             )}
           >
@@ -437,6 +594,8 @@ export function CommentsPanel({
                 canComment={loaded.canComment}
                 onChanged={load}
                 playback={playback}
+                domId={`${COMMENT_THREAD_PREFIX}${thread.id}`}
+                highlighted={linked === thread.id}
               />
             ))}
           </div>

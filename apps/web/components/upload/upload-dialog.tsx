@@ -185,7 +185,7 @@ export function UploadDialog({
                     setChoices(next);
                   }}
                   className={cn(
-                    'border-border bg-card text-body text-foreground h-9 rounded-md border px-2 font-sans',
+                    'border-border bg-card text-body text-foreground h-9 rounded-md border px-2 font-sans max-md:min-h-11',
                     focusRing,
                   )}
                 >

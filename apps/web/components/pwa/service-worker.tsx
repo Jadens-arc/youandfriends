@@ -57,7 +57,7 @@ export function ServiceWorker() {
       <p className="text-sm">A new version is ready.</p>
       <button
         type="button"
-        className="focus-visible:ring-ring rounded-sm px-2 py-1 text-sm underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none"
+        className="focus-visible:ring-ring rounded-sm px-2 py-1 text-sm underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none max-md:min-h-11"
         onClick={() => {
           waiting.postMessage('skip-waiting');
           // The new worker takes over on activation; reloading is what puts the page on it.

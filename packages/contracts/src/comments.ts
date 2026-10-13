@@ -94,3 +94,32 @@ export type EditCommentRequest = z.infer<typeof editCommentSchema>;
 
 export const resolveThreadSchema = z.object({ resolved: z.boolean() });
 export type ResolveThreadRequest = z.infer<typeof resolveThreadSchema>;
+
+/**
+ * A mention in a comment's words (task `094`): `<@userId>`. A reference to the person, never
+ * their name, so a rename does not orphan it; the name is filled in when the comment is shown.
+ */
+export const MENTION_PATTERN = /<@([0-9A-HJKMNP-TV-Z]{26})>/g;
+
+/** At most this many distinct people in one comment — a mention is not a broadcast list. */
+export const MAX_MENTIONS = 20;
+
+/** The distinct people a comment's words mention, in the order they first appear. */
+export function mentionedUserIds(body: string): string[] {
+  const seen = new Set<string>();
+  for (const match of body.matchAll(MENTION_PATTERN)) {
+    if (match[1] !== undefined) seen.add(match[1]);
+  }
+  return [...seen];
+}
+
+/** The reactions a comment may carry. A fixed set: no custom emoji (task `094`). */
+export const COMMENT_REACTIONS = ['👍', '❤️', '🔥', '😂', '🎵', '👀'] as const;
+export type CommentReaction = (typeof COMMENT_REACTIONS)[number];
+
+export const reactionSchema = z.object({
+  emoji: z.enum(COMMENT_REACTIONS),
+  /** `true` to add this person's reaction, `false` to take it back. Idempotent either way. */
+  on: z.boolean(),
+});
+export type ReactionRequest = z.infer<typeof reactionSchema>;

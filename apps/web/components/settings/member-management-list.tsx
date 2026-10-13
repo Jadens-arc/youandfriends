@@ -24,7 +24,7 @@ const ROLE_LABEL: Record<Role, string> = {
 };
 
 const SELECT_CLASS = cn(
-  'border-border bg-card text-caption text-foreground flex h-8 rounded border px-2 font-sans',
+  'border-border bg-card text-caption text-foreground flex h-8 rounded border px-2 font-sans max-md:h-11',
 );
 
 /**

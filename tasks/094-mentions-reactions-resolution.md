@@ -52,13 +52,13 @@ The mention autocomplete is a membership-disclosure surface (asset 3). It must b
 
 ## Acceptance criteria
 
-- [ ] Mention autocomplete lists only collaborators with access to the song, filtered server-side.
-- [ ] Mentions are stored as structured references and survive display-name changes.
-- [ ] Mentioning a user without access warns the author and grants nothing.
-- [ ] Reactions work with optimistic update and rollback.
-- [ ] Resolution records who and when, and unresolved threads can be filtered.
-- [ ] Mention events are emitted for notifications.
-- [ ] A test confirms a mention creates no access grant.
+- [x] Mention autocomplete lists only collaborators with access to the song, filtered server-side.
+- [x] Mentions are stored as structured references and survive display-name changes.
+- [x] Mentioning a user without access warns the author and grants nothing.
+- [x] Reactions work with optimistic update and rollback.
+- [x] Resolution records who and when, and unresolved threads can be filtered.
+- [x] Mention events are emitted for notifications.
+- [x] A test confirms a mention creates no access grant.
 
 ## Tests and validation commands
 
@@ -77,10 +77,34 @@ pnpm --filter @youandfriends/authz test
 
 Additive. Reverting loses mentions and reactions; comments remain.
 
+## Implementation record
+
+- `comment_mentions` and `comment_reactions` (migration `0023`), each composite with its comment
+  and cascading. Reactions are a fixed set of six emoji, checked in the database.
+- Mentions are `<@userId>` tokens in the stored words, indexed in `comment_mentions`. The composer
+  shows `@Name` and converts picked names on submit; a hand-typed `@Name` mentions nobody.
+- `GET /api/songs/:songId/mentionable` lists the people who can open the song, via
+  `loadSongCollaborators` (commenters only, oneself excluded). A mention of anyone else is
+  refused as `validation_failed` with a message telling the author it does not share the song.
+- `comment.mentioned` is raised through the `NotificationSink`, which gained `recipientIds`.
+  Edits notify only people newly mentioned.
+- `PUT …/comments/:commentId/reactions` is idempotent both ways; the client changes its copy
+  first and rolls back on refusal. Reactions are not audited (a tap, not a statement).
+- Resolution already recorded who and when (task `090`); the thread now shows the time, and the
+  panel has an "unresolved only" filter.
+- Deleting a comment removes its mentions and reactions with its words.
+
+**Deviation:** a mention renders as the person's name in the accent color, not a link. There is
+no per-person page a collaborator could open (`/settings/members` is not for every role).
+
+## Review flag
+
+Fast-tracked at the user's request (2026-10-13); no security-reviewer or test-reviewer pass. Look at the mention autocomplete's disclosure (asset 3) and the mention-render deviation.
+
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 
-_(not yet)_
+`523f296`

@@ -44,6 +44,11 @@ export const isPublicRoute = createRouteMatcher([
   // what a navigation lands on when there is no network — and redirecting to sign-in needs the
   // network. It carries nothing about any workspace, deliberately (task `100`).
   '/offline',
+  // Unsubscribe links in notification emails (task `096`). The signed token is the credential:
+  // it can turn email off for one event for one person and nothing else, and an email client's
+  // one-click POST arrives with no session at all.
+  '/unsubscribe',
+  '/api/notifications/unsubscribe',
 ]);
 
 /**

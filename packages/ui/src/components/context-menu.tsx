@@ -28,7 +28,7 @@ const surface = cn(
 );
 
 const itemBase = cn(
-  'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5',
+  'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 max-md:min-h-11',
   'font-sans text-body outline-none',
   'focus:bg-border-subtle data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
   '[&_svg]:size-4 [&_svg]:shrink-0',

@@ -19,7 +19,7 @@ export const SelectTrigger = React.forwardRef<
     <SelectPrimitive.Trigger
       ref={ref}
       className={cn(
-        'border-border bg-card flex h-9 w-full items-center justify-between gap-2 rounded border px-3',
+        'border-border bg-card flex h-9 w-full items-center justify-between gap-2 rounded border px-3 max-md:h-11',
         'text-body text-foreground font-sans',
         'data-[placeholder]:text-muted-foreground [&>span]:line-clamp-1',
         transition,

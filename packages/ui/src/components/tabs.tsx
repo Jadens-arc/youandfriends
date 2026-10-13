@@ -35,7 +35,7 @@ export const TabsTrigger = React.forwardRef<
     <TabsPrimitive.Trigger
       ref={ref}
       className={cn(
-        'relative -mb-px inline-flex items-center gap-2 rounded-t border-b-2 border-transparent px-3 py-2',
+        'relative -mb-px inline-flex items-center gap-2 rounded-t border-b-2 border-transparent px-3 py-2 max-md:min-h-11',
         'text-body text-muted-foreground font-sans',
         'data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:font-medium',
         transition,

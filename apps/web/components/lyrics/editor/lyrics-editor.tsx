@@ -342,7 +342,7 @@ export const LyricsEditor = React.forwardRef<
       </div>
       {editable ? (
         <details className="text-caption text-muted-foreground font-sans">
-          <summary className={cn('w-fit cursor-pointer rounded-sm', focusRing)}>
+          <summary className={cn('w-fit cursor-pointer rounded-sm max-md:min-h-11', focusRing)}>
             Keyboard shortcuts
           </summary>
           <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
@@ -460,7 +460,7 @@ function SectionToolbar({
               }
             }}
             className={cn(
-              'border-border bg-card text-body h-8 w-44 rounded-md border px-2',
+              'border-border bg-card text-body h-8 w-44 rounded-md border px-2 max-md:min-h-11',
               focusRing,
             )}
           />
@@ -490,7 +490,7 @@ function SectionToolbar({
                 .run()
             }
             className={cn(
-              'border-border bg-card text-caption h-8 rounded-md border px-2',
+              'border-border bg-card text-caption h-8 rounded-md border px-2 max-md:min-h-11',
               focusRing,
             )}
           >

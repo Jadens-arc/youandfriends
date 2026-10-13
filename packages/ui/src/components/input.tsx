@@ -19,7 +19,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.ComponentPropsWith
         ref={ref}
         type={type}
         className={cn(
-          'border-border bg-card text-body text-foreground flex h-9 w-full rounded border px-3 py-1 font-sans',
+          'border-border bg-card text-body text-foreground flex h-9 w-full rounded border px-3 py-1 font-sans max-md:h-11',
           'placeholder:text-muted-foreground',
           'file:text-foreground file:border-0 file:bg-transparent file:font-medium',
           transition,

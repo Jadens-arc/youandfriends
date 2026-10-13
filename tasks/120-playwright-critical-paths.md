@@ -80,9 +80,17 @@ pnpm release-check
 
 Test-only. Reverting removes end-to-end coverage.
 
+## Blocker record
+
+2026-10-13: the agent session has no Clerk keys, and Docker is unavailable for MinIO. A suite that cannot be run here would be untested code presented as coverage, so none was written. Add the keys as environment variables and start a new session.
+
 ## Status
 
-`pending`
+`blocked`
+
+## Blocker
+
+Needs Clerk development keys (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) in the environment, and object storage (R2, or MinIO through Docker) for the upload path. The app serves nothing without Clerk, by design.
 
 ## Commit
 

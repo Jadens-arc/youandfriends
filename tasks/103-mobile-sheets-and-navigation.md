@@ -51,13 +51,13 @@ Sheets display content subject to the same authorization as their full-screen eq
 
 ## Acceptance criteria
 
-- [ ] Comment threads, version lists, file details, and overflow actions use bottom sheets on mobile.
-- [ ] Multi-height sheets snap to defined positions.
-- [ ] Focus is trapped on open and restored on close.
-- [ ] Drag-to-dismiss works and has a keyboard-accessible alternative.
-- [ ] Sheet scrolling does not scroll the page behind it.
-- [ ] Safe areas are respected.
-- [ ] Reduced motion disables the spring.
+- [x] Comment threads, version lists, file details, and overflow actions use bottom sheets on mobile.
+- [x] Multi-height sheets snap to defined positions.
+- [x] Focus is trapped on open and restored on close.
+- [x] Drag-to-dismiss works and has a keyboard-accessible alternative.
+- [x] Sheet scrolling does not scroll the page behind it.
+- [x] Safe areas are respected.
+- [x] Reduced motion disables the spring.
 
 ## Tests and validation commands
 
@@ -76,9 +76,41 @@ pnpm build
 
 Presentation only. Reverting falls back to full-screen views — functional but less pleasant.
 
+## Implementation record
+
+- `BottomSheetContent` (ui) takes `snapPoints`: `peek` 40dvh, `half` 62dvh, and `full`, which
+  clears the notch. Dragging up grows the sheet, down shrinks it and then dismisses. A visible
+  "Show more"/"Show less" button does the same from a keyboard. `BottomSheetBody` is the
+  scrolling part, with `overscroll-behavior: contain`. The close control is 44 px on a phone.
+- `useIsPhone` / `useMediaQuery` (ui): `useSyncExternalStore` over `matchMedia`. It answers
+  "desk" on the server and in jsdom.
+- `ActionMenu` (`components/shell/mobile/sheets`): one list of actions, shown as a dropdown on a
+  desk and a bottom sheet of 48 px rows on a phone. The chosen action runs after the sheet has
+  closed and returned focus. Used by the song header, each Project Files entry, and the mobile
+  folder drill-down.
+- Versions: on a phone the stack is a row ("Version 4 · 6 versions · Change") that opens a
+  half/full sheet holding the same radio group. A tap chooses and closes; arrow keys move
+  without closing.
+- Comment threads: on a phone, a marker under the waveform plays its moment _and_ opens the
+  thread in a half/full sheet (`components/comments/mobile/thread-sheet.tsx`). It is the same
+  `Thread` component, with the same server-checked actions.
+- Focus is trapped and restored by Radix's dialog. Reduced motion already replaced the spring
+  with a snap. Safe areas come from the bottom sheet variant.
+
+**Deviation:** file details have no sheet of their own. A Project Files entry's details are
+inline in its row, and its actions are the overflow menu, which is now a sheet on a phone.
+
+**Verification:** jsdom tests cover snapping by drag and by button, the action menu at both
+widths with focus return, the phone version picker, and the phone thread sheet. Nothing was
+looked at on a real phone (see task `104`).
+
+## Review flag
+
+Fast-tracked at the user's request (2026-10-13); no test-reviewer pass. Gesture feel and scroll containment have only been exercised in jsdom.
+
 ## Status
 
-`pending`
+`complete`
 
 ## Commit
 

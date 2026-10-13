@@ -37,11 +37,13 @@ const buttonVariants = cva(
         onEspresso: cn('text-on-espresso hover:bg-on-espresso/10', focusRingOnEspresso),
       },
       size: {
-        sm: 'h-8 px-2.5 text-caption',
-        md: 'h-9 px-3.5',
+        // Below `md` every size reaches the 44 px touch target (task `101`): dense on a desk,
+        // never too small for a thumb.
+        sm: 'h-8 px-2.5 text-caption max-md:min-h-11',
+        md: 'h-9 px-3.5 max-md:min-h-11',
         lg: 'h-11 px-5 text-heading',
-        /** Square icon button. Touch sizing is handled by the caller's layout on mobile. */
-        icon: 'size-9',
+        /** Square icon button: 36 px on a desk, 44 px on a phone. */
+        icon: 'size-9 max-md:size-11',
       },
     },
     defaultVariants: { variant: 'secondary', size: 'md' },

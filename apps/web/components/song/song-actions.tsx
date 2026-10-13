@@ -1,18 +1,13 @@
 'use client';
 
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@youandfriends/ui';
-import { Link2, MoreHorizontal, Share2 } from 'lucide-react';
+import { Button } from '@youandfriends/ui';
+import { FolderOpen, Link2, Share2 } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
 import { FavoriteToggle } from '@/components/library/personal';
+import { ActionMenu } from '@/components/shell/mobile/sheets/action-menu';
 
 /**
  * The song header's actions: favourite, share, and the overflow menu (`docs/DESIGN.md` §4).
@@ -63,24 +58,28 @@ export function SongActions({
       <span id={shareHint} className="sr-only">
         Sharing links are not available yet.
       </span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="More actions" className="size-11">
-            <MoreHorizontal aria-hidden />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => void copyLink()}>
-            <Link2 aria-hidden />
-            Copy link to song
-          </DropdownMenuItem>
-          {projectHref === null ? null : (
-            <DropdownMenuItem onSelect={() => router.push(projectHref)}>
-              Open project
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ActionMenu
+        title={songTitle}
+        triggerClassName="size-11"
+        actions={[
+          {
+            key: 'copy-link',
+            label: 'Copy link to song',
+            icon: Link2,
+            onSelect: () => void copyLink(),
+          },
+          ...(projectHref === null
+            ? []
+            : [
+                {
+                  key: 'open-project',
+                  label: 'Open project',
+                  icon: FolderOpen,
+                  onSelect: () => router.push(projectHref),
+                },
+              ]),
+        ]}
+      />
       <p aria-live="polite" className="sr-only">
         {announcement}
       </p>

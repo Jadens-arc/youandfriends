@@ -1,4 +1,5 @@
 import { Badge, cn, focusRing, transition } from '@youandfriends/ui';
+import type { Route } from 'next';
 import Link from 'next/link';
 
 import { formatBytes, percentOf } from '@/lib/workspace/format';
@@ -42,6 +43,24 @@ export function WorkspaceSettingsView({
 
       <StorageSection usage={settings.usage} quotaBytes={settings.quotaBytes} />
 
+      <section aria-labelledby="settings-notifications" className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 id="settings-notifications" className="text-heading text-foreground font-serif">
+            Notifications
+          </h2>
+          <Link
+            href={'/settings/notifications' as Route}
+            className={cn(
+              'text-body text-foreground inline-flex items-center rounded-sm font-sans underline underline-offset-4 max-md:min-h-11',
+              transition,
+              focusRing,
+            )}
+          >
+            Choose what you hear about
+          </Link>
+        </div>
+      </section>
+
       <section aria-labelledby="settings-members" className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-4">
           <h2 id="settings-members" className="text-heading text-foreground font-serif">
@@ -51,7 +70,7 @@ export function WorkspaceSettingsView({
             <Link
               href="/settings/members"
               className={cn(
-                'text-body text-foreground rounded-sm font-sans underline underline-offset-4',
+                'text-body text-foreground inline-flex items-center rounded-sm font-sans underline underline-offset-4 max-md:min-h-11',
                 transition,
                 focusRing,
               )}

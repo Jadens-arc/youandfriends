@@ -175,3 +175,46 @@ describe('BottomSheetContent', () => {
     expect(sheet.className).not.toMatch(/touch-none/);
   });
 });
+
+describe('BottomSheetContent with snap points (task 103)', () => {
+  async function openSnapping() {
+    const user = userEvent.setup();
+    render(
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button>Thread</Button>
+        </SheetTrigger>
+        <BottomSheetContent snapPoints={['half', 'full']} aria-describedby={undefined}>
+          <SheetTitle>Thread</SheetTitle>
+        </BottomSheetContent>
+      </Sheet>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Thread' }));
+    const sheet = await screen.findByRole('dialog');
+    const handle = sheet.querySelector('[data-drag-handle]') as HTMLElement;
+    return { sheet, handle, user };
+  }
+
+  it('starts at its smallest height and snaps up and down with a drag', async () => {
+    const { sheet, handle } = await openSnapping();
+    expect(sheet).toHaveAttribute('data-snap', 'half');
+    expect(sheet.style.height).toBe('62dvh');
+    drag(handle, -DISMISS_DISTANCE);
+    expect(sheet).toHaveAttribute('data-snap', 'full');
+    // Down from full shrinks rather than dismissing.
+    drag(handle, DISMISS_DISTANCE + 1);
+    expect(sheet).toHaveAttribute('data-snap', 'half');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    // Down from the smallest dismisses.
+    drag(handle, DISMISS_DISTANCE + 1);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('does the same from a keyboard, with a named button', async () => {
+    const { sheet, user } = await openSnapping();
+    await user.click(screen.getByRole('button', { name: 'Show more' }));
+    expect(sheet).toHaveAttribute('data-snap', 'full');
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(sheet).toHaveAttribute('data-snap', 'half');
+  });
+});

@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@youandfriends/ui';
+import { Button, useIsPhone } from '@youandfriends/ui';
 import { MessageSquarePlus } from 'lucide-react';
 import * as React from 'react';
 
@@ -12,6 +12,7 @@ import { belongsToFocus } from '@/lib/player/shortcuts';
 import { usePlayerState } from '@/lib/player/store';
 
 import { Composer } from '../comments-panel';
+import { ThreadSheet } from '../mobile/thread-sheet';
 
 /**
  * Commenting on a moment (task `091`): one press — the button, or C anywhere on the page — opens
@@ -34,6 +35,8 @@ export function TimestampComments({
   const canComment = state !== 'loading' && state !== 'error' && state.canComment;
   const [moment, setMoment] = React.useState<{ versionId: string; ms: number } | null>(null);
   const [message, setMessage] = React.useState('');
+  const phone = useIsPhone();
+  const [openThread, setOpenThread] = React.useState<string | null>(null);
 
   const begin = React.useCallback(() => {
     // The moment is taken now, at initiation — not when the comment is sent.
@@ -87,7 +90,17 @@ export function TimestampComments({
       <CommentMarkers
         comments={timeline}
         durationMs={durationMs}
-        onPlay={(comment) => playAtMoment(playback, comment.versionId, comment.ms)}
+        onPlay={(comment) => {
+          playAtMoment(playback, comment.versionId, comment.ms);
+          // On a phone the marker also opens its conversation, in a sheet over the music.
+          if (phone) setOpenThread(comment.threadId);
+        }}
+      />
+      <ThreadSheet
+        songId={songId}
+        threadId={openThread}
+        playback={playback}
+        onClose={() => setOpenThread(null)}
       />
       {canComment && moment === null ? (
         <div className="flex flex-wrap items-center gap-2">
@@ -110,6 +123,7 @@ export function TimestampComments({
         <Composer
           label={`Comment at ${formatClock(moment.ms / 1000)}${version === undefined ? '' : ` in version ${version.number}`}`}
           submitLabel="Comment"
+          songId={songId}
           onCancel={() => setMoment(null)}
           onSubmit={async (body) => {
             const ok = await sendComment(songId, '', 'POST', {

@@ -1,3 +1,4 @@
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { AudioHost } from '@/components/player/audio-host';
 import { CommandEntry } from '@/components/shell/command-entry';
 import { BottomNavigation } from '@/components/shell/mobile/bottom-navigation';
@@ -29,7 +30,9 @@ import { WorkspaceGate } from '@/components/workspace/workspace-gate';
  */
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-background flex h-dvh w-full overflow-hidden">
+    // Side insets keep content off the notch and the rounded corners in landscape (task `101`);
+    // the header and the bottom bar carry the top and bottom ones themselves.
+    <div className="bg-background flex h-dvh w-full overflow-hidden pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
       {/* Desktop rail. */}
       <div className="hidden md:flex">
         <NavigationRail />
@@ -38,6 +41,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="border-border hidden h-14 shrink-0 items-center justify-between gap-4 border-b px-4 md:flex">
           <CommandEntry />
+          <NotificationBell />
         </header>
 
         {/* Mobile: drill-down header with the back affordance. Hidden on desktop by its own
