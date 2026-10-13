@@ -18,11 +18,13 @@ export const PRODUCT_DOMAIN = 'youandfriends.org' as const;
 export const ENV_PREFIX = 'YOUANDFRIENDS_' as const;
 
 export {
+  emailConfigFrom,
   EnvironmentError,
   hasSentryDsn,
   parsePublicEnv,
   parseServerEnv,
   requireServerEnv,
+  type EmailConfig,
   type PublicEnv,
   type ServerEnv,
 } from './env';

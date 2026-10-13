@@ -1,4 +1,4 @@
-import { parseServerEnv } from '@youandfriends/config';
+import { emailConfigFrom, parseServerEnv } from '@youandfriends/config';
 import { createDirectClient } from '@youandfriends/db';
 import { assertCapabilities, type Capabilities } from '@youandfriends/media';
 import { createR2Transfer, r2ConfigFrom } from '@youandfriends/storage';
@@ -23,7 +23,7 @@ export function workerDeps(): PipelineDeps {
   const db = createDirectClient(env, { max: 2 }).db;
   deps = {
     db,
-    notify: createMediaNotifier(db),
+    notify: createMediaNotifier(db, { emailAvailable: emailConfigFrom(env).available }),
     originals: createR2Transfer(r2ConfigFrom(env, 'originals')),
     derivatives: createR2Transfer(derivativesConfig),
     derivativesBucket: derivativesConfig.bucket,

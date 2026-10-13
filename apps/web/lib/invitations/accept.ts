@@ -21,6 +21,7 @@ import {
 } from '@youandfriends/db';
 import { eq } from 'drizzle-orm';
 
+import { emailConfig } from '@/lib/notifications/email';
 import { createNotifier } from '@/lib/notifications/generate';
 import type { NotificationSink } from '@/lib/notifications/sink';
 
@@ -172,7 +173,10 @@ export async function acceptInvitationToken(
   if (invitation.invitedByUserId !== null) {
     const notify =
       request.notify ??
-      createNotifier(request.db, invitation.workspaceId as WorkspaceId, { now: () => now });
+      createNotifier(request.db, invitation.workspaceId as WorkspaceId, {
+        now: () => now,
+        emailAvailable: emailConfig().available,
+      });
     const scope = invitation.scopeType;
     await notify({
       event: 'access.changed',

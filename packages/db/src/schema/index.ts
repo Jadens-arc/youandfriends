@@ -20,7 +20,7 @@ import { loopRegions } from './loop-regions';
 import { lyricsDocuments, lyricsRevisions } from './lyrics';
 import { commentMentions, commentReactions, commentThreads, comments } from './comments';
 import { mediaJobs } from './media-jobs';
-import { notifications } from './notifications';
+import { notificationEmails, notificationPreferences, notifications } from './notifications';
 import { snapshotEntries, snapshots } from './snapshots';
 import { storageObjects } from './storage-objects';
 import { uploadParts, uploadSessions } from './uploads';
@@ -88,6 +88,8 @@ export const schema = {
   commentMentions,
   commentReactions,
   notifications,
+  notificationPreferences,
+  notificationEmails,
   snapshots,
   snapshotEntries,
   users,

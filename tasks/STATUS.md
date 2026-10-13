@@ -20,7 +20,7 @@ acceptance criterion.
 | Deferred tasks      | 17      |
 | **Total**           | **112** |
 
-Task `029` is next. `016` is passed over until its dependencies are `complete`. 74 of 95 iteration-one tasks are `complete`.
+Task `029` is next. `016` is passed over until its dependencies are `complete`. 75 of 95 iteration-one tasks are `complete`.
 
 ## Iteration one
 
@@ -100,8 +100,8 @@ Task `029` is next. `016` is passed over until its dependencies are `complete`. 
 | `092` | Lyric-anchored comments                                                | Comments, voice notes, notifications | `090`, `081`, `082`                       | `complete` | `6e74861` | —       |
 | `093` | Voice notes                                                            | Comments, voice notes, notifications | `090`, `053`, `063`                       | `complete` | `046a2e7` | —       |
 | `094` | Mentions, reactions, and thread resolution                             | Comments, voice notes, notifications | `090`, `032`                              | `complete` | `523f296` | —       |
-| `095` | In-app notification center                                             | Comments, voice notes, notifications | `094`, `024`                              | `complete` | —         | —       |
-| `096` | Notification preferences and email delivery                            | Comments, voice notes, notifications | `095`, `002`                              | `pending`  | —         | —       |
+| `095` | In-app notification center                                             | Comments, voice notes, notifications | `094`, `024`                              | `complete` | `7770266` | —       |
+| `096` | Notification preferences and email delivery                            | Comments, voice notes, notifications | `095`, `002`                              | `complete` | —         | —       |
 | `100` | PWA manifest, icons, and installability                                | Mobile and PWA                       | `014`, `010`                              | `complete` | `3a628af` | —       |
 | `101` | Responsive audit across all implemented flows                          | Mobile and PWA                       | `077`, `085`, `095`, `055`                | `pending`  | —         | —       |
 | `102` | Mobile playback verification and iOS limitations                       | Mobile and PWA                       | `076`, `077`, `062`                       | `pending`  | —         | —       |
@@ -155,6 +155,7 @@ at. Clear the section once a review has been done.
 
 - `094` — Fast-tracked at the user's request (2026-10-13); no security-reviewer or test-reviewer pass. Look at the mention autocomplete's disclosure (asset 3) and the mention-render deviation.
 - `095` — Fast-tracked at the user's request (2026-10-13); no security-reviewer or test-reviewer pass. The version-upload and media-worker notifications have no dedicated tests.
+- `096` — Fast-tracked at the user's request (2026-10-13); no security-reviewer or test-reviewer pass. The two new public routes and the unsubscribe signing scheme deserve a security read; Resend has never been exercised live.
 
 ## Notes on specific tasks
 

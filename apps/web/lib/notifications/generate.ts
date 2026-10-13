@@ -1,12 +1,6 @@
-import { loadProjectCollaborators, loadSongCollaborators } from '@youandfriends/authz';
+import { loadTargetAudience } from '@youandfriends/authz';
 import { newUlid, type WorkspaceId } from '@youandfriends/contracts';
-import {
-  getProjectHeader,
-  getSongHeader,
-  recordNotifications,
-  workspaceMemberships,
-  type DirectDatabase,
-} from '@youandfriends/db';
+import { deliverNotification, workspaceMemberships, type DirectDatabase } from '@youandfriends/db';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import type { NotificationSink } from './sink';
@@ -18,6 +12,7 @@ import type { NotificationSink } from './sink';
  *   mention — the people it names, still only if they can open the target. Access is decided by
  *   the same resolver every other read uses; it is checked again when the list is read.
  * - **Never the actor.** Being told about your own action reads as the system being confused.
+ * - **As each person chose.** Their preferences (task `096`) decide in-app and email delivery.
  * - **Never fatal.** A notification that cannot be written must not undo the comment, upload,
  *   or edit that caused it: the failure is logged and the action stands.
  */
@@ -26,45 +21,12 @@ export interface NotifierOptions {
   readonly now?: (() => Date) | undefined;
   readonly newId?: (() => string) | undefined;
   readonly onError?: ((error: unknown) => void) | undefined;
+  /** Whether to queue emails for people who asked for them (task `096`). Off unless configured. */
+  readonly emailAvailable?: boolean | undefined;
 }
 
-/** Who can open a target right now. Empty for a target that is gone or not in this workspace. */
-export async function audienceOf(
-  db: DirectDatabase,
-  workspaceId: WorkspaceId,
-  targetType: 'song' | 'project' | 'workspace',
-  targetId: string,
-  now: () => Date,
-): Promise<string[]> {
-  if (targetType === 'song') {
-    const song = await getSongHeader(db, workspaceId, targetId);
-    if (song === null) return [];
-    return loadSongCollaborators(
-      db,
-      workspaceId,
-      { id: song.id, projectId: song.projectId, folderPath: song.folderPath },
-      now,
-    );
-  }
-  if (targetType === 'project') {
-    const project = await getProjectHeader(db, workspaceId, targetId);
-    if (project === null) return [];
-    const reach = await loadProjectCollaborators(
-      db,
-      workspaceId,
-      [{ id: project.id, folderPath: project.folderPath }],
-      now,
-    );
-    return reach.get(project.id) ?? [];
-  }
-  // The workspace itself: its full members (a scope-limited collaborator has no role here).
-  if (targetId !== workspaceId) return [];
-  const rows = await db
-    .select({ userId: workspaceMemberships.userId })
-    .from(workspaceMemberships)
-    .where(eq(workspaceMemberships.workspaceId, workspaceId));
-  return rows.map((row) => row.userId);
-}
+/** Who can open a target right now — the authz package's answer (task `095`). */
+export const audienceOf = loadTargetAudience;
 
 /** Members of the workspace among these people — for addressed workspace events. */
 async function membersAmong(
@@ -102,7 +64,8 @@ export function createNotifier(
       const recipients = (event.recipientIds ?? reach).filter(
         (userId) => userId !== event.actorId && allowed.has(userId),
       );
-      await recordNotifications(db, {
+      await deliverNotification(db, {
+        emailAvailable: options.emailAvailable ?? false,
         workspaceId,
         recipientIds: recipients,
         event: event.event,

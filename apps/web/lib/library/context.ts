@@ -5,6 +5,7 @@ import type { DirectDatabase } from '@youandfriends/db';
 import { createR2Driver, r2ConfigFrom, StorageNotConfiguredError } from '@youandfriends/storage';
 
 import { transactionalDatabase } from '@/lib/database';
+import { emailConfig } from '@/lib/notifications/email';
 import { createNotifier } from '@/lib/notifications/generate';
 import type { NotificationSink } from '@/lib/notifications/sink';
 import type { WorkspaceContext } from '@/lib/workspace/current';
@@ -43,7 +44,9 @@ export function libraryContext(context: WorkspaceContext): LibraryContext {
     userId: context.userId,
     correlationId: context.correlationId,
     coverSigner: coverSigner(),
-    notify: createNotifier(db, context.workspace.workspaceId),
+    notify: createNotifier(db, context.workspace.workspaceId, {
+      emailAvailable: emailConfig().available,
+    }),
   };
 }
 

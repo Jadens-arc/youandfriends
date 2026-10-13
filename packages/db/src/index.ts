@@ -197,6 +197,16 @@ export {
   type SearchScopeRows,
 } from './queries/search';
 export {
+  deliverNotification,
+  listPreferenceRows,
+  listQueuedEmails,
+  preferencesForEvent,
+  queueNotificationEmails,
+  savePreferenceRows,
+  settleEmails,
+  type QueuedEmailRow,
+  type QueueEmailInput,
+  type StoredPreference,
   listNotificationRows,
   markNotificationsRead,
   markNotificationsUnread,

@@ -7,6 +7,7 @@ import type { Subject } from '@youandfriends/authz';
 
 import { currentSession } from '@/lib/auth/current-session';
 import { transactionalDatabase } from '@/lib/database';
+import { emailConfig } from '@/lib/notifications/email';
 import { createNotifier } from '@/lib/notifications/generate';
 
 import type { MemberManagementContext } from './members';
@@ -74,6 +75,8 @@ export function memberManagementContext(context: WorkspaceContext): MemberManage
   return {
     ...request,
     actingUserId: context.userId,
-    notify: createNotifier(request.db, request.workspaceId),
+    notify: createNotifier(request.db, request.workspaceId, {
+      emailAvailable: emailConfig().available,
+    }),
   };
 }

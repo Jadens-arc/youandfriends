@@ -3,7 +3,7 @@ import {
   assets,
   assetVersions,
   mixVersions,
-  recordNotifications,
+  deliverNotification,
   type DirectDatabase,
 } from '@youandfriends/db';
 import { and, eq } from 'drizzle-orm';
@@ -21,7 +21,12 @@ import type { MediaNotificationSink } from './pipeline';
  */
 export function createMediaNotifier(
   db: DirectDatabase,
-  options: { readonly now?: () => Date; readonly newId?: () => string } = {},
+  options: {
+    readonly now?: () => Date;
+    readonly newId?: () => string;
+    /** Whether email delivery is configured (task `096`). */
+    readonly emailAvailable?: boolean;
+  } = {},
 ): MediaNotificationSink {
   return async (event) => {
     try {
@@ -61,7 +66,8 @@ export function createMediaNotifier(
       const targetType = row.songId === null ? 'project' : 'song';
       const targetId = row.songId ?? row.projectId;
       if (targetId === null) return;
-      await recordNotifications(db, {
+      await deliverNotification(db, {
+        emailAvailable: options.emailAvailable ?? false,
         workspaceId: event.workspaceId,
         recipientIds: [row.uploadedBy],
         event: event.event,

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -59,5 +60,76 @@ export const notifications = pgTable(
       .where(sql`read_at is null`),
     check('notifications_count_positive', sql`count >= 1`),
     check('notifications_target_type_known', sql`target_type in ('song', 'project', 'workspace')`),
+  ],
+);
+
+/**
+ * One person's choice for one event in one workspace (task `096`). Absent rows mean the defaults
+ * (`defaultPreference` in the contracts); a row exists only once someone changes something.
+ */
+export const notificationPreferences = pgTable(
+  'notification_preferences',
+  {
+    id: id(),
+    workspaceId: workspaceId().references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: reference('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    event: text('event').notNull(),
+    inApp: boolean('in_app').notNull().default(true),
+    email: text('email', { enum: ['off', 'immediate', 'digest'] })
+      .notNull()
+      .default('off'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex('notification_preferences_user_event_key').on(
+      table.workspaceId,
+      table.userId,
+      table.event,
+    ),
+    check('notification_preferences_email_known', sql`email in ('off', 'immediate', 'digest')`),
+  ],
+);
+
+/**
+ * The email outbox (task `096`): one row per event a person chose to hear about by email. The
+ * worker sends them — immediate rows within minutes, digest rows once a day — re-checking access
+ * at send time, and records what happened. **No preview is stored**: an email says that something
+ * happened and where, never the words, so nothing unreleased sits in an inbox.
+ */
+export const notificationEmails = pgTable(
+  'notification_emails',
+  {
+    id: id(),
+    workspaceId: workspaceId().references(() => workspaces.id, { onDelete: 'cascade' }),
+    recipientId: reference('recipient_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    event: text('event').notNull(),
+    targetType: text('target_type', { enum: ['song', 'project', 'workspace'] }).notNull(),
+    targetId: reference('target_id').notNull(),
+    actorId: reference('actor_id').references(() => users.id, { onDelete: 'set null' }),
+    link: jsonb('link'),
+    mode: text('mode', { enum: ['immediate', 'digest'] }).notNull(),
+    /** `queued` → `sent`; `dropped` when access was gone at send time; `failed` after retries. */
+    status: text('status', { enum: ['queued', 'sent', 'dropped', 'failed'] })
+      .notNull()
+      .default('queued'),
+    attempts: integer('attempts').notNull().default(0),
+    createdAt: createdAt(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('notification_emails_queue_idx')
+      .on(table.workspaceId, table.mode, table.createdAt)
+      .where(sql`status = 'queued'`),
+    index('notification_emails_recipient_idx').on(table.workspaceId, table.recipientId),
+    check('notification_emails_mode_known', sql`mode in ('immediate', 'digest')`),
+    check(
+      'notification_emails_status_known',
+      sql`status in ('queued', 'sent', 'dropped', 'failed')`,
+    ),
   ],
 );

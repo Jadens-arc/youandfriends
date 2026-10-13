@@ -28,6 +28,8 @@ import {
   comments,
   mediaJobs,
   mixVersions,
+  notificationEmails,
+  notificationPreferences,
   notifications,
   permissionGrants,
   projects,
@@ -520,6 +522,44 @@ export const SENSITIVE_RESOURCES: readonly SensitiveResource[] = [
       });
     },
     why: 'Reveals activity, timing, and who is working with whom.',
+  },
+  {
+    status: 'live',
+    name: 'notification_preferences',
+    table: notificationPreferences,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const user = await makeUser(db);
+      await db.insert(notificationPreferences).values({
+        id: testId(),
+        workspaceId,
+        userId: user.id,
+        event: 'comment.created',
+        inApp: false,
+        email: 'digest',
+      });
+    },
+    why: 'What a person chose to hear about — their habits within one workspace.',
+  },
+  {
+    status: 'live',
+    name: 'notification_emails',
+    table: notificationEmails,
+    scopeType: 'song',
+    seed: async (db, workspaceId) => {
+      const { song } = await seedTree(db, workspaceId);
+      const user = await makeUser(db);
+      await db.insert(notificationEmails).values({
+        id: testId(),
+        workspaceId,
+        recipientId: user.id,
+        event: 'comment.mentioned',
+        targetType: 'song',
+        targetId: song.id,
+        mode: 'immediate',
+      });
+    },
+    why: 'Who was told about what, and when: activity and working relationships.',
   },
   {
     status: 'live',

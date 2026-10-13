@@ -53,6 +53,8 @@ describe('route protection', () => {
       '/sign-up',
       '/api/webhooks/clerk',
       '/offline',
+      '/unsubscribe',
+      '/api/notifications/unsubscribe',
     ]) {
       expect(isPublicRoute(request(path)), path).toBe(true);
     }
@@ -72,6 +74,9 @@ describe('route protection', () => {
       '/api/webhooksss',
       '/x/sign-in',
       '/offline-workspace',
+      '/unsubscribe-everything',
+      '/api/notifications',
+      '/api/notifications/preferences',
     ]) {
       expect(isPublicRoute(request(path)), path).toBe(false);
     }

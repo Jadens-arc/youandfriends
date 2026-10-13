@@ -1,8 +1,20 @@
 import { and, desc, eq, inArray, isNull, lt, notInArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+
+import {
+  ALWAYS_IN_APP,
+  defaultPreference,
+  notificationEventSchema,
+} from '@youandfriends/contracts';
 
 import type { Database } from '../client';
-import { notifications } from '../schema/notifications';
+import {
+  notificationEmails,
+  notificationPreferences,
+  notifications,
+} from '../schema/notifications';
 import { users } from '../schema/users';
+import { workspaces } from '../schema/workspaces';
 
 /**
  * Notification rows (task `095`). Writing folds into an unread group; reading returns raw rows,
@@ -257,4 +269,235 @@ export async function markNotificationsUnread(
     )
     .returning();
   return updated.length;
+}
+
+export interface StoredPreference {
+  readonly event: string;
+  readonly inApp: boolean;
+  readonly email: 'off' | 'immediate' | 'digest';
+}
+
+/** One person's stored preferences in a workspace. Events without a row use the defaults. */
+export async function listPreferenceRows(
+  db: Database,
+  workspaceId: string,
+  userId: string,
+): Promise<StoredPreference[]> {
+  return db
+    .select({
+      event: notificationPreferences.event,
+      inApp: notificationPreferences.inApp,
+      email: notificationPreferences.email,
+    })
+    .from(notificationPreferences)
+    .where(
+      and(
+        eq(notificationPreferences.workspaceId, workspaceId),
+        eq(notificationPreferences.userId, userId),
+      ),
+    );
+}
+
+/** These people's stored preference for one event, by user id. Absent means the default. */
+export async function preferencesForEvent(
+  db: Database,
+  workspaceId: string,
+  userIds: readonly string[],
+  event: string,
+): Promise<Map<string, StoredPreference>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await db
+    .select({
+      userId: notificationPreferences.userId,
+      event: notificationPreferences.event,
+      inApp: notificationPreferences.inApp,
+      email: notificationPreferences.email,
+    })
+    .from(notificationPreferences)
+    .where(
+      and(
+        eq(notificationPreferences.workspaceId, workspaceId),
+        inArray(notificationPreferences.userId, [...userIds]),
+        eq(notificationPreferences.event, event),
+      ),
+    );
+  return new Map(rows.map((row) => [row.userId, row]));
+}
+
+/** Save someone's choices, one row per event, replacing what was there. */
+export async function savePreferenceRows(
+  db: Database,
+  workspaceId: string,
+  userId: string,
+  rows: readonly StoredPreference[],
+  newId: () => string,
+  at: Date,
+): Promise<void> {
+  for (const row of rows) {
+    await db
+      .insert(notificationPreferences)
+      .values({
+        id: newId(),
+        workspaceId,
+        userId,
+        event: row.event,
+        inApp: row.inApp,
+        email: row.email,
+        createdAt: at,
+        updatedAt: at,
+      })
+      .onConflictDoUpdate({
+        target: [
+          notificationPreferences.workspaceId,
+          notificationPreferences.userId,
+          notificationPreferences.event,
+        ],
+        set: { inApp: row.inApp, email: row.email, updatedAt: at },
+      });
+  }
+}
+
+export interface QueueEmailInput {
+  readonly workspaceId: string;
+  readonly recipientId: string;
+  readonly event: string;
+  readonly targetType: 'song' | 'project' | 'workspace';
+  readonly targetId: string;
+  readonly actorId: string | null;
+  readonly link: NotificationLink | null;
+  readonly mode: 'immediate' | 'digest';
+}
+
+/** Put emails in the outbox. Sending is the worker's (task `096`). */
+export async function queueNotificationEmails(
+  db: Database,
+  rows: readonly QueueEmailInput[],
+  newId: () => string,
+  at: Date,
+): Promise<void> {
+  if (rows.length === 0) return;
+  await db.insert(notificationEmails).values(
+    rows.map((row) => ({
+      id: newId(),
+      workspaceId: row.workspaceId,
+      recipientId: row.recipientId,
+      event: row.event,
+      targetType: row.targetType,
+      targetId: row.targetId,
+      actorId: row.actorId,
+      link: row.link,
+      mode: row.mode,
+      createdAt: at,
+    })),
+  );
+}
+
+export interface QueuedEmailRow {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly workspaceName: string;
+  readonly recipientId: string;
+  readonly recipientEmail: string;
+  readonly event: string;
+  readonly targetType: 'song' | 'project' | 'workspace';
+  readonly targetId: string;
+  readonly actorName: string | null;
+  readonly link: NotificationLink | null;
+  readonly attempts: number;
+  readonly createdAt: Date;
+}
+
+/** Queued emails of one mode, oldest first, with what sending them needs. All workspaces. */
+export async function listQueuedEmails(
+  db: Database,
+  mode: 'immediate' | 'digest',
+  limit = 500,
+): Promise<QueuedEmailRow[]> {
+  const actor = alias(users, 'actor');
+  const rows = await db
+    .select({
+      id: notificationEmails.id,
+      workspaceId: notificationEmails.workspaceId,
+      workspaceName: workspaces.name,
+      recipientId: notificationEmails.recipientId,
+      recipientEmail: users.email,
+      event: notificationEmails.event,
+      targetType: notificationEmails.targetType,
+      targetId: notificationEmails.targetId,
+      actorName: actor.displayName,
+      link: notificationEmails.link,
+      attempts: notificationEmails.attempts,
+      createdAt: notificationEmails.createdAt,
+    })
+    .from(notificationEmails)
+    .innerJoin(users, eq(users.id, notificationEmails.recipientId))
+    .innerJoin(workspaces, eq(workspaces.id, notificationEmails.workspaceId))
+    .leftJoin(actor, eq(actor.id, notificationEmails.actorId))
+    .where(and(eq(notificationEmails.mode, mode), eq(notificationEmails.status, 'queued')))
+    .orderBy(notificationEmails.createdAt, notificationEmails.id)
+    .limit(limit);
+  return rows.map((row) => ({ ...row, link: (row.link ?? null) as NotificationLink | null }));
+}
+
+/** Record what became of these emails. A failure below the retry limit stays queued. */
+export async function settleEmails(
+  db: Database,
+  ids: readonly string[],
+  outcome: 'sent' | 'dropped' | 'failed' | 'retry',
+  at: Date,
+): Promise<void> {
+  if (ids.length === 0) return;
+  await db
+    .update(notificationEmails)
+    .set(
+      outcome === 'retry'
+        ? { attempts: sql`${notificationEmails.attempts} + 1` }
+        : {
+            status: outcome,
+            attempts: sql`${notificationEmails.attempts} + 1`,
+            ...(outcome === 'sent' ? { sentAt: at } : {}),
+          },
+    )
+    .where(inArray(notificationEmails.id, [...ids]));
+}
+
+/**
+ * Deliver one event to people who may already be decided to hear it (task `096`): each one's
+ * preferences decide whether it goes in-app (always, for the events that must not be missed) and
+ * whether, and how, it is emailed. Email is queued only when email delivery is configured — with
+ * no provider, nothing is queued that could never be sent.
+ */
+export async function deliverNotification(
+  db: Database,
+  input: RecordNotificationsInput & { readonly emailAvailable: boolean },
+): Promise<void> {
+  const recipients = [...new Set(input.recipientIds)];
+  if (recipients.length === 0) return;
+  const event = notificationEventSchema.safeParse(input.event);
+  if (!event.success) return;
+  const stored = await preferencesForEvent(db, input.workspaceId, recipients, input.event);
+  const fallback = defaultPreference(event.data);
+  const preferenceOf = (userId: string) => stored.get(userId) ?? fallback;
+  const required = ALWAYS_IN_APP.includes(event.data);
+  await recordNotifications(db, {
+    ...input,
+    recipientIds: recipients.filter((userId) => required || preferenceOf(userId).inApp),
+  });
+  if (!input.emailAvailable) return;
+  const emails: QueueEmailInput[] = [];
+  for (const userId of recipients) {
+    const mode = preferenceOf(userId).email;
+    if (mode === 'off') continue;
+    emails.push({
+      workspaceId: input.workspaceId,
+      recipientId: userId,
+      event: input.event,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      actorId: input.actorId,
+      link: input.link ?? null,
+      mode,
+    });
+  }
+  await queueNotificationEmails(db, emails, input.newId, input.at);
 }

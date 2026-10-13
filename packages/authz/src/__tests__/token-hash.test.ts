@@ -61,7 +61,9 @@ describe('building and parsing a token', () => {
   });
 
   it('refuses a token missing the separator between id and secret', () => {
-    const token = `yaf_invite_${newUlid()}${generateTokenSecret()}`;
+    // A base64url secret starts with `_` one time in 64, and then the "missing" separator is
+    // present after all and the token is well-formed. Start it with a letter to mean what it says.
+    const token = `yaf_invite_${newUlid()}${generateTokenSecret().replace(/^[-_]/, 'A')}`;
     expect(parseToken('invite', token)).toBeNull();
   });
 

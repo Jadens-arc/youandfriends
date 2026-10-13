@@ -1,5 +1,10 @@
 import { loadLibraryAccess } from '@youandfriends/authz';
-import { MENTION_PATTERN, isUlid, validationFailed } from '@youandfriends/contracts';
+import {
+  MENTION_PATTERN,
+  isUlid,
+  notificationSentence,
+  validationFailed,
+} from '@youandfriends/contracts';
 import {
   folders,
   listNotificationRows,
@@ -148,37 +153,7 @@ export function hrefFor(
 }
 
 function summaryOf(row: NotificationRow, actor: string, target: string): string {
-  const many = row.count > 1;
-  switch (row.event) {
-    case 'comment.created':
-    case 'comment.replied':
-    case 'voice_note.created':
-      return many ? `${row.count} new comments on ${target}` : `${actor} commented on ${target}`;
-    case 'comment.mentioned':
-      return many
-        ? `You were mentioned ${row.count} times on ${target}`
-        : `${actor} mentioned you on ${target}`;
-    case 'version.created':
-      return many
-        ? `${row.count} new uploads on ${target}`
-        : `${actor} uploaded a new version of ${target}`;
-    case 'version.processed':
-      return `Your upload to ${target} is ready to play`;
-    case 'version.processing_failed':
-      return `Your upload to ${target} could not be processed`;
-    case 'lyrics.changed':
-      return `${actor} edited the lyrics of ${target}`;
-    case 'metadata.changed':
-      return `${actor} changed the details of ${target}`;
-    case 'access.changed':
-      return target === 'this workspace'
-        ? `${actor} changed your access to this workspace`
-        : `${actor} changed who can open ${target}`;
-    case 'invitation.received':
-      return `${actor} invited you to ${target}`;
-    default:
-      return `Something changed on ${target}`;
-  }
+  return notificationSentence(row.event, actor, target, row.count);
 }
 
 /** Mention tokens in a preview, shown by the person's current name. */
